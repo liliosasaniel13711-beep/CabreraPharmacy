@@ -65,8 +65,8 @@ Public Class Admin
         PharName.Text = "Cabrera’s" & vbCrLf & "Drugstore and Medical Supplies"
         PharName.ForeColor = darkGreen
         PharName.Font = New Font("Segoe UI", 10, FontStyle.Bold)
-        PharName.Size = New Size(160, 60)
-        PharName.Location = New Point(80, 20)
+        PharName.AutoSize = True
+        PharName.MaximumSize = New Size(130, 0)
         PharName.BackColor = Color.Transparent
         PharName.BringToFront()
 
@@ -137,10 +137,12 @@ Public Class Admin
 
         ' User Info sa righy
         Dim userPanel As New Panel()
-        userPanel.Size = New Size(300, 80)
-        userPanel.Location = New Point(headerPanel.Width - 320, 10)
+        userPanel.AutoSize = True
+        userPanel.AutoSizeMode = AutoSizeMode.GrowAndShrink
+        userPanel.BackColor = Color.Transparent
         userPanel.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         headerPanel.Controls.Add(userPanel)
+        AddHandler headerPanel.Layout, Sub(s, ev) userPanel.Location = New Point(headerPanel.ClientSize.Width - userPanel.Width - 20, 10)
 
         Dim userAvatar As New PictureBox()
         userAvatar.BackColor = darkGreen
