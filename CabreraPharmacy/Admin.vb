@@ -58,6 +58,7 @@ Public Class Admin
         Dim logoBox As New PictureBox()
         logoBox.BackColor = yellow
         logoBox.Size = New Size(50, 50)
+        logoBox.Location = New Point(20, 20)
         sidebar.Controls.Add(logoBox)
 
         sidebar.Controls.Add(PharName)
@@ -66,12 +67,8 @@ Public Class Admin
         PharName.Font = New Font("Segoe UI", 10, FontStyle.Bold)
         PharName.AutoSize = True
         PharName.MaximumSize = New Size(130, 0)
-        PharName.Location = New Point(80, 20)
         PharName.BackColor = Color.Transparent
         PharName.BringToFront()
-
-        ' Center the logo vertically against the (possibly 3-line) brand text
-        AddHandler sidebar.Layout, Sub(s, ev) logoBox.Location = New Point(20, PharName.Top + (PharName.Height - logoBox.Height) / 2)
 
         Dim navItems As String() = {"Dashboard", "Price Manager", "Inventory", "Reports"}
         Dim yPos As Integer = 120
