@@ -185,7 +185,7 @@ Public Class Admin
         cardGrid.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 25))
         cardGrid.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 25))
         cardGrid.RowCount = 2
-        cardGrid.RowStyles.Add(New RowStyle(SizeType.Percent, 50))
+        cardGrid.RowStyles.Add(New RowStyle(SizeType.Percent, 15))
         cardGrid.RowStyles.Add(New RowStyle(SizeType.Percent, 50))
         dashboardView.Controls.Add(cardGrid)
 
