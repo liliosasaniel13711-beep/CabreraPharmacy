@@ -79,6 +79,7 @@ Partial Class Admin
         priceManagerDesc = New Label()
         priceManagerHead = New Label()
         inventoryView = New Panel()
+        dgvInventory = New DataGridView()
         inventoryCard = New Panel()
         inventoryDesc = New Label()
         inventoryHead = New Label()
@@ -86,7 +87,6 @@ Partial Class Admin
         reportsCard = New Panel()
         reportsDesc = New Label()
         reportsHead = New Label()
-        dgvInventory = New DataGridView()
         mainLayout.SuspendLayout()
         sidebar.SuspendLayout()
         CType(logoBox, ComponentModel.ISupportInitialize).BeginInit()
@@ -108,10 +108,10 @@ Partial Class Admin
         priceManagerView.SuspendLayout()
         priceManagerCard.SuspendLayout()
         inventoryView.SuspendLayout()
+        CType(dgvInventory, ComponentModel.ISupportInitialize).BeginInit()
         inventoryCard.SuspendLayout()
         reportsView.SuspendLayout()
         reportsCard.SuspendLayout()
-        CType(dgvInventory, ComponentModel.ISupportInitialize).BeginInit()
         SuspendLayout()
         ' 
         ' mainLayout
@@ -842,6 +842,14 @@ Partial Class Admin
         inventoryView.TabIndex = 2
         inventoryView.Visible = False
         ' 
+        ' dgvInventory
+        ' 
+        dgvInventory.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize
+        dgvInventory.Location = New Point(0, 0)
+        dgvInventory.Name = "dgvInventory"
+        dgvInventory.Size = New Size(1644, 901)
+        dgvInventory.TabIndex = 1
+        ' 
         ' inventoryCard
         ' 
         inventoryCard.BackColor = Color.White
@@ -921,14 +929,6 @@ Partial Class Admin
         reportsHead.TabIndex = 0
         reportsHead.Text = "Reports"
         ' 
-        ' dgvInventory
-        ' 
-        dgvInventory.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize
-        dgvInventory.Location = New Point(0, 0)
-        dgvInventory.Name = "dgvInventory"
-        dgvInventory.Size = New Size(1644, 901)
-        dgvInventory.TabIndex = 1
-        ' 
         ' Admin
         ' 
         AutoScaleDimensions = New SizeF(7F, 15F)
@@ -964,10 +964,10 @@ Partial Class Admin
         priceManagerView.ResumeLayout(False)
         priceManagerCard.ResumeLayout(False)
         inventoryView.ResumeLayout(False)
+        CType(dgvInventory, ComponentModel.ISupportInitialize).EndInit()
         inventoryCard.ResumeLayout(False)
         reportsView.ResumeLayout(False)
         reportsCard.ResumeLayout(False)
-        CType(dgvInventory, ComponentModel.ISupportInitialize).EndInit()
         ResumeLayout(False)
     End Sub
 
