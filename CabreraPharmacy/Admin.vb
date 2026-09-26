@@ -15,6 +15,7 @@ Public Class Admin
 
     Private Sub Admin_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         ' Welcome logic
+        ' Make sure CurrentFullName is declared globally in a module (like SessionModule)
         welcomeadmin_label.Text = "Welcome, " & CurrentFullName & " (Admin)"
 
         ' Map nav buttons and views
@@ -65,6 +66,16 @@ Public Class Admin
             btn.ForeColor = If(isActive, Color.White, darkGreen)
         Next
 
+        ' Trigger backend data retrieval based on the active view
+        Select Case viewName
+            Case "Dashboard"
+                LoadDashboardStats()
+            Case "Inventory"
+                LoadInventoryData()
+            Case "Price Manager"
+                LoadPriceManagerData()
+        End Select
+
         titleLabel.Text = viewName
         subtitleLabel.Text = GetSubtitle(viewName)
     End Sub
@@ -85,7 +96,51 @@ Public Class Admin
     End Function
 
     Private Sub userRoleLabel_Click(sender As Object, e As EventArgs) Handles userRoleLabel.Click
+        ' Optional click logic for user role label
+    End Sub
 
+    ' =================================================================
+    ' BACKEND DATA RETRIEVAL METHODS
+    ' =================================================================
+
+    Private Sub LoadDashboardStats()
+        ' Future implementation: Add SQL COUNT() logic here to update the dashboard summary cards
+        ' Example: lblTotalProducts.Text = GetProductCount()
+    End Sub
+
+    Private Sub LoadInventoryData()
+        Try
+            Dim prodManager As New ProductManager()
+            dgvInventory.DataSource = prodManager.GetProducts()
+
+            ' --- NEW LAYOUT FIXES ---
+            ' 1. Stretch columns to fill all the gray space
+            dgvInventory.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
+
+            ' 2. Remove the blank asterisk (*) row at the bottom
+            dgvInventory.AllowUserToAddRows = False
+
+            ' 3. Remove the empty margin on the far left
+            dgvInventory.RowHeadersVisible = False
+
+            ' 4. Make clicking select the whole row instead of one cell
+            dgvInventory.SelectionMode = DataGridViewSelectionMode.FullRowSelect
+            ' ------------------------
+
+            If dgvInventory.Columns.Contains("Retail Price") Then
+                dgvInventory.Columns("Retail Price").DefaultCellStyle.Format = "C2"
+            End If
+            If dgvInventory.Columns.Contains("Wholesale Price") Then
+                dgvInventory.Columns("Wholesale Price").DefaultCellStyle.Format = "C2"
+            End If
+
+        Catch ex As Exception
+            MessageBox.Show("Failed to load inventory: " & ex.Message, "Database Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Sub
+
+    Private Sub LoadPriceManagerData()
+        ' Future implementation: Load data specific to the Price Manager panel
     End Sub
 
     Private Sub bodyPanel_Paint(sender As Object, e As PaintEventArgs) Handles bodyPanel.Paint
