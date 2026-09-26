@@ -87,4 +87,8 @@ Public Class Admin
     Private Sub userRoleLabel_Click(sender As Object, e As EventArgs) Handles userRoleLabel.Click
 
     End Sub
+
+    Private Sub bodyPanel_Paint(sender As Object, e As PaintEventArgs) Handles bodyPanel.Paint
+
+    End Sub
 End Class
