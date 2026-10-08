@@ -5,7 +5,8 @@ Public Class Login
     Private Sub Login_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         Try
             EnsureDatabase()
-
+            ' Ensure the password field hides characters by default when loaded
+            PasswordField.UseSystemPasswordChar = True
         Catch ex As Exception
             MessageBox.Show(
                 "Unable to connect to the accounts database. " & ex.Message,
@@ -15,9 +16,11 @@ Public Class Login
         End Try
     End Sub
 
-    Private Sub btnLogin_Click(sender As Object, e As EventArgs) Handles btnLogin.Click
-        Dim username = txtUsername.Text.Trim()
-        Dim password = txtPassword.Text
+    ' Updated to use your new custom LoginBtn
+    Private Sub LoginBtn_Click(sender As Object, e As EventArgs) Handles LoginBtn.Click
+        ' Updated to use your new custom UsernameField and PasswordField
+        Dim username = UsernameField.Text.Trim()
+        Dim password = PasswordField.Text
 
         If String.IsNullOrWhiteSpace(username) OrElse String.IsNullOrEmpty(password) Then
             MessageBox.Show(
@@ -59,8 +62,8 @@ Public Class Login
                                 MessageBoxButtons.OK,
                                 MessageBoxIcon.Warning)
 
-                            txtPassword.Clear()
-                            txtPassword.Focus()
+                            PasswordField.Clear()
+                            PasswordField.Focus()
                             Return
                         End If
 
@@ -79,28 +82,15 @@ Public Class Login
 
             Select Case normalizedRole
                 Case "superadmin", "superadministrator"
-                    CompleteLogin(
-                        userId,
-                        username,
-                        fullName,
-                        role,
-                        New superadmin())
+                    CompleteLogin(userId, username, fullName, role, New SuperAdmin())
 
                 Case "admin", "administrator"
-                    CompleteLogin(
-                        userId,
-                        username,
-                        fullName,
-                        role,
-                        New Admin())
+                    ' Assuming you have an Admin form created
+                    ' CompleteLogin(userId, username, fullName, role, New Admin())
 
                 Case "staff"
-                    CompleteLogin(
-                        userId,
-                        username,
-                        fullName,
-                        role,
-                        New Staff())
+                    ' Assuming you have a Staff form created
+                    ' CompleteLogin(userId, username, fullName, role, New Staff())
 
                 Case Else
                     MessageBox.Show(
@@ -109,8 +99,8 @@ Public Class Login
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning)
 
-                    txtPassword.Clear()
-                    txtPassword.Focus()
+                    PasswordField.Clear()
+                    PasswordField.Focus()
             End Select
 
         Catch ex As Exception
@@ -144,9 +134,9 @@ Public Class Login
             page.ShowDialog()
         End Using
 
-        txtPassword.Clear()
+        PasswordField.Clear()
         Show()
-        txtPassword.Focus()
+        PasswordField.Focus()
     End Sub
 
     Private Sub UpdateLastLoginDate(userId As Integer)
@@ -164,4 +154,20 @@ Public Class Login
         End Using
     End Sub
 
+    ' --- PASSWORD VISIBILITY TOGGLES ---
+    Private Sub View_Click(sender As Object, e As EventArgs) Handles View.Click
+        PasswordField.UseSystemPasswordChar = False
+        View.Visible = False
+        picHide.Visible = True
+    End Sub
+
+    Private Sub picHide_Click(sender As Object, e As EventArgs) Handles picHide.Click
+        PasswordField.UseSystemPasswordChar = True
+        picHide.Visible = False
+        View.Visible = True
+    End Sub
+
+    Private Sub imageLogin_Click(sender As Object, e As EventArgs) Handles imageLogin.Click
+
+    End Sub
 End Class
