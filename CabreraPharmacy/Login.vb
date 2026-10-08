@@ -16,9 +16,7 @@ Public Class Login
         End Try
     End Sub
 
-    ' Updated to use your new custom LoginBtn
     Private Sub LoginBtn_Click(sender As Object, e As EventArgs) Handles LoginBtn.Click
-        ' Updated to use your new custom UsernameField and PasswordField
         Dim username = UsernameField.Text.Trim()
         Dim password = PasswordField.Text
 
@@ -74,23 +72,18 @@ Public Class Login
                 End Using
             End Using
 
-            Dim normalizedRole = role.Trim().
-                ToLowerInvariant().
-                Replace(" ", "").
-                Replace("_", "").
-                Replace("-", "")
+            Dim normalizedRole = role.Trim().ToLowerInvariant().Replace(" ", "").Replace("_", "").Replace("-", "")
 
+            ' Routes to the correct form based on the user's role in the database
             Select Case normalizedRole
                 Case "superadmin", "superadministrator"
                     CompleteLogin(userId, username, fullName, role, New SuperAdmin())
 
                 Case "admin", "administrator"
-                    ' Assuming you have an Admin form created
-                    ' CompleteLogin(userId, username, fullName, role, New Admin())
+                    CompleteLogin(userId, username, fullName, role, New Admin())
 
                 Case "staff"
-                    ' Assuming you have a Staff form created
-                    ' CompleteLogin(userId, username, fullName, role, New Staff())
+                    CompleteLogin(userId, username, fullName, role, New Staff())
 
                 Case Else
                     MessageBox.Show(
@@ -112,13 +105,7 @@ Public Class Login
         End Try
     End Sub
 
-    Private Sub CompleteLogin(
-        userId As Integer,
-        username As String,
-        fullName As String,
-        role As String,
-        page As Form)
-
+    Private Sub CompleteLogin(userId As Integer, username As String, fullName As String, role As String, page As Form)
         'Save the successful login date and time.
         UpdateLastLoginDate(userId)
 
@@ -143,9 +130,7 @@ Public Class Login
         Using connection = GetConnection()
             connection.Open()
 
-            Const sql = "UPDATE users " &
-                        "SET last_login_date = NOW() " &
-                        "WHERE user_id = @id"
+            Const sql = "UPDATE users SET last_login_date = NOW() WHERE user_id = @id"
 
             Using command As New MySqlCommand(sql, connection)
                 command.Parameters.AddWithValue("@id", userId)
@@ -167,7 +152,4 @@ Public Class Login
         View.Visible = True
     End Sub
 
-    Private Sub imageLogin_Click(sender As Object, e As EventArgs) Handles imageLogin.Click
-
-    End Sub
 End Class
