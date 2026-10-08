@@ -22,209 +22,77 @@ Partial Class Login
     'Do not modify it using the code editor.
     <System.Diagnostics.DebuggerStepThrough()>
     Private Sub InitializeComponent()
-        NavBar = New Panel()
-        LoginLabel = New Label()
-        picHide = New PictureBox()
-        View = New PictureBox()
-        LoginIcon = New PictureBox()
-        LoginBtn = New Button()
-        PasswordField = New TextBox()
-        UsernameField = New TextBox()
-        Password = New Label()
+        txtUsername = New TextBox()
+        txtPassword = New TextBox()
         Username = New Label()
-        DrugstoreName = New Label()
-        imageLogin = New PictureBox()
-        NavBar.SuspendLayout()
-        CType(picHide, ComponentModel.ISupportInitialize).BeginInit()
-        CType(View, ComponentModel.ISupportInitialize).BeginInit()
-        CType(LoginIcon, ComponentModel.ISupportInitialize).BeginInit()
-        CType(imageLogin, ComponentModel.ISupportInitialize).BeginInit()
+        Password = New Label()
+        btnLogin = New Button()
         SuspendLayout()
         ' 
-        ' NavBar
+        ' txtUsername
         ' 
-        NavBar.Anchor = AnchorStyles.None
-        NavBar.BackColor = Color.White
-        NavBar.Controls.Add(LoginLabel)
-        NavBar.Controls.Add(picHide)
-        NavBar.Controls.Add(View)
-        NavBar.Controls.Add(LoginIcon)
-        NavBar.Controls.Add(LoginBtn)
-        NavBar.Controls.Add(PasswordField)
-        NavBar.Controls.Add(UsernameField)
-        NavBar.Controls.Add(Password)
-        NavBar.Controls.Add(Username)
-        NavBar.Controls.Add(DrugstoreName)
-        NavBar.Controls.Add(imageLogin)
-        NavBar.Location = New Point(197, 33)
-        NavBar.Margin = New Padding(3, 2, 3, 2)
-        NavBar.Name = "NavBar"
-        NavBar.Size = New Size(607, 386)
-        NavBar.TabIndex = 1
+        txtUsername.Location = New Point(444, 296)
+        txtUsername.Name = "txtUsername"
+        txtUsername.Size = New Size(226, 27)
+        txtUsername.TabIndex = 0
         ' 
-        ' LoginLabel
+        ' txtPassword
         ' 
-        LoginLabel.Anchor = AnchorStyles.Right
-        LoginLabel.AutoSize = True
-        LoginLabel.Font = New Font("Segoe UI", 14.25F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
-        LoginLabel.ForeColor = Color.SeaGreen
-        LoginLabel.Location = New Point(234, 151)
-        LoginLabel.Name = "LoginLabel"
-        LoginLabel.Size = New Size(63, 25)
-        LoginLabel.TabIndex = 19
-        LoginLabel.Text = "Login"
-        ' 
-        ' picHide
-        ' 
-        picHide.Anchor = AnchorStyles.None
-        picHide.Location = New Point(551, 254)
-        picHide.Margin = New Padding(3, 2, 3, 2)
-        picHide.Name = "picHide"
-        picHide.Size = New Size(30, 17)
-        picHide.SizeMode = PictureBoxSizeMode.StretchImage
-        picHide.TabIndex = 18
-        picHide.TabStop = False
-        ' 
-        ' View
-        ' 
-        View.Anchor = AnchorStyles.None
-        View.Location = New Point(551, 229)
-        View.Margin = New Padding(3, 2, 3, 2)
-        View.Name = "View"
-        View.Size = New Size(30, 17)
-        View.SizeMode = PictureBoxSizeMode.StretchImage
-        View.TabIndex = 17
-        View.TabStop = False
-        ' 
-        ' LoginIcon
-        ' 
-        LoginIcon.Anchor = AnchorStyles.None
-        LoginIcon.Image = My.Resources.Resources.ed8bb44f_0265_4bb2_a677_771c15e67760
-        LoginIcon.Location = New Point(415, 46)
-        LoginIcon.Margin = New Padding(3, 2, 3, 2)
-        LoginIcon.Name = "LoginIcon"
-        LoginIcon.Size = New Size(91, 76)
-        LoginIcon.SizeMode = PictureBoxSizeMode.StretchImage
-        LoginIcon.TabIndex = 16
-        LoginIcon.TabStop = False
-        ' 
-        ' LoginBtn
-        ' 
-        LoginBtn.Anchor = AnchorStyles.None
-        LoginBtn.BackColor = Color.DarkOrange
-        LoginBtn.FlatAppearance.BorderSize = 0
-        LoginBtn.FlatStyle = FlatStyle.Flat
-        LoginBtn.Font = New Font("Segoe UI", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
-        LoginBtn.ForeColor = Color.White
-        LoginBtn.Location = New Point(484, 290)
-        LoginBtn.Margin = New Padding(3, 2, 3, 2)
-        LoginBtn.Name = "LoginBtn"
-        LoginBtn.Size = New Size(97, 28)
-        LoginBtn.TabIndex = 15
-        LoginBtn.Text = "LOGIN"
-        LoginBtn.UseVisualStyleBackColor = False
-        ' 
-        ' PasswordField
-        ' 
-        PasswordField.Anchor = AnchorStyles.Left Or AnchorStyles.Right
-        PasswordField.BackColor = SystemColors.Window
-        PasswordField.Font = New Font("Segoe UI", 12.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
-        PasswordField.Location = New Point(342, 250)
-        PasswordField.Margin = New Padding(3, 2, 3, 2)
-        PasswordField.Name = "PasswordField"
-        PasswordField.PlaceholderText = "Enter password"
-        PasswordField.Size = New Size(239, 29)
-        PasswordField.TabIndex = 14
-        PasswordField.UseSystemPasswordChar = True
-        ' 
-        ' UsernameField
-        ' 
-        UsernameField.Anchor = AnchorStyles.Left Or AnchorStyles.Right
-        UsernameField.BackColor = SystemColors.Window
-        UsernameField.Font = New Font("Segoe UI", 12.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
-        UsernameField.Location = New Point(342, 200)
-        UsernameField.Margin = New Padding(3, 2, 3, 2)
-        UsernameField.Name = "UsernameField"
-        UsernameField.PlaceholderText = "Enter username"
-        UsernameField.Size = New Size(239, 29)
-        UsernameField.TabIndex = 13
-        ' 
-        ' Password
-        ' 
-        Password.Anchor = AnchorStyles.Right
-        Password.AutoSize = True
-        Password.Font = New Font("Segoe UI", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
-        Password.Location = New Point(342, 232)
-        Password.Name = "Password"
-        Password.Size = New Size(82, 21)
-        Password.TabIndex = 12
-        Password.Text = "Password"
+        txtPassword.Location = New Point(444, 347)
+        txtPassword.Name = "txtPassword"
+        txtPassword.Size = New Size(226, 27)
+        txtPassword.TabIndex = 1
+        txtPassword.UseSystemPasswordChar = True
         ' 
         ' Username
         ' 
-        Username.Anchor = AnchorStyles.Right
         Username.AutoSize = True
-        Username.Font = New Font("Segoe UI", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
-        Username.Location = New Point(342, 182)
+        Username.Location = New Point(339, 303)
         Username.Name = "Username"
-        Username.Size = New Size(87, 21)
-        Username.TabIndex = 11
+        Username.Size = New Size(75, 20)
+        Username.TabIndex = 2
         Username.Text = "Username"
         ' 
-        ' DrugstoreName
+        ' Password
         ' 
-        DrugstoreName.Anchor = AnchorStyles.None
-        DrugstoreName.AutoSize = True
-        DrugstoreName.Font = New Font("Calibri", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
-        DrugstoreName.Location = New Point(310, 124)
-        DrugstoreName.Name = "DrugstoreName"
-        DrugstoreName.Size = New Size(297, 19)
-        DrugstoreName.TabIndex = 10
-        DrugstoreName.Text = "Cabrera's Drugstore and Medical Supplies "
-        DrugstoreName.TextAlign = ContentAlignment.TopCenter
+        Password.AutoSize = True
+        Password.Location = New Point(339, 354)
+        Password.Name = "Password"
+        Password.Size = New Size(70, 20)
+        Password.TabIndex = 3
+        Password.Text = "Password"
         ' 
-        ' imageLogin
+        ' btnLogin
         ' 
-        imageLogin.Image = My.Resources.Resources.Untitled_design__2_
-        imageLogin.Location = New Point(0, 0)
-        imageLogin.Margin = New Padding(3, 2, 3, 2)
-        imageLogin.Name = "imageLogin"
-        imageLogin.Size = New Size(304, 386)
-        imageLogin.SizeMode = PictureBoxSizeMode.StretchImage
-        imageLogin.TabIndex = 0
-        imageLogin.TabStop = False
+        btnLogin.Location = New Point(473, 409)
+        btnLogin.Name = "btnLogin"
+        btnLogin.Size = New Size(182, 73)
+        btnLogin.TabIndex = 4
+        btnLogin.Text = "Login"
+        btnLogin.UseVisualStyleBackColor = True
         ' 
         ' Login
         ' 
-        AutoScaleDimensions = New SizeF(7.0F, 15.0F)
+        AutoScaleDimensions = New SizeF(8F, 20F)
         AutoScaleMode = AutoScaleMode.Font
-        ClientSize = New Size(1001, 452)
-        Controls.Add(NavBar)
-        Margin = New Padding(3, 2, 3, 2)
+        ClientSize = New Size(1144, 603)
+        Controls.Add(btnLogin)
+        Controls.Add(Password)
+        Controls.Add(Username)
+        Controls.Add(txtPassword)
+        Controls.Add(txtUsername)
         Name = "Login"
         Text = "Login"
         WindowState = FormWindowState.Maximized
-        NavBar.ResumeLayout(False)
-        NavBar.PerformLayout()
-        CType(picHide, ComponentModel.ISupportInitialize).EndInit()
-        CType(View, ComponentModel.ISupportInitialize).EndInit()
-        CType(LoginIcon, ComponentModel.ISupportInitialize).EndInit()
-        CType(imageLogin, ComponentModel.ISupportInitialize).EndInit()
         ResumeLayout(False)
+        PerformLayout()
 
     End Sub
 
-    Friend WithEvents NavBar As Panel
-    Friend WithEvents LoginLabel As Label
-    Friend WithEvents picHide As PictureBox
-    Friend WithEvents View As PictureBox
-    Friend WithEvents LoginIcon As PictureBox
-    Friend WithEvents LoginBtn As Button
-    Friend WithEvents PasswordField As TextBox
-    Friend WithEvents UsernameField As TextBox
-    Friend WithEvents Password As Label
-    Friend WithEvents Username As Label
-    Friend WithEvents DrugstoreName As Label
-    Friend WithEvents imageLogin As PictureBox
+    Friend WithEvents txtUsername As System.Windows.Forms.TextBox
+    Friend WithEvents txtPassword As System.Windows.Forms.TextBox
+    Friend WithEvents Username As System.Windows.Forms.Label
+    Friend WithEvents Password As System.Windows.Forms.Label
+    Friend WithEvents btnLogin As System.Windows.Forms.Button
 
 End Class
