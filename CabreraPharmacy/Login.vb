@@ -2,11 +2,23 @@ Imports MySql.Data.MySqlClient
 
 Public Class Login
 
+    Private loginDesignScaled As Boolean
+
     Private Sub Login_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        KeyPreview = True
         Try
             EnsureDatabase()
-            ' Ensure the password field hides characters by default when loaded
+            ' Password starts hidden; use the existing hidepass PictureBox as the toggle.
             PasswordField.UseSystemPasswordChar = True
+            hidepass.Visible = True
+            passvisible.Visible = False
+            hidepass.BringToFront()
+            hidepass.Cursor = Cursors.Hand
+            passvisible.Cursor = Cursors.Hand
+
+            ' Old placeholder PictureBoxes are no longer used.
+            picHide.Visible = False
+            View.Visible = False
         Catch ex As Exception
             MessageBox.Show(
                 "Unable to connect to the accounts database. " & ex.Message,
@@ -16,16 +28,57 @@ Public Class Login
         End Try
     End Sub
 
+    Private Sub Login_KeyDown(sender As Object, e As KeyEventArgs) Handles MyBase.KeyDown
+        If e.KeyCode = Keys.Enter Then
+            e.SuppressKeyPress = True
+            LoginBtn.PerformClick()
+        End If
+    End Sub
+
+    Private Sub Login_Shown(sender As Object, e As EventArgs) Handles MyBase.Shown
+        If loginDesignScaled Then Return
+
+        'Scale the existing login design to use most of the maximized window.
+        Dim widthScale As Single = CSng(ClientSize.Width / 1000.0F)
+        Dim heightScale As Single = CSng(ClientSize.Height / 650.0F)
+        Dim scale As Single = Math.Min(2.0F, Math.Max(1.0F, Math.Min(widthScale, heightScale)))
+
+        NavBar.Scale(New SizeF(scale, scale))
+        loginDesignScaled = True
+        CenterLoginDesign()
+    End Sub
+
+    Private Sub Login_Resize(sender As Object, e As EventArgs) Handles MyBase.Resize
+        If loginDesignScaled Then CenterLoginDesign()
+    End Sub
+
+    Private Sub CenterLoginDesign()
+        NavBar.Left = Math.Max(0, (ClientSize.Width - NavBar.Width) \ 2)
+        NavBar.Top = Math.Max(0, (ClientSize.Height - NavBar.Height) \ 2)
+    End Sub
+
     Private Sub LoginBtn_Click(sender As Object, e As EventArgs) Handles LoginBtn.Click
         Dim username = UsernameField.Text.Trim()
         Dim password = PasswordField.Text
 
-        If String.IsNullOrWhiteSpace(username) OrElse String.IsNullOrEmpty(password) Then
+        If String.IsNullOrWhiteSpace(username) AndAlso String.IsNullOrEmpty(password) Then
             MessageBox.Show(
-                "Enter your username and password.",
+                "Username and password are required.",
                 "Login",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information)
+            Return
+        End If
+
+        If String.IsNullOrWhiteSpace(username) Then
+            MessageBox.Show("Username is required.", "Login", MessageBoxButtons.OK, MessageBoxIcon.Information)
+            UsernameField.Focus()
+            Return
+        End If
+
+        If String.IsNullOrEmpty(password) Then
+            MessageBox.Show("Password is required.", "Login", MessageBoxButtons.OK, MessageBoxIcon.Information)
+            PasswordField.Focus()
             Return
         End If
 
@@ -50,16 +103,21 @@ Public Class Login
                     command.Parameters.AddWithValue("@username", username)
 
                     Using reader = command.ExecuteReader()
-                        If Not reader.Read() OrElse
-                           Not reader.GetBoolean("IsActive") OrElse
-                           Not VerifyPassword(password, reader.GetString("PasswordHash")) Then
+                        If Not reader.Read() Then
+                            MessageBox.Show("Username was not found.", "Login failed", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                            UsernameField.Focus()
+                            Return
+                        End If
 
-                            MessageBox.Show(
-                                "Invalid username or password, or this account is inactive.",
-                                "Login failed",
-                                MessageBoxButtons.OK,
-                                MessageBoxIcon.Warning)
+                        If Not VerifyPassword(password, reader.GetString("PasswordHash")) Then
+                            MessageBox.Show("Incorrect password.", "Login failed", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                            PasswordField.Clear()
+                            PasswordField.Focus()
+                            Return
+                        End If
 
+                        If Not reader.GetBoolean("IsActive") Then
+                            MessageBox.Show("This account is inactive. Please contact the Super Admin.", "Login failed", MessageBoxButtons.OK, MessageBoxIcon.Warning)
                             PasswordField.Clear()
                             PasswordField.Focus()
                             Return
@@ -105,25 +163,35 @@ Public Class Login
         End Try
     End Sub
 
-    Private Sub CompleteLogin(userId As Integer, username As String, fullName As String, role As String, page As Form)
-        'Save the successful login date and time.
+    Private Sub CompleteLogin(userId As Integer,
+                          username As String,
+                          fullName As String,
+                          role As String,
+                          page As Form)
+
         UpdateLastLoginDate(userId)
 
-        'Store details of the signed-in employee.
         CurrentUserID = userId
         CurrentUsername = username
         CurrentFullName = fullName
         CurrentRole = role
 
-        Hide()
+        MyBase.Hide()
 
-        Using page
-            page.ShowDialog()
-        End Using
+        page.StartPosition = FormStartPosition.CenterParent
+        page.ShowDialog(Me)   'Login is the owner of the user-level form.
+        page.Dispose()
+
+        'Clear the previous session.
+        CurrentUserID = 0
+        CurrentUsername = ""
+        CurrentFullName = ""
+        CurrentRole = ""
 
         PasswordField.Clear()
-        Show()
-        PasswordField.Focus()
+        Me.Show()
+        Me.Activate()
+        UsernameField.Focus()
     End Sub
 
     Private Sub UpdateLastLoginDate(userId As Integer)
@@ -140,16 +208,21 @@ Public Class Login
     End Sub
 
     ' --- PASSWORD VISIBILITY TOGGLES ---
-    Private Sub View_Click(sender As Object, e As EventArgs) Handles View.Click
-        PasswordField.UseSystemPasswordChar = False
-        View.Visible = False
-        picHide.Visible = True
-    End Sub
-
-    Private Sub picHide_Click(sender As Object, e As EventArgs) Handles picHide.Click
+    Private Sub passvisible_Click(sender As Object, e As EventArgs) Handles passvisible.Click
         PasswordField.UseSystemPasswordChar = True
-        picHide.Visible = False
-        View.Visible = True
+        passvisible.Visible = False
+        hidepass.Visible = True
+        hidepass.BringToFront()
     End Sub
 
+    Private Sub hidepass_Click(sender As Object, e As EventArgs) Handles hidepass.Click
+        PasswordField.UseSystemPasswordChar = False
+        hidepass.Visible = False
+        passvisible.Visible = True
+        passvisible.BringToFront()
+    End Sub
+
+    Private Sub imageLogin_Click(sender As Object, e As EventArgs)
+
+    End Sub
 End Class

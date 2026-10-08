@@ -22,7 +22,10 @@ Partial Class Login
     'Do not modify it using the code editor.
     <System.Diagnostics.DebuggerStepThrough()>
     Private Sub InitializeComponent()
+        Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(Login))
         NavBar = New Panel()
+        hidepass = New PictureBox()
+        passvisible = New PictureBox()
         LoginLabel = New Label()
         picHide = New PictureBox()
         View = New PictureBox()
@@ -35,6 +38,8 @@ Partial Class Login
         DrugstoreName = New Label()
         imageLogin = New PictureBox()
         NavBar.SuspendLayout()
+        CType(hidepass, ComponentModel.ISupportInitialize).BeginInit()
+        CType(passvisible, ComponentModel.ISupportInitialize).BeginInit()
         CType(picHide, ComponentModel.ISupportInitialize).BeginInit()
         CType(View, ComponentModel.ISupportInitialize).BeginInit()
         CType(LoginIcon, ComponentModel.ISupportInitialize).BeginInit()
@@ -45,6 +50,8 @@ Partial Class Login
         ' 
         NavBar.Anchor = AnchorStyles.None
         NavBar.BackColor = Color.White
+        NavBar.Controls.Add(hidepass)
+        NavBar.Controls.Add(passvisible)
         NavBar.Controls.Add(LoginLabel)
         NavBar.Controls.Add(picHide)
         NavBar.Controls.Add(View)
@@ -56,11 +63,35 @@ Partial Class Login
         NavBar.Controls.Add(Username)
         NavBar.Controls.Add(DrugstoreName)
         NavBar.Controls.Add(imageLogin)
-        NavBar.Location = New Point(197, 33)
+        NavBar.Location = New Point(418, 179)
         NavBar.Margin = New Padding(3, 2, 3, 2)
         NavBar.Name = "NavBar"
         NavBar.Size = New Size(607, 386)
         NavBar.TabIndex = 1
+        ' 
+        ' hidepass
+        ' 
+        hidepass.Anchor = AnchorStyles.None
+        hidepass.ErrorImage = CType(resources.GetObject("hidepass.ErrorImage"), Image)
+        hidepass.Image = CType(resources.GetObject("hidepass.Image"), Image)
+        hidepass.Location = New Point(558, 251)
+        hidepass.Name = "hidepass"
+        hidepass.Size = New Size(16, 17)
+        hidepass.SizeMode = PictureBoxSizeMode.StretchImage
+        hidepass.TabIndex = 23
+        hidepass.TabStop = False
+        ' 
+        ' passvisible
+        ' 
+        passvisible.Anchor = AnchorStyles.None
+        passvisible.ErrorImage = CType(resources.GetObject("passvisible.ErrorImage"), Image)
+        passvisible.Image = CType(resources.GetObject("passvisible.Image"), Image)
+        passvisible.Location = New Point(558, 251)
+        passvisible.Name = "passvisible"
+        passvisible.Size = New Size(16, 17)
+        passvisible.SizeMode = PictureBoxSizeMode.StretchImage
+        passvisible.TabIndex = 22
+        passvisible.TabStop = False
         ' 
         ' LoginLabel
         ' 
@@ -114,7 +145,7 @@ Partial Class Login
         LoginBtn.BackColor = Color.DarkOrange
         LoginBtn.FlatAppearance.BorderSize = 0
         LoginBtn.FlatStyle = FlatStyle.Flat
-        LoginBtn.Font = New Font("Segoe UI", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        LoginBtn.Font = New Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         LoginBtn.ForeColor = Color.White
         LoginBtn.Location = New Point(484, 290)
         LoginBtn.Margin = New Padding(3, 2, 3, 2)
@@ -128,7 +159,7 @@ Partial Class Login
         ' 
         PasswordField.Anchor = AnchorStyles.Left Or AnchorStyles.Right
         PasswordField.BackColor = SystemColors.Window
-        PasswordField.Font = New Font("Segoe UI", 12.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        PasswordField.Font = New Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         PasswordField.Location = New Point(342, 250)
         PasswordField.Margin = New Padding(3, 2, 3, 2)
         PasswordField.Name = "PasswordField"
@@ -141,7 +172,7 @@ Partial Class Login
         ' 
         UsernameField.Anchor = AnchorStyles.Left Or AnchorStyles.Right
         UsernameField.BackColor = SystemColors.Window
-        UsernameField.Font = New Font("Segoe UI", 12.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        UsernameField.Font = New Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         UsernameField.Location = New Point(342, 200)
         UsernameField.Margin = New Padding(3, 2, 3, 2)
         UsernameField.Name = "UsernameField"
@@ -153,7 +184,7 @@ Partial Class Login
         ' 
         Password.Anchor = AnchorStyles.Right
         Password.AutoSize = True
-        Password.Font = New Font("Segoe UI", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        Password.Font = New Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         Password.Location = New Point(342, 232)
         Password.Name = "Password"
         Password.Size = New Size(82, 21)
@@ -164,7 +195,7 @@ Partial Class Login
         ' 
         Username.Anchor = AnchorStyles.Right
         Username.AutoSize = True
-        Username.Font = New Font("Segoe UI", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        Username.Font = New Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         Username.Location = New Point(342, 182)
         Username.Name = "Username"
         Username.Size = New Size(87, 21)
@@ -175,8 +206,8 @@ Partial Class Login
         ' 
         DrugstoreName.Anchor = AnchorStyles.None
         DrugstoreName.AutoSize = True
-        DrugstoreName.Font = New Font("Calibri", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
-        DrugstoreName.Location = New Point(310, 124)
+        DrugstoreName.Font = New Font("Calibri", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        DrugstoreName.Location = New Point(362, 143)
         DrugstoreName.Name = "DrugstoreName"
         DrugstoreName.Size = New Size(297, 19)
         DrugstoreName.TabIndex = 10
@@ -196,9 +227,9 @@ Partial Class Login
         ' 
         ' Login
         ' 
-        AutoScaleDimensions = New SizeF(7.0F, 15.0F)
+        AutoScaleDimensions = New SizeF(7F, 15F)
         AutoScaleMode = AutoScaleMode.Font
-        ClientSize = New Size(1001, 452)
+        ClientSize = New Size(1442, 745)
         Controls.Add(NavBar)
         Margin = New Padding(3, 2, 3, 2)
         Name = "Login"
@@ -206,6 +237,8 @@ Partial Class Login
         WindowState = FormWindowState.Maximized
         NavBar.ResumeLayout(False)
         NavBar.PerformLayout()
+        CType(hidepass, ComponentModel.ISupportInitialize).EndInit()
+        CType(passvisible, ComponentModel.ISupportInitialize).EndInit()
         CType(picHide, ComponentModel.ISupportInitialize).EndInit()
         CType(View, ComponentModel.ISupportInitialize).EndInit()
         CType(LoginIcon, ComponentModel.ISupportInitialize).EndInit()
@@ -226,5 +259,7 @@ Partial Class Login
     Friend WithEvents Username As Label
     Friend WithEvents DrugstoreName As Label
     Friend WithEvents imageLogin As PictureBox
+    Friend WithEvents passvisible As PictureBox
+    Friend WithEvents hidepass As PictureBox
 
 End Class

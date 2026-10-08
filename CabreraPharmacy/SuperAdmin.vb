@@ -6,7 +6,11 @@ Public Class SuperAdmin
 
     ' --- 1. INITIALIZATION & NAVIGATION ---
     Private Sub SuperAdmin_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        Me.WindowState = FormWindowState.Maximized
+        Me.FormBorderStyle = FormBorderStyle.None
         ' Setup DataGridView Button Columns
+        usrName.Text = "Welcome, " & CurrentFullName & " (Super Admin)"
+        usrName.ReadOnly = True
         accountEdit.Text = "Edit"
         accountEdit.UseColumnTextForButtonValue = True
         accountResetPassword.Text = "Reset"
@@ -50,7 +54,7 @@ Public Class SuperAdmin
         pnlReports.BringToFront()
     End Sub
 
-    Private Sub LogoutBtn_Click(sender As Object, e As EventArgs) Handles LogoutBtn.Click
+    Private Sub LogoutBtn_Click(sender As Object, e As EventArgs) Handles LogoutBtn.Click, btnLogin.Click
         Me.Close()
     End Sub
 
@@ -156,7 +160,7 @@ Public Class SuperAdmin
 
         e.PaintBackground(e.CellBounds, True)
 
-        Dim switchWidth = 44
+        Dim switchWidth = 44.0F
         Dim switchHeight = 22
         Dim switchLeft = e.CellBounds.Left + (e.CellBounds.Width - switchWidth) \ 2 - 20
         Dim switchTop = e.CellBounds.Top + (e.CellBounds.Height - switchHeight) \ 2
@@ -486,9 +490,6 @@ Public Class SuperAdmin
 
     End Sub
 
-    Private Sub btnLogin_Click(sender As Object, e As EventArgs) Handles btnLogin.Click
-
-    End Sub
 
     Private Sub PictureBox1_Click(sender As Object, e As EventArgs) Handles PictureBox1.Click
 

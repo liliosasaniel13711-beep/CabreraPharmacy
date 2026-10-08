@@ -38,6 +38,8 @@ Public Class Staff
     Private checkoutIsWholesale As Boolean = False
 
     Private Sub Staff_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        Me.WindowState = FormWindowState.Maximized
+        Me.FormBorderStyle = FormBorderStyle.None
         welcomestaff_label.Text = "Welcome, " & CurrentFullName & " (Staff)"
 
         navButtons = {navRetail, navWholesale, navRestock}
@@ -68,7 +70,7 @@ Public Class Staff
     End Sub
 
     Private Sub logoutstaff_button_Click(sender As Object, e As EventArgs) Handles logoutstaff_button.Click
-        Close()
+        Me.Close()
     End Sub
 
     Private Sub ShowView(viewName As String)
@@ -635,4 +637,7 @@ Public Class Staff
         End If
     End Sub
 
+    Private Sub headerPanel_Paint(sender As Object, e As PaintEventArgs) Handles headerPanel.Paint
+
+    End Sub
 End Class
