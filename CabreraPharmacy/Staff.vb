@@ -31,6 +31,8 @@ Public Class Staff
     Private checkoutModeIsWholesale As Boolean
 
     Private Sub Staff_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        Me.WindowState = FormWindowState.Maximized
+        Me.FormBorderStyle = FormBorderStyle.None
         welcomestaff_label.Text = "Welcome, " & CurrentFullName & " (Staff)"
         userPanel.Location = New Point(headerPanel.ClientSize.Width - userPanel.Width - 20, 10)
         searchFilterCombo.SelectedIndex = 0
@@ -121,7 +123,7 @@ Public Class Staff
     End Sub
 
     Private Sub logoutstaff_button_Click(sender As Object, e As EventArgs) Handles logoutstaff_button.Click
-        Close()
+        Me.Close()
     End Sub
 
     Private Sub retailModeButton_Click(sender As Object, e As EventArgs) Handles retailModeButton.Click
@@ -587,4 +589,7 @@ Public Class Staff
         idNumberTextBox.Clear()
     End Sub
 
+    Private Sub headerPanel_Paint(sender As Object, e As PaintEventArgs) Handles headerPanel.Paint
+
+    End Sub
 End Class

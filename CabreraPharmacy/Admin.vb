@@ -14,6 +14,8 @@ Public Class Admin
     Private contentPanels As Dictionary(Of String, Panel)
 
     Private Sub Admin_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        Me.WindowState = FormWindowState.Maximized
+        Me.FormBorderStyle = FormBorderStyle.None
         ' Welcome logic
         ' Make sure CurrentFullName is declared globally in a module (like SessionModule)
         welcomeadmin_label.Text = "Welcome, " & CurrentFullName & " (Admin)"
@@ -51,7 +53,7 @@ Public Class Admin
     End Sub
 
     Private Sub logoutadmin_button_Click(sender As Object, e As EventArgs) Handles logoutadmin_button.Click
-        Close()
+        Me.Close()
     End Sub
 
     ' Switch the visible view and highlight the active nav button
