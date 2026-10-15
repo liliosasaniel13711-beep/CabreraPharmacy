@@ -1,4 +1,6 @@
+Imports System.Data
 Imports System.Drawing
+Imports System.Globalization
 Imports System.Windows.Forms
 Imports MySql.Data.MySqlClient
 
@@ -21,443 +23,423 @@ Public Class Staff
         End Property
     End Class
 
-    Private darkGreen As Color = Color.FromArgb(20, 100, 60)
-
-    Private navButtons As Button()
-    Private contentPanels As Dictionary(Of String, Panel)
-
-    ' Retail state
-    Private currentProduct As DataRow = Nothing
-    Private cart As New List(Of CartItem)()
-
-    ' Wholesale state
-    Private currentWholesaleProduct As DataRow = Nothing
-    Private wholesaleCart As New List(Of CartItem)()
-
-    ' Checkout state
-    Private checkoutIsWholesale As Boolean = False
+    Private ReadOnly darkGreen As Color = Color.FromArgb(20, 100, 60)
+    Private ReadOnly cart As New List(Of CartItem)()
+    Private products As DataTable
+    Private currentProduct As DataRow
+    Private isWholesale As Boolean
+    Private checkoutModeIsWholesale As Boolean
 
     Private Sub Staff_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         welcomestaff_label.Text = "Welcome, " & CurrentFullName & " (Staff)"
-
-        navButtons = {navRetail, navWholesale, navRestock}
-        contentPanels = New Dictionary(Of String, Panel) From {
-            {"Retail", retailView},
-            {"Checkout", checkoutView},
-            {"Wholesale", wholesaleView},
-            {"Restock", restockView}
-        }
-
+        userPanel.Location = New Point(headerPanel.ClientSize.Width - userPanel.Width - 20, 10)
+        searchFilterCombo.SelectedIndex = 0
+        AddHandler searchPanel.Resize, AddressOf SearchPanel_Resize
+        AddHandler quantityPanel.Resize, AddressOf QuantityPanel_Resize
+        AddHandler cartCard.Resize, AddressOf CartCard_Resize
+        AddHandler checkoutView.Resize, AddressOf CheckoutView_Resize
+        SearchPanel_Resize(searchPanel, EventArgs.Empty)
+        QuantityPanel_Resize(quantityPanel, EventArgs.Empty)
+        CartCard_Resize(cartCard, EventArgs.Empty)
+        CheckoutView_Resize(checkoutView, EventArgs.Empty)
         customerTypeCombo.SelectedIndex = 0
-
-        ShowView("Retail")
+        checkoutView.Visible = False
+        restockView.Visible = False
+        transactionView.Visible = True
+        SetTransactionMode(False)
+        RenderCart()
+        LoadProducts()
     End Sub
 
-    ' Keep the user info panel pinned to the top-right corner
     Private Sub HeaderPanel_Layout(sender As Object, e As LayoutEventArgs) Handles headerPanel.Layout
         userPanel.Location = New Point(headerPanel.ClientSize.Width - userPanel.Width - 20, 10)
     End Sub
 
-    ' ===================== NAVIGATION =====================
+    Private Sub SearchPanel_Resize(sender As Object, e As EventArgs)
+        Dim buttonLeft = Math.Max(searchTextBox.Left + 100, searchPanel.ClientSize.Width - searchButton.Width - 12)
+        searchButton.Location = New Point(buttonLeft, 8)
+        searchTextBox.Width = Math.Max(80, buttonLeft - searchTextBox.Left - 10)
+    End Sub
 
-    Private Sub NavButton_Click(sender As Object, e As EventArgs) Handles navRetail.Click, navWholesale.Click, navRestock.Click
-        Dim btn = TryCast(sender, Button)
-        If btn IsNot Nothing Then
-            ShowView(CStr(btn.Tag))
-        End If
+    Private Sub QuantityPanel_Resize(sender As Object, e As EventArgs)
+        addToCartButton.Location = New Point(Math.Max(qtyPlusButton.Right + 16, quantityPanel.ClientSize.Width - addToCartButton.Width - 12), 7)
+    End Sub
+
+    Private Sub CartCard_Resize(sender As Object, e As EventArgs)
+        If cartCard.ClientSize.Width <= 0 OrElse cartCard.ClientSize.Height <= 0 Then Return
+
+        cartItemsPanel.SetBounds(16, 52,
+                                 Math.Max(120, cartCard.ClientSize.Width - 32),
+                                 Math.Max(80, cartCard.ClientSize.Height - 145))
+        cartSubtotalLabel.Location = New Point(16, cartCard.ClientSize.Height - 72)
+        cartSubtotalValue.Location = New Point(cartCard.ClientSize.Width - cartSubtotalValue.Width - 16,
+                                                cartCard.ClientSize.Height - 72)
+        checkoutButton.Location = New Point(cartCard.ClientSize.Width - checkoutButton.Width - 16,
+                                             cartCard.ClientSize.Height - checkoutButton.Height - 12)
+    End Sub
+
+    Private Sub CheckoutView_Resize(sender As Object, e As EventArgs)
+        If checkoutView.ClientSize.Width <= 0 OrElse checkoutView.ClientSize.Height <= 0 Then Return
+
+        Dim availableWidth = checkoutView.ClientSize.Width - 16
+        Dim reviewWidth = CInt(availableWidth * 0.62)
+        Dim viewHeight = checkoutView.ClientSize.Height
+        orderReviewCard.SetBounds(0, 0, reviewWidth, viewHeight)
+        paymentCard.SetBounds(reviewWidth + 16, 0, availableWidth - reviewWidth, viewHeight)
+
+        orderSummaryPanel.SetBounds(20, 250, Math.Max(120, reviewWidth - 40), Math.Max(120, viewHeight - 365))
+        prescriptionLabel.Top = Math.Max(520, viewHeight - 95)
+        prescriptionValueLabel.Top = prescriptionLabel.Top + 25
+        rxRecordedLabel.Left = Math.Max(220, reviewWidth - rxRecordedLabel.Width - 20)
+        rxRecordedLabel.Top = prescriptionValueLabel.Top
+
+        Dim paymentWidth = paymentCard.ClientSize.Width
+        subtotalValue.Left = paymentWidth - subtotalValue.Width - 20
+        discountValue.Left = paymentWidth - discountValue.Width - 20
+        totalDueValue.Left = paymentWidth - totalDueValue.Width - 20
+        cashValue.Left = paymentWidth - cashValue.Width - 20
+        changeValue.Left = paymentWidth - changeValue.Width - 20
+        cancelButton.Left = paymentWidth - confirmButton.Width - cancelButton.Width - 30
+        confirmButton.Left = paymentWidth - confirmButton.Width - 20
+        cancelButton.Top = viewHeight - cancelButton.Height - 16
+        confirmButton.Top = viewHeight - confirmButton.Height - 16
+    End Sub
+
+    Private Sub NavButton_Click(sender As Object, e As EventArgs) Handles navTransaction.Click, navRestock.Click
+        Dim button = TryCast(sender, Button)
+        If button Is Nothing Then Return
+
+        transactionView.Visible = (CStr(button.Tag) = "Transaction")
+        checkoutView.Visible = False
+        restockView.Visible = (CStr(button.Tag) = "Restock")
+        titleLabel.Text = CStr(button.Tag)
+        subtitleLabel.Text = "Cabrera's Drugstore and Medical Supplies"
+        navTransaction.BackColor = If(transactionView.Visible, darkGreen, Color.White)
+        navTransaction.ForeColor = If(transactionView.Visible, Color.White, darkGreen)
+        navRestock.BackColor = If(restockView.Visible, darkGreen, Color.White)
+        navRestock.ForeColor = If(restockView.Visible, Color.White, darkGreen)
     End Sub
 
     Private Sub logoutstaff_button_Click(sender As Object, e As EventArgs) Handles logoutstaff_button.Click
         Close()
     End Sub
 
-    Private Sub ShowView(viewName As String)
-        For Each kvp In contentPanels
-            kvp.Value.Visible = (kvp.Key = viewName)
-        Next
-
-        ' Highlight nav buttons only for the three primary views
-        For Each btn In navButtons
-            Dim isActive As Boolean = (CStr(btn.Tag) = viewName)
-            btn.BackColor = If(isActive, darkGreen, Color.White)
-            btn.ForeColor = If(isActive, Color.White, darkGreen)
-        Next
-
-        Select Case viewName
-            Case "Retail"
-                titleLabel.Text = "Retail"
-            Case "Wholesale"
-                titleLabel.Text = "Wholesale"
-            Case "Restock"
-                titleLabel.Text = "Restock"
-            Case "Checkout"
-                titleLabel.Text = If(checkoutIsWholesale, "Wholesale", "Retail")
-        End Select
-        subtitleLabel.Text = "Cabrera's Drugstore and Medical Supplies"
+    Private Sub retailModeButton_Click(sender As Object, e As EventArgs) Handles retailModeButton.Click
+        SetTransactionMode(False)
     End Sub
 
-    ' ===================== SEARCH & PRODUCT DETAILS =====================
+    Private Sub wholesaleModeButton_Click(sender As Object, e As EventArgs) Handles wholesaleModeButton.Click
+        SetTransactionMode(True)
+    End Sub
+
+    Private Sub SetTransactionMode(wholesale As Boolean)
+        If isWholesale = wholesale AndAlso retailModeButton IsNot Nothing Then
+            UpdateModeControls()
+            Return
+        End If
+
+        If cart.Count > 0 Then
+            Dim answer = MessageBox.Show(
+                "Changing transaction mode clears the current cart because prices differ between Retail and Wholesale. Continue?",
+                "Change transaction mode",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning)
+            If answer <> DialogResult.Yes Then Return
+            cart.Clear()
+        End If
+
+        isWholesale = wholesale
+        currentProduct = Nothing
+        resultsGrid.DataSource = Nothing
+        qtyTextBox.Text = "1"
+        RenderCart()
+        UpdateModeControls()
+    End Sub
+
+    Private Sub UpdateModeControls()
+        retailModeButton.BackColor = If(isWholesale, Color.White, darkGreen)
+        retailModeButton.ForeColor = If(isWholesale, darkGreen, Color.White)
+        wholesaleModeButton.BackColor = If(isWholesale, darkGreen, Color.White)
+        wholesaleModeButton.ForeColor = If(isWholesale, Color.White, darkGreen)
+        prescriptionPanel.Visible = Not isWholesale
+        wholesaleDetailsPanel.Visible = isWholesale
+        addToCartButton.Text = If(isWholesale, "ADD TO CART", "ADD TO CART")
+        titleLabel.Text = "Transaction"
+        If isWholesale Then
+            subtitleLabel.Text = "Wholesale Box Price"
+        Else
+            subtitleLabel.Text = "Retail Unit Price"
+        End If
+        If products IsNot Nothing Then BindSearchResults(products)
+    End Sub
+
+    Private Sub LoadProducts()
+        Try
+            Dim manager As New ProductManager()
+            products = manager.GetProducts()
+            If products Is Nothing Then products = New DataTable()
+            BindSearchResults(products)
+        Catch ex As Exception
+            MessageBox.Show("Unable to load products: " & ex.Message, "Database Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Sub
 
     Private Sub searchButton_Click(sender As Object, e As EventArgs) Handles searchButton.Click
+        LoadProducts()
+    End Sub
+
+    Private Sub searchTextBox_TextChanged(sender As Object, e As EventArgs) Handles searchTextBox.TextChanged
+        If products IsNot Nothing Then BindSearchResults(products)
+    End Sub
+
+    Private Sub searchTextBox_KeyDown(sender As Object, e As KeyEventArgs) Handles searchTextBox.KeyDown
+        If e.KeyCode = Keys.Enter Then
+            e.SuppressKeyPress = True
+            searchButton.PerformClick()
+        End If
+    End Sub
+
+    Private Sub BindSearchResults(source As DataTable)
+        Dim result As New DataTable()
+        result.Columns.Add("Product ID", GetType(Integer))
+        result.Columns.Add("Generic Name", GetType(String))
+        result.Columns.Add("Brand Name", GetType(String))
+        result.Columns.Add("Form", GetType(String))
+        result.Columns.Add("Strength", GetType(String))
+        result.Columns.Add("Type", GetType(String))
+        result.Columns.Add("Price", GetType(Decimal))
+
         Dim keyword = searchTextBox.Text.Trim()
-        If String.IsNullOrEmpty(keyword) Then
-            MessageBox.Show("Enter a medicine name to search.", "Search", MessageBoxButtons.OK, MessageBoxIcon.Information)
-            Return
-        End If
+        Dim selectedFilter = If(searchFilterCombo.SelectedItem, "Generic Name").ToString()
 
-        Try
-            Dim pm As New ProductManager()
-            Dim dt = pm.GetProducts(keyword)
-            If dt.Rows.Count = 0 Then
-                MessageBox.Show("No product found matching """ & keyword & """.", "Search", MessageBoxButtons.OK, MessageBoxIcon.Information)
-                Return
+        For Each row As DataRow In source.Rows
+            Dim matches As Boolean = True
+            If keyword.Length > 0 Then
+                Select Case selectedFilter
+                    Case "All"
+                        matches = row("ID").ToString().IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0 OrElse
+                                  row("Generic Name").ToString().IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0 OrElse
+                                  row("Brand Name").ToString().IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0
+                    Case "Product ID"
+                        matches = row("ID").ToString().IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0
+                    Case "Brand Name"
+                        matches = row("Brand Name").ToString().IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0
+                    Case Else
+                        matches = row("Generic Name").ToString().IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0
+                End Select
             End If
 
-            currentProduct = dt.Rows(0)
-            BindProductDetails(currentProduct, prodNameLabel, prodIdLabel, prodGenericLabel, prodBrandLabel, prodFormLabel, prodStrengthLabel, prodTypeLabel, prodPriceLabel, prodAvailableLabel, prodExpiryLabel, prodBatchLabel, rxSectionLabel, rxNoTextBox, rxPractitionerTextBox, rxLicenseTextBox, rxDateTextBox, False)
-        Catch ex As Exception
-            MessageBox.Show("Search failed: " & ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
-        End Try
-    End Sub
+            If Not matches Then Continue For
 
-    Private Sub wholesaleSearchButton_Click(sender As Object, e As EventArgs) Handles wholesaleSearchButton.Click
-        Dim keyword = wholesaleSearchTextBox.Text.Trim()
-        If String.IsNullOrEmpty(keyword) Then
-            MessageBox.Show("Enter a medicine name to search.", "Search", MessageBoxButtons.OK, MessageBoxIcon.Information)
-            Return
+            Dim retailPrice As Decimal
+            Dim wholesalePrice As Decimal
+            Decimal.TryParse(row("Retail Price").ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, retailPrice)
+            Decimal.TryParse(row("Wholesale Price").ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, wholesalePrice)
+            Dim price = If(isWholesale, wholesalePrice, retailPrice)
+            Dim type = If(IsPrescriptionRequired(Convert.ToInt32(row("ID"))), "Rx", "OTC")
+            result.Rows.Add(Convert.ToInt32(row("ID")), row("Generic Name").ToString(), row("Brand Name").ToString(), row("Unit").ToString(), row("Dosage").ToString(), type, price)
+        Next
+
+        resultsGrid.DataSource = result
+        If resultsGrid.Columns.Contains("Price") Then
+            resultsGrid.Columns("Price").DefaultCellStyle.Format = "'P' #,##0.00"
+        End If
+        If resultsGrid.Columns.Contains("Product ID") Then
+            resultsGrid.Columns("Product ID").FillWeight = 60
+        End If
+        If resultsGrid.Columns.Contains("Generic Name") Then
+            resultsGrid.Columns("Generic Name").FillWeight = 130
+        End If
+        If resultsGrid.Columns.Contains("Brand Name") Then
+            resultsGrid.Columns("Brand Name").FillWeight = 100
         End If
 
-        Try
-            Dim pm As New ProductManager()
-            Dim dt = pm.GetProducts(keyword)
-            If dt.Rows.Count = 0 Then
-                MessageBox.Show("No product found matching """ & keyword & """.", "Search", MessageBoxButtons.OK, MessageBoxIcon.Information)
-                Return
-            End If
-
-            currentWholesaleProduct = dt.Rows(0)
-            BindProductDetails(currentWholesaleProduct, wProdNameLabel, wProdIdLabel, wProdGenericLabel, wProdBrandLabel, wProdFormLabel, wProdStrengthLabel, wProdTypeLabel, wProdPriceLabel, wProdAvailableLabel, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, True)
-        Catch ex As Exception
-            MessageBox.Show("Search failed: " & ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
-        End Try
-    End Sub
-
-    Private Sub BindProductDetails(row As DataRow,
-                                   nameLabel As Label,
-                                   idLabel As Label,
-                                   genericLabel As Label,
-                                   brandLabel As Label,
-                                   formLabel As Label,
-                                   strengthLabel As Label,
-                                   typeLabel As Label,
-                                   priceLabel As Label,
-                                   availableLabel As Label,
-                                   expiryLabel As Label,
-                                   batchLabel As Label,
-                                   rxSection As Label,
-                                   rxNo As TextBox,
-                                   rxPractitioner As TextBox,
-                                   rxLicense As TextBox,
-                                   rxDate As TextBox,
-                                   isWholesale As Boolean)
-
-        Dim brand = row("Brand Name").ToString()
-        Dim generic = row("Generic Name").ToString()
-        Dim dosage = row("Dosage").ToString()
-        Dim unit = row("Unit").ToString()
-        Dim qtyPerBox As Integer = 0
-        Integer.TryParse(row("Qty/Box").ToString(), qtyPerBox)
-
-        ' Determine Rx vs OTC from the category's prescription flag
-        Dim isRx = IsPrescriptionRequired(Convert.ToInt32(row("ID")))
-
-        nameLabel.Text = brand & " " & dosage & " " & unit
-        idLabel.Text = "Product ID: " & row("ID").ToString()
-        genericLabel.Text = "Generic name: " & generic
-        brandLabel.Text = "Brand name: " & brand
-        formLabel.Text = "Form: " & unit
-        strengthLabel.Text = "Strength: " & dosage
-        typeLabel.Text = "Type: " & If(isRx, "Rx", "OTC")
-
-        Dim price As Decimal = 0D
-        If isWholesale Then
-            Decimal.TryParse(row("Wholesale Price").ToString(), price)
-            priceLabel.Text = "WHOLESALE PRICE: P " & price.ToString("N2")
-        Else
-            Decimal.TryParse(row("Retail Price").ToString(), price)
-            priceLabel.Text = "PRICE: P " & price.ToString("N2")
-        End If
-
-        availableLabel.Text = "Available: " & qtyPerBox.ToString() & " " & unit.ToLower() & If(qtyPerBox <> 1, "s", "")
-
-        If expiryLabel IsNot Nothing Then expiryLabel.Text = "Expiry Date: N/A"
-        If batchLabel IsNot Nothing Then batchLabel.Text = "Batch No.: N/A"
-
-        ' Show/hide prescription section
-        Dim showRx As Boolean = isRx AndAlso Not isWholesale
-        If rxSection IsNot Nothing Then rxSection.Visible = showRx
-        If rxNo IsNot Nothing Then rxNo.Visible = showRx
-        If rxPractitioner IsNot Nothing Then rxPractitioner.Visible = showRx
-        If rxLicense IsNot Nothing Then rxLicense.Visible = showRx
-        If rxDate IsNot Nothing Then rxDate.Visible = showRx
+        resultsGrid.ClearSelection()
+        resultsGrid.CurrentCell = Nothing
+        currentProduct = Nothing
     End Sub
 
     Private Function IsPrescriptionRequired(productId As Integer) As Boolean
         Try
-            Using conn = GetConnection()
-                conn.Open()
-                Const query = "SELECT c.prescription_required FROM product p INNER JOIN product_category c ON p.category_ID = c.category_ID WHERE p.product_ID = @pid LIMIT 1"
-                Using cmd As New MySqlCommand(query, conn)
-                    cmd.Parameters.AddWithValue("@pid", productId)
-                    Dim result = cmd.ExecuteScalar()
-                    If result IsNot Nothing AndAlso Not Convert.IsDBNull(result) Then
-                        Return Convert.ToInt32(result) <> 0
-                    End If
+            Using connection = GetConnection()
+                connection.Open()
+                Const query = "SELECT c.prescription_required FROM product p INNER JOIN product_category c ON p.category_ID = c.category_ID WHERE p.product_ID = @productId LIMIT 1"
+                Using command As New MySqlCommand(query, connection)
+                    command.Parameters.AddWithValue("@productId", productId)
+                    Dim result = command.ExecuteScalar()
+                    Return result IsNot Nothing AndAlso Not Convert.IsDBNull(result) AndAlso Convert.ToInt32(result) <> 0
                 End Using
             End Using
-        Catch
-            ' Default to OTC on lookup failure
+        Catch ex As Exception
+            MessageBox.Show("Unable to determine prescription status: " & ex.Message, "Database Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            Return False
         End Try
-        Return False
     End Function
 
-    ' ===================== QUANTITY =====================
-
-    Private Sub qtyMinusButton_Click(sender As Object, e As EventArgs) Handles qtyMinusButton.Click
-        AdjustQuantity(qtyTextBox, -1)
-    End Sub
-
-    Private Sub qtyPlusButton_Click(sender As Object, e As EventArgs) Handles qtyPlusButton.Click
-        AdjustQuantity(qtyTextBox, 1)
-    End Sub
-
-    Private Sub wQtyMinusButton_Click(sender As Object, e As EventArgs) Handles wQtyMinusButton.Click
-        AdjustQuantity(wQtyTextBox, -1)
-    End Sub
-
-    Private Sub wQtyPlusButton_Click(sender As Object, e As EventArgs) Handles wQtyPlusButton.Click
-        AdjustQuantity(wQtyTextBox, 1)
-    End Sub
-
-    Private Sub AdjustQuantity(txt As TextBox, delta As Integer)
-        Dim q As Integer = 1
-        Integer.TryParse(txt.Text, q)
-        q += delta
-        If q < 1 Then q = 1
-        txt.Text = q.ToString()
-    End Sub
-
-    ' ===================== ADD TO CART =====================
-
-    Private Sub addToCartButton_Click(sender As Object, e As EventArgs) Handles addToCartButton.Click
-        If currentProduct Is Nothing Then
-            MessageBox.Show("Search and select a product first.", "Add to Cart", MessageBoxButtons.OK, MessageBoxIcon.Information)
+    Private Sub resultsGrid_SelectionChanged(sender As Object, e As EventArgs) Handles resultsGrid.SelectionChanged
+        If resultsGrid.CurrentRow Is Nothing OrElse resultsGrid.CurrentRow.IsNewRow Then
+            currentProduct = Nothing
             Return
         End If
 
-        Dim qty As Integer = 1
-        Integer.TryParse(qtyTextBox.Text, qty)
-        If qty < 1 Then qty = 1
+        Dim productId As Integer
+        If Not Integer.TryParse(Convert.ToString(resultsGrid.CurrentRow.Cells("Product ID").Value), productId) OrElse products Is Nothing Then
+            currentProduct = Nothing
+            Return
+        End If
 
-        Dim price As Decimal = 0D
-        Decimal.TryParse(currentProduct("Retail Price").ToString(), price)
+        currentProduct = products.AsEnumerable().FirstOrDefault(Function(row) Convert.ToInt32(row("ID")) = productId)
+    End Sub
+
+    Private Sub searchFilterCombo_SelectedIndexChanged(sender As Object, e As EventArgs) Handles searchFilterCombo.SelectedIndexChanged
+        If products IsNot Nothing Then BindSearchResults(products)
+    End Sub
+
+    Private Sub qtyMinusButton_Click(sender As Object, e As EventArgs) Handles qtyMinusButton.Click
+        AdjustQuantity(-1)
+    End Sub
+
+    Private Sub qtyPlusButton_Click(sender As Object, e As EventArgs) Handles qtyPlusButton.Click
+        AdjustQuantity(1)
+    End Sub
+
+    Private Sub AdjustQuantity(delta As Integer)
+        Dim quantity As Integer
+        If Not Integer.TryParse(qtyTextBox.Text, quantity) Then quantity = 1
+        quantity = Math.Max(1, quantity + delta)
+        qtyTextBox.Text = quantity.ToString(CultureInfo.InvariantCulture)
+    End Sub
+
+    Private Sub addToCartButton_Click(sender As Object, e As EventArgs) Handles addToCartButton.Click
+        If currentProduct Is Nothing Then
+            MessageBox.Show("Select a product from the results table first.", "Add to Cart", MessageBoxButtons.OK, MessageBoxIcon.Information)
+            Return
+        End If
+
+        Dim quantity As Integer
+        If Not Integer.TryParse(qtyTextBox.Text, quantity) OrElse quantity < 1 Then
+            MessageBox.Show("Enter a quantity of at least 1.", "Quantity", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+            qtyTextBox.Focus()
+            Return
+        End If
+
         Dim isRx = IsPrescriptionRequired(Convert.ToInt32(currentProduct("ID")))
+        If Not isWholesale AndAlso isRx AndAlso
+           (String.IsNullOrWhiteSpace(rxNoTextBox.Text) OrElse
+            String.IsNullOrWhiteSpace(rxPractitionerTextBox.Text) OrElse
+            String.IsNullOrWhiteSpace(rxLicenseTextBox.Text) OrElse
+            String.IsNullOrWhiteSpace(rxDateTextBox.Text)) Then
+            MessageBox.Show("Complete the prescription information before adding an Rx item.", "Prescription Required", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+            Return
+        End If
 
-        ' Merge if already in cart
-        Dim existing = cart.Find(Function(c) c.ProductID = Convert.ToInt32(currentProduct("ID")))
-        If existing IsNot Nothing Then
-            existing.Quantity += qty
-        Else
+        Dim price As Decimal
+        Dim priceColumn = If(isWholesale, "Wholesale Price", "Retail Price")
+        Decimal.TryParse(currentProduct(priceColumn).ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, price)
+        Dim id = Convert.ToInt32(currentProduct("ID"))
+        Dim existing = cart.FirstOrDefault(Function(item) item.ProductID = id)
+        If existing Is Nothing Then
             cart.Add(New CartItem With {
-                .ProductID = Convert.ToInt32(currentProduct("ID")),
+                .ProductID = id,
                 .BrandName = currentProduct("Brand Name").ToString(),
                 .GenericName = currentProduct("Generic Name").ToString(),
                 .Dosage = currentProduct("Dosage").ToString(),
                 .Unit = currentProduct("Unit").ToString(),
                 .Price = price,
-                .Quantity = qty,
+                .Quantity = quantity,
                 .IsRx = isRx
             })
+        Else
+            existing.Quantity += quantity
         End If
 
         RenderCart()
-        MessageBox.Show(qtyTextBox.Text & " x " & currentProduct("Brand Name").ToString() & " added to cart.", "Add to Cart", MessageBoxButtons.OK, MessageBoxIcon.Information)
     End Sub
-
-    Private Sub wAddToCartButton_Click(sender As Object, e As EventArgs) Handles wAddToCartButton.Click
-        If currentWholesaleProduct Is Nothing Then
-            MessageBox.Show("Search and select a product first.", "Add to Cart", MessageBoxButtons.OK, MessageBoxIcon.Information)
-            Return
-        End If
-
-        Dim qty As Integer = 1
-        Integer.TryParse(wQtyTextBox.Text, qty)
-        If qty < 1 Then qty = 1
-
-        Dim price As Decimal = 0D
-        Decimal.TryParse(currentWholesaleProduct("Wholesale Price").ToString(), price)
-
-        Dim existing = wholesaleCart.Find(Function(c) c.ProductID = Convert.ToInt32(currentWholesaleProduct("ID")))
-        If existing IsNot Nothing Then
-            existing.Quantity += qty
-        Else
-            wholesaleCart.Add(New CartItem With {
-                .ProductID = Convert.ToInt32(currentWholesaleProduct("ID")),
-                .BrandName = currentWholesaleProduct("Brand Name").ToString(),
-                .GenericName = currentWholesaleProduct("Generic Name").ToString(),
-                .Dosage = currentWholesaleProduct("Dosage").ToString(),
-                .Unit = currentWholesaleProduct("Unit").ToString(),
-                .Price = price,
-                .Quantity = qty,
-                .IsRx = False
-            })
-        End If
-
-        RenderWholesaleCart()
-        MessageBox.Show(wQtyTextBox.Text & " x " & currentWholesaleProduct("Brand Name").ToString() & " added to cart.", "Add to Cart", MessageBoxButtons.OK, MessageBoxIcon.Information)
-    End Sub
-
-    ' ===================== CART RENDERING =====================
 
     Private Sub RenderCart()
+        cartItemsPanel.SuspendLayout()
         cartItemsPanel.Controls.Clear()
 
-        Dim otcItems = cart.Where(Function(c) Not c.IsRx).ToList()
-        Dim rxItems = cart.Where(Function(c) c.IsRx).ToList()
-
-        Dim y As Integer = 10
-        If otcItems.Count > 0 Then
-            y = RenderCartSection(cartItemsPanel, "OTC ITEMS", otcItems, y)
-        End If
-        If rxItems.Count > 0 Then
-            y = RenderCartSection(cartItemsPanel, "Rx ITEMS", rxItems, y)
-        End If
+        Dim y As Integer = 4
+        y = RenderCartSection("OTC ITEMS", cart.Where(Function(item) Not item.IsRx).ToList(), y)
+        y = RenderCartSection("Rx ITEMS", cart.Where(Function(item) item.IsRx).ToList(), y)
         If cart.Count = 0 Then
-            Dim empty As New Label() With {
-                .Text = "Cart is empty.",
-                .Font = New Font("Segoe UI", 10.0F),
-                .ForeColor = Color.Gray,
-                .AutoSize = True,
-                .Location = New Point(10, y)
-            }
-            cartItemsPanel.Controls.Add(empty)
+            Dim emptyLabel = New Label With {.Text = "Cart is empty.", .AutoSize = True, .ForeColor = Color.Gray, .Margin = New Padding(4, 8, 4, 12)}
+            cartItemsPanel.Controls.Add(emptyLabel)
         End If
 
-        Dim subtotal As Decimal = cart.Sum(Function(c) c.LineTotal)
-        cartSubtotalValue.Text = "P " & subtotal.ToString("N2")
+        cartSubtotalValue.Text = "P " & cart.Sum(Function(item) item.LineTotal).ToString("N2")
+        cartItemsPanel.ResumeLayout()
     End Sub
 
-    Private Sub RenderWholesaleCart()
-        wholesaleCartPanel.Controls.Clear()
-
-        Dim y As Integer = 10
-        If wholesaleCart.Count > 0 Then
-            y = RenderCartSection(wholesaleCartPanel, "WHOLESALE ITEMS", wholesaleCart, y)
-        Else
-            Dim empty As New Label() With {
-                .Text = "Cart is empty.",
-                .Font = New Font("Segoe UI", 10.0F),
-                .ForeColor = Color.Gray,
-                .AutoSize = True,
-                .Location = New Point(10, y)
-            }
-            wholesaleCartPanel.Controls.Add(empty)
-        End If
-
-        Dim subtotal As Decimal = wholesaleCart.Sum(Function(c) c.LineTotal)
-        wholesaleSubtotalValue.Text = "P " & subtotal.ToString("N2")
-    End Sub
-
-    Private Function RenderCartSection(parent As Panel, sectionTitle As String, items As List(Of CartItem), startY As Integer) As Integer
-        Dim header As New Label() With {
+    Private Function RenderCartSection(sectionTitle As String, items As List(Of CartItem), startY As Integer) As Integer
+        If items.Count = 0 Then Return startY
+        Dim header = New Label With {
             .Text = sectionTitle,
-            .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold),
-            .ForeColor = Color.FromArgb(20, 100, 60),
             .AutoSize = True,
-            .Location = New Point(10, startY)
+            .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
+            .ForeColor = darkGreen,
+            .Margin = New Padding(4, 8, 4, 4)
         }
-        parent.Controls.Add(header)
+        cartItemsPanel.Controls.Add(header)
 
-        Dim y As Integer = startY + 30
         For Each item In items
-            Dim line1 As New Label() With {
-                .Text = item.BrandName & "  " & item.Dosage & "  " & item.Unit,
-                .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold),
-                .ForeColor = Color.Black,
-                .AutoSize = True,
-                .Location = New Point(10, y)
+            Dim rowWidth = Math.Max(250, cartItemsPanel.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 8)
+            Dim removeLeft = rowWidth - 28
+            Dim totalLeft = removeLeft - 82
+            Dim quantityLeft = totalLeft - 98
+            Dim rowPanel = New Panel With {.Width = rowWidth, .Height = 58, .Margin = New Padding(2, 2, 2, 4)}
+            Dim productLabel = New Label With {
+                .Text = item.BrandName & "  " & item.Dosage & " " & item.Unit & Environment.NewLine & item.GenericName,
+                .Location = New Point(2, 3),
+                .Size = New Size(Math.Max(80, quantityLeft - 6), 48),
+                .Font = New Font("Segoe UI", 8.5F)
             }
-            parent.Controls.Add(line1)
-
-            Dim line2 As New Label() With {
-                .Text = item.GenericName,
-                .Font = New Font("Segoe UI", 8.0F),
-                .ForeColor = Color.Gray,
-                .AutoSize = True,
-                .Location = New Point(10, y + 20)
+            Dim quantityLabel = New Label With {
+                .Text = "P " & item.Price.ToString("N2") & " x " & item.Quantity.ToString(),
+                .Location = New Point(quantityLeft, 15),
+                .Size = New Size(95, 24),
+                .Font = New Font("Segoe UI", 8.5F)
             }
-            parent.Controls.Add(line2)
-
-            Dim line3 As New Label() With {
-                .Text = "P " & item.Price.ToString("N2") & "  x  " & item.Quantity.ToString(),
-                .Font = New Font("Segoe UI", 10.0F),
-                .ForeColor = Color.Black,
-                .AutoSize = True,
-                .Location = New Point(400, y + 10)
-            }
-            parent.Controls.Add(line3)
-
-            Dim line4 As New Label() With {
+            Dim totalLabel = New Label With {
                 .Text = "P " & item.LineTotal.ToString("N2"),
-                .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold),
-                .ForeColor = Color.Black,
-                .AutoSize = True,
-                .Location = New Point(620, y + 10)
+                .Location = New Point(totalLeft, 15),
+                .Size = New Size(78, 24),
+                .Font = New Font("Segoe UI", 8.5F, FontStyle.Bold)
             }
-            parent.Controls.Add(line4)
-
-            ' Remove button
-            Dim removeBtn As New Button() With {
+            Dim removeButton = New Button With {
                 .Text = "X",
-                .Font = New Font("Segoe UI", 8.0F, FontStyle.Bold),
+                .Tag = item.ProductID,
+                .Location = New Point(removeLeft, 11),
+                .Size = New Size(25, 25),
                 .ForeColor = Color.FromArgb(200, 30, 30),
-                .BackColor = Color.White,
                 .FlatStyle = FlatStyle.Flat,
-                .Size = New Size(26, 26),
-                .Location = New Point(720, y + 5),
-                .Tag = item.ProductID
+                .BackColor = Color.White
             }
-            removeBtn.FlatAppearance.BorderColor = Color.FromArgb(200, 30, 30)
-            AddHandler removeBtn.Click, AddressOf RemoveCartItem_Click
-            parent.Controls.Add(removeBtn)
-
-            y += 60
+            removeButton.FlatAppearance.BorderColor = Color.FromArgb(200, 30, 30)
+            AddHandler removeButton.Click, AddressOf RemoveCartItem_Click
+            rowPanel.Controls.Add(productLabel)
+            rowPanel.Controls.Add(quantityLabel)
+            rowPanel.Controls.Add(totalLabel)
+            rowPanel.Controls.Add(removeButton)
+            cartItemsPanel.Controls.Add(rowPanel)
         Next
 
-        Return y + 10
+        Return startY + (items.Count * 64) + 24
     End Function
 
     Private Sub RemoveCartItem_Click(sender As Object, e As EventArgs)
-        Dim btn = TryCast(sender, Button)
-        If btn Is Nothing Then Return
-        Dim pid As Integer = CInt(btn.Tag)
-
-        ' Try both carts
-        Dim rItem = cart.Find(Function(c) c.ProductID = pid)
-        If rItem IsNot Nothing Then
-            cart.Remove(rItem)
-            RenderCart()
-            Return
-        End If
-
-        Dim wItem = wholesaleCart.Find(Function(c) c.ProductID = pid)
-        If wItem IsNot Nothing Then
-            wholesaleCart.Remove(wItem)
-            RenderWholesaleCart()
-        End If
+        Dim button = TryCast(sender, Button)
+        If button Is Nothing Then Return
+        Dim productId = Convert.ToInt32(button.Tag)
+        Dim item = cart.FirstOrDefault(Function(entry) entry.ProductID = productId)
+        If item IsNot Nothing Then cart.Remove(item)
+        RenderCart()
     End Sub
 
-    ' ===================== CHECKOUT =====================
+    Private Sub customerSearchButton_Click(sender As Object, e As EventArgs) Handles customerSearchButton.Click
+        MessageBox.Show("Customer records are not available in the current database. Enter the wholesale customer details manually.", "Customer Search", MessageBoxButtons.OK, MessageBoxIcon.Information)
+    End Sub
 
     Private Sub checkoutButton_Click(sender As Object, e As EventArgs) Handles checkoutButton.Click
         If cart.Count = 0 Then
@@ -465,174 +447,144 @@ Public Class Staff
             Return
         End If
 
-        checkoutIsWholesale = False
-        BuildCheckoutView(cart)
-        ShowView("Checkout")
-    End Sub
-
-    Private Sub wholesaleCheckoutButton_Click(sender As Object, e As EventArgs) Handles wholesaleCheckoutButton.Click
-        If wholesaleCart.Count = 0 Then
-            MessageBox.Show("Cart is empty. Add items before checkout.", "Checkout", MessageBoxButtons.OK, MessageBoxIcon.Information)
+        If isWholesale AndAlso
+           (String.IsNullOrWhiteSpace(customerLicenseTextBox.Text) OrElse
+            String.IsNullOrWhiteSpace(contactPersonTextBox.Text) OrElse
+            String.IsNullOrWhiteSpace(contactNoTextBox.Text) OrElse
+            String.IsNullOrWhiteSpace(addressTextBox.Text) OrElse
+            String.IsNullOrWhiteSpace(poNoTextBox.Text)) Then
+            MessageBox.Show("Complete the wholesale customer and purchase order details before checkout.", "Wholesale Details Required", MessageBoxButtons.OK, MessageBoxIcon.Warning)
             Return
         End If
 
-        checkoutIsWholesale = True
-        BuildCheckoutView(wholesaleCart)
-        ShowView("Checkout")
+        checkoutModeIsWholesale = isWholesale
+        BuildCheckoutView()
+        transactionView.Visible = False
+        restockView.Visible = False
+        checkoutView.Visible = True
+        titleLabel.Text = "Order Review"
+        subtitleLabel.Text = If(isWholesale, "Wholesale transaction", "Retail transaction")
     End Sub
 
-    Private Sub BuildCheckoutView(items As List(Of CartItem))
-        ' Order summary
+    Private Sub BuildCheckoutView()
         orderSummaryPanel.Controls.Clear()
-        Dim y As Integer = 10
-        For Each item In items
-            Dim nameLabel As New Label() With {
-                .Text = item.BrandName & "  " & item.Dosage & "  " & item.Unit,
-                .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold),
-                .ForeColor = Color.Black,
-                .AutoSize = True,
-                .Location = New Point(10, y)
+        For Each item In cart
+            Dim rowWidth = Math.Max(120, orderSummaryPanel.ClientSize.Width - 12)
+            Dim line = New Panel With {
+                .Width = rowWidth,
+                .Height = 48,
+                .Margin = New Padding(4, 4, 4, 4)
             }
-            orderSummaryPanel.Controls.Add(nameLabel)
-
-            Dim genericLabel As New Label() With {
-                .Text = item.GenericName,
-                .Font = New Font("Segoe UI", 8.0F),
-                .ForeColor = Color.Gray,
-                .AutoSize = True,
-                .Location = New Point(10, y + 20)
+            Dim productLabel = New Label With {
+                .Text = item.BrandName & "  " & item.Dosage & " " & item.Unit & Environment.NewLine & item.GenericName,
+                .Location = New Point(2, 2),
+                .Size = New Size(CInt(rowWidth * 0.48), 44),
+                .Font = New Font("Segoe UI", 9.0F)
             }
-            orderSummaryPanel.Controls.Add(genericLabel)
-
-            Dim priceQty As New Label() With {
-                .Text = "P " & item.Price.ToString("N2") & "  x  " & item.Quantity.ToString(),
-                .Font = New Font("Segoe UI", 10.0F),
-                .ForeColor = Color.Black,
-                .AutoSize = True,
-                .Location = New Point(400, y + 10)
+            Dim priceQuantityLabel = New Label With {
+                .Text = "P " & item.Price.ToString("N2") & "  x  " & item.Quantity,
+                .Location = New Point(CInt(rowWidth * 0.52), 13),
+                .Size = New Size(CInt(rowWidth * 0.25), 24),
+                .Font = New Font("Segoe UI", 9.0F)
             }
-            orderSummaryPanel.Controls.Add(priceQty)
-
-            Dim totalLabel As New Label() With {
+            Dim lineTotalLabel = New Label With {
                 .Text = "P " & item.LineTotal.ToString("N2"),
-                .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold),
-                .ForeColor = Color.Black,
-                .AutoSize = True,
-                .Location = New Point(620, y + 10)
+                .Location = New Point(CInt(rowWidth * 0.78), 13),
+                .Size = New Size(CInt(rowWidth * 0.2), 24),
+                .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
+                .TextAlign = ContentAlignment.MiddleRight
             }
-            orderSummaryPanel.Controls.Add(totalLabel)
-
-            y += 60
+            line.Controls.Add(productLabel)
+            line.Controls.Add(priceQuantityLabel)
+            line.Controls.Add(lineTotalLabel)
+            orderSummaryPanel.Controls.Add(line)
         Next
 
-        ' Prescription info
-        Dim hasRx As Boolean = items.Any(Function(c) c.IsRx)
-        prescriptionLabel.Visible = hasRx
-        prescriptionValueLabel.Visible = hasRx
-        rxRecordedLabel.Visible = hasRx
-        If hasRx Then
-            prescriptionValueLabel.Text = "RX- " & rxNoTextBox.Text.Trim()
-        End If
-
-        ' Payment summary
-        Dim subtotal As Decimal = items.Sum(Function(c) c.LineTotal)
+        Dim subtotal = cart.Sum(Function(item) item.LineTotal)
         Dim discount As Decimal = 0D
-        If customerTypeCombo.SelectedIndex = 1 OrElse customerTypeCombo.SelectedIndex = 2 Then
-            discount = subtotal * 0.2D
+        If Not checkoutModeIsWholesale AndAlso (customerTypeCombo.SelectedIndex = 1 OrElse customerTypeCombo.SelectedIndex = 2) Then
+            discount = Decimal.Round(subtotal * 0.2D, 2)
         End If
-        Dim total As Decimal = subtotal - discount
-
         subtotalValue.Text = "P " & subtotal.ToString("N2")
         discountValue.Text = "P " & discount.ToString("N2")
-        totalDueValue.Text = "P " & total.ToString("N2")
+        totalDueValue.Text = "P " & (subtotal - discount).ToString("N2")
+        cashTextBox.Clear()
         cashValue.Text = "P 0.00"
         changeValue.Text = "P 0.00"
-        cashTextBox.Text = ""
+        customerTypeCombo.Enabled = Not checkoutModeIsWholesale
+        customerNameTextBox.Text = If(checkoutModeIsWholesale, contactPersonTextBox.Text, "")
+        idNumberTextBox.Text = If(checkoutModeIsWholesale, customerLicenseTextBox.Text, "")
+        prescriptionLabel.Visible = Not checkoutModeIsWholesale AndAlso cart.Any(Function(item) item.IsRx)
+        prescriptionValueLabel.Visible = prescriptionLabel.Visible
+        rxRecordedLabel.Visible = prescriptionLabel.Visible
+        prescriptionValueLabel.Text = If(prescriptionLabel.Visible, "RX- " & rxNoTextBox.Text, "")
+        CheckoutView_Resize(checkoutView, EventArgs.Empty)
     End Sub
 
-    ' ===================== PAYMENT =====================
-
     Private Sub customerTypeCombo_SelectedIndexChanged(sender As Object, e As EventArgs) Handles customerTypeCombo.SelectedIndexChanged
-        ' Recalculate discount when customer type changes
-        Dim items = If(checkoutIsWholesale, wholesaleCart, cart)
-        If items.Count > 0 AndAlso checkoutView.Visible Then
-            BuildCheckoutView(items)
-        End If
+        If checkoutView.Visible AndAlso Not checkoutModeIsWholesale Then BuildCheckoutView()
     End Sub
 
     Private Sub cashTextBox_TextChanged(sender As Object, e As EventArgs) Handles cashTextBox.TextChanged
-        Dim cash As Decimal = 0D
-        Decimal.TryParse(cashTextBox.Text, cash)
-
-        Dim items = If(checkoutIsWholesale, wholesaleCart, cart)
-        Dim subtotal As Decimal = items.Sum(Function(c) c.LineTotal)
+        Dim cash As Decimal
+        Decimal.TryParse(cashTextBox.Text, NumberStyles.Currency, CultureInfo.CurrentCulture, cash)
+        Dim subtotal = cart.Sum(Function(item) item.LineTotal)
         Dim discount As Decimal = 0D
-        If customerTypeCombo.SelectedIndex = 1 OrElse customerTypeCombo.SelectedIndex = 2 Then
-            discount = subtotal * 0.2D
+        If Not checkoutModeIsWholesale AndAlso (customerTypeCombo.SelectedIndex = 1 OrElse customerTypeCombo.SelectedIndex = 2) Then
+            discount = Decimal.Round(subtotal * 0.2D, 2)
         End If
-        Dim total As Decimal = subtotal - discount
-
         cashValue.Text = "P " & cash.ToString("N2")
-        Dim change As Decimal = cash - total
+        Dim change = cash - (subtotal - discount)
         changeValue.Text = "P " & change.ToString("N2")
-        If change < 0 Then
-            changeValue.ForeColor = Color.FromArgb(200, 30, 30)
-        Else
-            changeValue.ForeColor = Color.Black
-        End If
+        changeValue.ForeColor = If(change < 0, Color.FromArgb(200, 30, 30), Color.Black)
     End Sub
 
     Private Sub cancelButton_Click(sender As Object, e As EventArgs) Handles cancelButton.Click
-        If checkoutIsWholesale Then
-            ShowView("Wholesale")
-        Else
-            ShowView("Retail")
-        End If
+        checkoutView.Visible = False
+        transactionView.Visible = True
+        titleLabel.Text = "Transaction"
+        subtitleLabel.Text = If(isWholesale, "Wholesale Box Price", "Retail Unit Price")
     End Sub
 
     Private Sub confirmButton_Click(sender As Object, e As EventArgs) Handles confirmButton.Click
-        Dim items = If(checkoutIsWholesale, wholesaleCart, cart)
-        If items.Count = 0 Then
-            MessageBox.Show("No items to checkout.", "Checkout", MessageBoxButtons.OK, MessageBoxIcon.Information)
+        Dim cash As Decimal
+        If Not Decimal.TryParse(cashTextBox.Text, NumberStyles.Currency, CultureInfo.CurrentCulture, cash) Then
+            MessageBox.Show("Enter a valid cash amount.", "Checkout", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+            cashTextBox.Focus()
             Return
         End If
 
-        Dim cash As Decimal = 0D
-        Decimal.TryParse(cashTextBox.Text, cash)
-
-        Dim subtotal As Decimal = items.Sum(Function(c) c.LineTotal)
+        Dim subtotal = cart.Sum(Function(item) item.LineTotal)
         Dim discount As Decimal = 0D
-        If customerTypeCombo.SelectedIndex = 1 OrElse customerTypeCombo.SelectedIndex = 2 Then
-            discount = subtotal * 0.2D
+        If Not checkoutModeIsWholesale AndAlso (customerTypeCombo.SelectedIndex = 1 OrElse customerTypeCombo.SelectedIndex = 2) Then
+            discount = Decimal.Round(subtotal * 0.2D, 2)
         End If
-        Dim total As Decimal = subtotal - discount
-
-        If cash < total Then
-            MessageBox.Show("Insufficient cash received. Total due is P " & total.ToString("N2"), "Checkout", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        Dim totalDue = subtotal - discount
+        If cash < totalDue Then
+            MessageBox.Show("Insufficient cash received. Total due is P " & totalDue.ToString("N2"), "Checkout", MessageBoxButtons.OK, MessageBoxIcon.Warning)
             Return
         End If
 
-        Dim change As Decimal = cash - total
-        Dim receipt As String =
-            "Transaction Complete!" & vbCrLf & vbCrLf &
-            "Subtotal: P " & subtotal.ToString("N2") & vbCrLf &
-            "Discount: P " & discount.ToString("N2") & vbCrLf &
-            "Total Due: P " & total.ToString("N2") & vbCrLf &
-            "Cash: P " & cash.ToString("N2") & vbCrLf &
-            "Change: P " & change.ToString("N2")
-
+        Dim receipt = "Transaction Complete" & vbCrLf &
+                      "Mode: " & If(checkoutModeIsWholesale, "Wholesale", "Retail") & vbCrLf &
+                      "Subtotal: P " & subtotal.ToString("N2") & vbCrLf &
+                      "Discount: P " & discount.ToString("N2") & vbCrLf &
+                      "Total Due: P " & totalDue.ToString("N2") & vbCrLf &
+                      "Cash: P " & cash.ToString("N2") & vbCrLf &
+                      "Change: P " & (cash - totalDue).ToString("N2")
+        If checkoutModeIsWholesale Then
+            receipt &= vbCrLf & "Customer: " & contactPersonTextBox.Text & vbCrLf & "PO No.: " & poNoTextBox.Text
+        End If
         MessageBox.Show(receipt, "Receipt", MessageBoxButtons.OK, MessageBoxIcon.Information)
 
-        ' Clear cart and return
-        If checkoutIsWholesale Then
-            wholesaleCart.Clear()
-            RenderWholesaleCart()
-            ShowView("Wholesale")
-        Else
-            cart.Clear()
-            RenderCart()
-            ShowView("Retail")
-        End If
+        cart.Clear()
+        RenderCart()
+        checkoutView.Visible = False
+        transactionView.Visible = True
+        titleLabel.Text = "Transaction"
+        subtitleLabel.Text = If(isWholesale, "Wholesale Box Price", "Retail Unit Price")
+        customerNameTextBox.Clear()
+        idNumberTextBox.Clear()
     End Sub
 
 End Class
