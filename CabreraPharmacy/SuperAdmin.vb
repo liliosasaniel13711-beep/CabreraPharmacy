@@ -15,6 +15,15 @@ Public Class SuperAdmin
         accountEdit.UseColumnTextForButtonValue = True
         accountResetPassword.Text = "Reset"
         accountResetPassword.UseColumnTextForButtonValue = True
+        If Not accountsDataGrid.Columns.Contains("accountActivity") Then
+            accountsDataGrid.Columns.Add(New DataGridViewButtonColumn With {
+                .Name = "accountActivity",
+                .HeaderText = "",
+                .Text = "Activity",
+                .UseColumnTextForButtonValue = True,
+                .MinimumWidth = 6
+            })
+        End If
 
         accountsDataGrid.Anchor = AnchorStyles.Top Or AnchorStyles.Bottom Or AnchorStyles.Left Or AnchorStyles.Right
         accountsDataGrid.Height = pnlAccounts.Height - accountsDataGrid.Top - 40
@@ -27,12 +36,20 @@ Public Class SuperAdmin
 
         ' Load the database data into the Accounts grid
         LoadAccounts()
+        LoadSalesDashboardStats()
     End Sub
 
     Private Sub HideAllPanels()
         pnlDashboard.Visible = False
         pnlAccounts.Visible = False
         pnlReports.Visible = False
+        pnlInventoryStockReport.Visible = False
+        pnlFinancialSalesReport.Visible = False
+        pnlRetailSalesReport.Visible = False
+        pnlExpensesReport.Visible = False
+        pnlPurchasesReport.Visible = False
+        pnlWholesaleSalesReport.Visible = False
+        pnlEmployeesalesReport.Visible = False
     End Sub
 
     Private Sub btnDashboard_Click(sender As Object, e As EventArgs) Handles btnDashboard.Click
@@ -54,7 +71,79 @@ Public Class SuperAdmin
         pnlReports.BringToFront()
     End Sub
 
+    Private Sub financialViewReport_Click(sender As Object, e As EventArgs) Handles financialViewReport.Click
+        ShowSalesReport(pnlFinancialSalesReport, DataGridView4, Nothing,
+                        "financialTransactionID", "financialDate", "financialCustomer", "financialCashier", "financialType", "financialTotal", "financialStatus", financialGenerated)
+    End Sub
+
+    Private Sub retailViewReport_Click(sender As Object, e As EventArgs) Handles retailViewReport.Click
+        ShowSalesReport(pnlRetailSalesReport, retailDataGrid, "Retail",
+                        "retailTransactionID", "retailDate", "retailCustomer", "retailCashier", "retailType", "retailTotal", "retailStatus", retailGenerated)
+    End Sub
+
+    Private Sub wholesaleViewReport_Click(sender As Object, e As EventArgs) Handles wholesaleViewReport.Click
+        ShowSalesReport(pnlWholesaleSalesReport, wholesaleDataGrid, "Wholesale",
+                        "DataGridViewTextBoxColumn2", "DataGridViewTextBoxColumn3", "DataGridViewTextBoxColumn4", "DataGridViewTextBoxColumn5", "DataGridViewTextBoxColumn6", "DataGridViewTextBoxColumn7", "DataGridViewTextBoxColumn8", employeeGenerated)
+    End Sub
+
+    Private Sub employeeViewReport_Click(sender As Object, e As EventArgs) Handles employeeViewReport.Click
+        ShowSalesReport(pnlEmployeesalesReport, employeDataGrid, Nothing,
+                        "employeeTransactionID", "employeeDate", "employeeCustomer", "employeeCashier", "employeeType", "employeeTotal", "employeeStatus", TextBox67)
+    End Sub
+
+    Private Sub ShowSalesReport(reportPanel As Panel,
+                                grid As DataGridView,
+                                saleMode As String,
+                                idColumn As String,
+                                dateColumn As String,
+                                customerColumn As String,
+                                cashierColumn As String,
+                                typeColumn As String,
+                                totalColumn As String,
+                                statusColumn As String,
+                                generatedLabel As TextBox)
+        Try
+            Dim columnNames = {idColumn, dateColumn, customerColumn, cashierColumn, typeColumn, totalColumn, statusColumn}
+            Dim propertyNames = {"TransactionID", "SaleDate", "Customer", "Cashier", "SaleType", "Total", "Status"}
+            For index = 0 To columnNames.Length - 1
+                grid.Columns(columnNames(index)).DataPropertyName = propertyNames(index)
+            Next
+
+            grid.AutoGenerateColumns = False
+            grid.AllowUserToAddRows = False
+            grid.ReadOnly = True
+            grid.RowHeadersVisible = False
+            grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect
+            grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
+            grid.DataSource = New SalesRepository().GetTransactionReport(saleMode)
+            grid.Columns(dateColumn).DefaultCellStyle.Format = "g"
+            grid.Columns(totalColumn).DefaultCellStyle.Format = "'P' #,##0.00"
+            generatedLabel.Text = "Generated: " & DateTime.Now.ToString("MMM dd, yyyy h:mm tt") & " | By: " & CurrentFullName
+
+            HideAllPanels()
+            reportPanel.Visible = True
+            reportPanel.BringToFront()
+        Catch ex As Exception
+            MessageBox.Show("Could not load sales report. " & ex.Message, "Sales reports", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Sub
+
+    Private Sub LoadSalesDashboardStats()
+        Try
+            Dim summary = New SalesRepository().GetSummary()
+            userIDText.Text = "P " & summary.TodaySales.ToString("N2")
+            monthDateYear.Text = DateTime.Today.ToString("MMMM dd, yyyy")
+            TextBox3.Text = "P " & summary.RetailSales.ToString("N2")
+            transactionRetail.Text = summary.RetailTransactions.ToString() & " Transactions"
+            TextBox6.Text = "P " & summary.WholesaleSales.ToString("N2")
+            transactionsWholesale.Text = summary.WholesaleTransactions.ToString() & " Transactions"
+        Catch ex As Exception
+            MessageBox.Show("Could not load sales totals. " & ex.Message, "Sales dashboard", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Sub
+
     Private Sub LogoutBtn_Click(sender As Object, e As EventArgs) Handles LogoutBtn.Click, btnLogin.Click
+        If MessageBox.Show("Are you sure you want to log out?", "Confirm Logout", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) <> DialogResult.Yes Then Return
         Me.Close()
     End Sub
 
@@ -125,7 +214,45 @@ Public Class SuperAdmin
                 ResetPassword(userId.Value)
             Case "accountEnableDisable"
                 ToggleAccount(userId.Value, e.RowIndex)
+            Case "accountActivity"
+                ShowUserActivity(userId.Value)
         End Select
+    End Sub
+
+    Private Sub ShowUserActivity(userId As Integer)
+        Try
+            Dim activityTable As New DataTable()
+            Using connection = GetConnection()
+                connection.Open()
+                Const query = "SELECT user_id AS UserID, username AS Username, full_name AS FullName, role AS Role, activity AS Activity, created_at AS EventTime FROM user_activity WHERE user_id = @userId ORDER BY created_at DESC, activity_id DESC"
+                Using adapter As New MySqlDataAdapter(query, connection)
+                    adapter.SelectCommand.Parameters.AddWithValue("@userId", userId)
+                    adapter.Fill(activityTable)
+                End Using
+            End Using
+
+            Dim activityGrid As New DataGridView With {
+                .Dock = DockStyle.Fill,
+                .ReadOnly = True,
+                .AutoGenerateColumns = True,
+                .AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                .DataSource = activityTable,
+                .AllowUserToAddRows = False,
+                .AllowUserToDeleteRows = False
+            }
+            Dim dialog As New Form With {
+                .Text = "User Activity - ID " & userId.ToString(),
+                .StartPosition = FormStartPosition.CenterParent,
+                .Size = New Size(900, 500),
+                .MinimumSize = New Size(650, 350),
+                .BackColor = Color.White
+            }
+            dialog.Controls.Add(activityGrid)
+            dialog.ShowDialog(Me)
+        Catch ex As Exception
+            MessageBox.Show("Could not load activity for user " & userId.ToString() & ". " & ex.Message,
+                            "User activity", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
     End Sub
 
     Private Function SelectedUserId(rowIndex As Integer) As Integer?
@@ -491,7 +618,11 @@ Public Class SuperAdmin
     End Sub
 
 
-    Private Sub PictureBox1_Click(sender As Object, e As EventArgs) Handles PictureBox1.Click
+    Private Sub PictureBox1_Click(sender As Object, e As EventArgs)
+
+    End Sub
+
+    Private Sub storeName1_Click(sender As Object, e As EventArgs) Handles storeName1.Click
 
     End Sub
 End Class

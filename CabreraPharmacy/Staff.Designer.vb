@@ -60,7 +60,7 @@ Partial Class Staff
         rxLicenseLabel = New Label()
         rxLicenseTextBox = New TextBox()
         rxDateLabel = New Label()
-        rxDateTextBox = New TextBox()
+        rxDateTextBox = New DateTimePicker()
         wholesaleDetailsPanel = New Panel()
         wholesaleDetailsTitle = New Label()
         customerSearchButton = New Button()
@@ -111,6 +111,7 @@ Partial Class Staff
         changeLabel = New Label()
         changeValue = New Label()
         cashTextBox = New TextBox()
+        backToPosButton = New Button()
         cancelButton = New Button()
         confirmButton = New Button()
         restockView = New Panel()
@@ -161,8 +162,10 @@ Partial Class Staff
         sidebar.Controls.Add(logoutstaff_button)
         sidebar.Dock = DockStyle.Fill
         logoBox.BackColor = Color.FromArgb(255, 215, 0)
+        logoBox.Image = My.Resources.Resources._769082459_1379172074148575_7892593615181140804_n
         logoBox.Location = New Point(20, 20)
         logoBox.Size = New Size(50, 50)
+        logoBox.SizeMode = PictureBoxSizeMode.Zoom
         PharName.AutoSize = True
         PharName.Font = New Font("Segoe UI", 10.0F, FontStyle.Bold)
         PharName.ForeColor = Color.FromArgb(20, 100, 60)
@@ -262,20 +265,17 @@ Partial Class Staff
         searchPanel.Controls.Add(searchLabel)
         searchPanel.Controls.Add(searchFilterCombo)
         searchPanel.Controls.Add(searchTextBox)
-        searchPanel.Controls.Add(searchButton)
         searchPanel.Dock = DockStyle.Fill
         searchLabel.AutoSize = True
         searchLabel.Location = New Point(12, 15)
-        searchLabel.Text = "Medicine:"
+        searchLabel.Text = "Category:"
         searchFilterCombo.DropDownStyle = ComboBoxStyle.DropDownList
-        searchFilterCombo.Items.AddRange(New Object() {"All", "Product ID", "Generic Name", "Brand Name"})
+        searchFilterCombo.Items.AddRange(New Object() {"All Categories"})
         searchFilterCombo.Location = New Point(90, 11)
-        searchFilterCombo.Size = New Size(145, 25)
-        searchTextBox.Location = New Point(245, 11)
+        searchFilterCombo.Size = New Size(220, 25)
+        searchTextBox.Location = New Point(325, 11)
         searchTextBox.Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right
-        searchTextBox.Size = New Size(470, 25)
-        searchButton = ConfigureActionButton(searchButton, "Search", 725, 8, 100, 32)
-        searchButton.Anchor = AnchorStyles.Top Or AnchorStyles.Right
+        searchTextBox.Size = New Size(500, 25)
         transactionLeftLayout.Controls.Add(searchPanel, 0, 1)
 
         resultsGrid.AllowUserToAddRows = False
@@ -288,6 +288,8 @@ Partial Class Staff
         resultsGrid.ReadOnly = True
         resultsGrid.RowHeadersVisible = False
         resultsGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect
+        resultsGrid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(218, 240, 229)
+        resultsGrid.DefaultCellStyle.SelectionForeColor = Color.Black
         resultsGrid.Dock = DockStyle.Fill
         resultsGrid.Margin = New Padding(0, 0, 0, 8)
         transactionLeftLayout.Controls.Add(resultsGrid, 0, 2)
@@ -305,7 +307,7 @@ Partial Class Staff
         qtyMinusButton = ConfigureSmallButton(qtyMinusButton, "-", 90)
         qtyTextBox.Location = New Point(126, 11)
         qtyTextBox.Size = New Size(50, 25)
-        qtyTextBox.Text = "1"
+        qtyTextBox.Text = "0"
         qtyTextBox.TextAlign = HorizontalAlignment.Center
         qtyPlusButton = ConfigureSmallButton(qtyPlusButton, "+", 182)
         addToCartButton = ConfigureActionButton(addToCartButton, "ADD TO CART", 725, 7, 150, 34)
@@ -320,9 +322,14 @@ Partial Class Staff
         prescriptionPanel.BackColor = Color.White
         prescriptionPanel.Controls.Add(prescriptionTitle)
         AddField(prescriptionPanel, rxNoLabel, "Prescription No.", rxNoTextBox, 12, 43, 290)
+        rxNoTextBox.CharacterCasing = CharacterCasing.Upper
         AddField(prescriptionPanel, rxPractitionerLabel, "Prescribing Practitioner", rxPractitionerTextBox, 320, 43, 290)
+        rxPractitionerTextBox.CharacterCasing = CharacterCasing.Upper
         AddField(prescriptionPanel, rxLicenseLabel, "PRC License No.", rxLicenseTextBox, 628, 43, 230)
-        AddField(prescriptionPanel, rxDateLabel, "Prescription Date", rxDateTextBox, 12, 99, 290)
+        rxLicenseTextBox.CharacterCasing = CharacterCasing.Upper
+        AddDateField(prescriptionPanel, rxDateLabel, "Prescription Date", rxDateTextBox, 12, 99, 290)
+        rxDateTextBox.Format = DateTimePickerFormat.Custom
+        rxDateTextBox.CustomFormat = "MM/dd/yy"
         prescriptionPanel.Dock = DockStyle.Fill
         prescriptionPanel.Size = New Size(900, 145)
         prescriptionTitle = ConfigureSectionLabel(prescriptionTitle, "Prescription Information", 12, 12)
@@ -394,14 +401,17 @@ Partial Class Staff
         customerTypeLabel = ConfigureFieldLabel(customerTypeLabel, "CUSTOMER TYPE", 20, 65)
         customerTypeCombo.DropDownStyle = ComboBoxStyle.DropDownList
         customerTypeCombo.Items.AddRange(New Object() {"Regular", "PWD", "Senior Citizen"})
+        customerTypeCombo.SelectedIndex = 0
         customerTypeCombo.Location = New Point(20, 90)
         customerTypeCombo.Size = New Size(250, 25)
         customerNameLabel = ConfigureFieldLabel(customerNameLabel, "Customer Name:", 20, 140)
         customerNameTextBox.Location = New Point(140, 137)
         customerNameTextBox.Size = New Size(250, 23)
+        customerNameTextBox.CharacterCasing = CharacterCasing.Upper
         idNumberLabel = ConfigureFieldLabel(idNumberLabel, "ID Number:", 20, 170)
         idNumberTextBox.Location = New Point(140, 167)
         idNumberTextBox.Size = New Size(250, 23)
+        idNumberTextBox.CharacterCasing = CharacterCasing.Upper
         orderSummaryLabel = ConfigureFieldLabel(orderSummaryLabel, "ORDER SUMMARY", 20, 220)
         orderSummaryPanel.AutoScroll = True
         orderSummaryPanel.FlowDirection = FlowDirection.TopDown
@@ -424,6 +434,7 @@ Partial Class Staff
         paymentCard.Controls.Add(changeLabel)
         paymentCard.Controls.Add(changeValue)
         paymentCard.Controls.Add(cashTextBox)
+        paymentCard.Controls.Add(backToPosButton)
         paymentCard.Controls.Add(cancelButton)
         paymentCard.Controls.Add(confirmButton)
         paymentCard.Location = New Point(840, 0)
@@ -436,12 +447,24 @@ Partial Class Staff
         discountValue = ConfigureFieldLabel(discountValue, "P 0.00", 660, 100)
         totalDueLabel = ConfigureFieldLabel(totalDueLabel, "TOTAL DUE:", 20, 130)
         totalDueValue = ConfigureFieldLabel(totalDueValue, "P 0.00", 660, 130)
-        cashLabel = ConfigureFieldLabel(cashLabel, "CASH RECEIVED:", 20, 200)
-        cashValue = ConfigureFieldLabel(cashValue, "P 0.00", 660, 200)
+        cashLabel = ConfigureFieldLabel(cashLabel, "CASH AMOUNT:", 20, 200)
+        cashValue = ConfigureFieldLabel(cashValue, "P", 660, 200)
         changeLabel = ConfigureFieldLabel(changeLabel, "CHANGE:", 20, 230)
         changeValue = ConfigureFieldLabel(changeValue, "P 0.00", 660, 230)
         cashTextBox.Location = New Point(20, 280)
         cashTextBox.Size = New Size(250, 27)
+        cashTextBox.Text = "0.00"
+        cashTextBox.TextAlign = HorizontalAlignment.Right
+        cashTextBox.MaxLength = 12
+        backToPosButton.BackColor = Color.White
+        backToPosButton.Cursor = Cursors.Hand
+        backToPosButton.FlatAppearance.BorderColor = Color.FromArgb(20, 100, 60)
+        backToPosButton.FlatStyle = FlatStyle.Flat
+        backToPosButton.ForeColor = Color.FromArgb(20, 100, 60)
+        backToPosButton.Location = New Point(330, 640)
+        backToPosButton.Size = New Size(118, 35)
+        backToPosButton.Text = "BACK TO POS"
+        backToPosButton.UseVisualStyleBackColor = False
         cancelButton = ConfigureDangerButton(cancelButton, "CANCEL", 560, 640, 100, 35)
         confirmButton = ConfigureActionButton(confirmButton, "CONFIRM", 670, 640, 114, 35)
 
@@ -645,7 +668,7 @@ Partial Class Staff
     Friend WithEvents rxLicenseLabel As Label
     Friend WithEvents rxLicenseTextBox As TextBox
     Friend WithEvents rxDateLabel As Label
-    Friend WithEvents rxDateTextBox As TextBox
+    Friend WithEvents rxDateTextBox As DateTimePicker
     Friend WithEvents wholesaleDetailsPanel As Panel
     Friend WithEvents wholesaleDetailsTitle As Label
     Friend WithEvents customerSearchButton As Button
@@ -696,6 +719,7 @@ Partial Class Staff
     Friend WithEvents changeLabel As Label
     Friend WithEvents changeValue As Label
     Friend WithEvents cashTextBox As TextBox
+    Friend WithEvents backToPosButton As Button
     Friend WithEvents cancelButton As Button
     Friend WithEvents confirmButton As Button
     Friend WithEvents restockView As Panel
