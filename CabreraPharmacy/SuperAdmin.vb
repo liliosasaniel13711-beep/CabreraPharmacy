@@ -33,6 +33,8 @@ Public Class SuperAdmin
         HideAllPanels()
         pnlDashboard.Visible = True
         pnlDashboard.BringToFront()
+        AddHandler pnlDashboard.Resize, AddressOf LayoutDashboardCards
+        LayoutDashboardCards(pnlDashboard, EventArgs.Empty)
 
         ' Load the database data into the Accounts grid
         LoadAccounts()
@@ -56,6 +58,72 @@ Public Class SuperAdmin
         HideAllPanels()
         pnlDashboard.Visible = True
         pnlDashboard.BringToFront()
+        LayoutDashboardCards(pnlDashboard, EventArgs.Empty)
+        LoadSalesDashboardStats()
+    End Sub
+
+    Private Sub LayoutDashboardCards(sender As Object, e As EventArgs)
+        If pnlDashboard.ClientSize.Width <= 0 OrElse pnlDashboard.ClientSize.Height <= 0 Then Return
+
+        TableLayoutPanel3.Visible = False
+        TableLayoutPanel4.Visible = False
+        TableLayoutPanel1.Margin = Padding.Empty
+        TableLayoutPanel2.Margin = Padding.Empty
+
+        For Each card In {Panel1, Panel2, Panel3, Panel4, Panel5, Panel6, Panel7, Panel8}
+            card.Margin = New Padding(10)
+        Next
+
+        Dim left = sideBarSuperAdmin.Width + 20
+        Dim top = 120
+        Dim rightMargin = 20
+        Dim rowGap = 16
+        Dim availableWidth = Math.Max(1, pnlDashboard.ClientSize.Width - left - rightMargin)
+        Dim availableHeight = pnlDashboard.ClientSize.Height - top - 20 - rowGap
+        If availableHeight < 2 Then Return
+
+        Dim firstRowHeight = availableHeight \ 2
+        TableLayoutPanel1.SetBounds(left, top, availableWidth, firstRowHeight)
+        TableLayoutPanel2.SetBounds(left, top + firstRowHeight + rowGap, availableWidth, availableHeight - firstRowHeight)
+
+        FormatDashboardCard(Panel1, todaysSale, userIDText, monthDateYear)
+        FormatDashboardCard(Panel2, TextBox2, TextBox3, transactionRetail)
+        FormatDashboardCard(Panel3, TextBox5, TextBox6, transactionsWholesale)
+        FormatDashboardCard(Panel4, TextBox14, TextBox15, allCategories)
+        FormatDashboardCard(Panel5, TextBox8, TextBox9, needOrdering)
+        FormatDashboardCard(Panel6, TextBox11, TextBox12, days)
+        FormatDashboardCard(Panel7, TextBox17, TextBox19, requiresDisposal)
+        FormatDashboardCard(Panel8, TextBox18, TextBox20, expensesRecorded)
+    End Sub
+
+    Private Sub FormatDashboardCard(card As Panel, title As TextBox, value As TextBox, footer As TextBox)
+        If card.ClientSize.Width <= 0 OrElse card.ClientSize.Height <= 0 Then Return
+
+        card.BackColor = Color.White
+        title.ReadOnly = True
+        title.TabStop = False
+        title.BorderStyle = BorderStyle.None
+        title.BackColor = Color.White
+        title.Font = New Font("Segoe UI", 11.0F, FontStyle.Bold)
+        title.Location = New Point(20, 20)
+        title.Size = New Size(Math.Max(80, card.ClientSize.Width - 40), 24)
+
+        value.ReadOnly = True
+        value.TabStop = False
+        value.BorderStyle = BorderStyle.None
+        value.BackColor = Color.White
+        value.Font = New Font("Segoe UI", 24.0F)
+        value.Location = New Point(20, Math.Max(55, card.ClientSize.Height \ 2 - 16))
+        value.Size = New Size(Math.Max(80, card.ClientSize.Width - 40), 42)
+
+        footer.ReadOnly = True
+        footer.TabStop = False
+        footer.BorderStyle = BorderStyle.None
+        footer.BackColor = Color.White
+        footer.Font = New Font("Segoe UI", 9.0F)
+        footer.ForeColor = Color.Gray
+        footer.Location = New Point(20, card.ClientSize.Height - 40)
+        footer.Size = New Size(Math.Max(80, card.ClientSize.Width - 40), 22)
     End Sub
 
     Private Sub btnAccounts_Click(sender As Object, e As EventArgs) Handles btnAccounts.Click
@@ -139,6 +207,43 @@ Public Class SuperAdmin
             transactionsWholesale.Text = summary.WholesaleTransactions.ToString() & " Transactions"
         Catch ex As Exception
             MessageBox.Show("Could not load sales totals. " & ex.Message, "Sales dashboard", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+
+        Try
+            Dim products = New ProductManager().GetProducts(includeInactive:=True)
+            If products Is Nothing Then products = New DataTable()
+
+            Dim lowStockCount As Integer = 0
+            Dim expiredCount As Integer = 0
+            Dim nearExpiryCount As Integer = 0
+
+            For Each row As DataRow In products.Rows
+                Dim stock = If(row.IsNull("Stock Quantity"), 0, Convert.ToInt32(row("Stock Quantity")))
+                Dim reorderPoint = If(row.IsNull("Reorder Point"), 0, Convert.ToInt32(row("Reorder Point")))
+                If stock <= reorderPoint Then lowStockCount += 1
+
+                If Not row.IsNull("Expiry Date") Then
+                    Dim expiry = Convert.ToDateTime(row("Expiry Date")).Date
+                    If expiry < Date.Today Then
+                        expiredCount += 1
+                    ElseIf expiry <= Date.Today.AddMonths(6) Then
+                        nearExpiryCount += 1
+                    End If
+                End If
+            Next
+
+            TextBox15.Text = products.Rows.Count.ToString()
+            allCategories.Text = "All Categories"
+            TextBox9.Text = lowStockCount.ToString()
+            needOrdering.Text = "Need reordering"
+            TextBox12.Text = expiredCount.ToString()
+            days.Text = "Currently expired"
+            TextBox19.Text = nearExpiryCount.ToString()
+            requiresDisposal.Text = "Expires within 6 months"
+            TextBox20.Text = "P 0.00"
+            expensesRecorded.Text = "Expense data is not stored yet"
+        Catch ex As Exception
+            MessageBox.Show("Could not load inventory totals. " & ex.Message, "Inventory dashboard", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
     End Sub
 

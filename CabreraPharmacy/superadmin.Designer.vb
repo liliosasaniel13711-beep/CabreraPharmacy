@@ -848,7 +848,7 @@ Partial Class SuperAdmin
         TextBox14.Name = "TextBox14"
         TextBox14.Size = New Size(152, 32)
         TextBox14.TabIndex = 8
-        TextBox14.Text = "Wholesale Sale"
+        TextBox14.Text = "Total Products"
         ' 
         ' TableLayoutPanel2
         ' 
