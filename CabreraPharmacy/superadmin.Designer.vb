@@ -274,7 +274,6 @@ Partial Class SuperAdmin
         accountUsername = New DataGridViewTextBoxColumn()
         accountRole = New DataGridViewTextBoxColumn()
         accountStatus = New DataGridViewTextBoxColumn()
-        accountLastLogin = New DataGridViewTextBoxColumn()
         accountEdit = New DataGridViewButtonColumn()
         accountResetPassword = New DataGridViewButtonColumn()
         accountEnableDisable = New DataGridViewButtonColumn()
@@ -3190,7 +3189,7 @@ Partial Class SuperAdmin
         accountsDataGrid.BackgroundColor = SystemColors.ControlLightLight
         accountsDataGrid.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single
         accountsDataGrid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize
-        accountsDataGrid.Columns.AddRange(New DataGridViewColumn() {accountUserID, accountFullName, accountUsername, accountRole, accountStatus, accountLastLogin, accountEdit, accountResetPassword, accountEnableDisable})
+        accountsDataGrid.Columns.AddRange(New DataGridViewColumn() {accountUserID, accountFullName, accountUsername, accountRole, accountStatus, accountEdit, accountResetPassword, accountEnableDisable})
         accountsDataGrid.Location = New Point(14, 326)
         accountsDataGrid.Name = "accountsDataGrid"
         accountsDataGrid.RowHeadersBorderStyle = DataGridViewHeaderBorderStyle.Sunken
@@ -3232,13 +3231,6 @@ Partial Class SuperAdmin
         accountStatus.MinimumWidth = 6
         accountStatus.Name = "accountStatus"
         accountStatus.Width = 125
-        ' 
-        ' accountLastLogin
-        ' 
-        accountLastLogin.HeaderText = "LAST LOGIN"
-        accountLastLogin.MinimumWidth = 6
-        accountLastLogin.Name = "accountLastLogin"
-        accountLastLogin.Width = 125
         ' 
         ' accountEdit
         ' 
@@ -3846,7 +3838,6 @@ Partial Class SuperAdmin
     Friend WithEvents accountUsername As DataGridViewTextBoxColumn
     Friend WithEvents accountRole As DataGridViewTextBoxColumn
     Friend WithEvents accountStatus As DataGridViewTextBoxColumn
-    Friend WithEvents accountLastLogin As DataGridViewTextBoxColumn
     Friend WithEvents accountEdit As DataGridViewButtonColumn
     Friend WithEvents accountResetPassword As DataGridViewButtonColumn
     Friend WithEvents accountEnableDisable As DataGridViewButtonColumn

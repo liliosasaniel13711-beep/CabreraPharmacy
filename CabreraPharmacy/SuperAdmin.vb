@@ -19,12 +19,18 @@ Public Class SuperAdmin
     Private transactionDetailsTitle As Label
     Private salesDateFilterLabel As Label
     Private salesDateCaption As Label
+    Private salesMonthCaption As Label
+    Private salesYearCaption As Label
+    Private salesReportMonthCombo As ComboBox
+    Private salesReportYearCombo As ComboBox
     Private salesFiltersInitialized As Boolean
     Private salesReportFilterPanel As Panel
     Private salesReportDetailsPanel As Panel
     Private salesReportTotalLabel As Label
     Private salesReportPageLayout As TableLayoutPanel
     Private salesReportBody As TableLayoutPanel
+    Private salesReportPeriodButtons As New Dictionary(Of String, Button)(StringComparer.OrdinalIgnoreCase)
+    Private salesReportModeButtons As New Dictionary(Of String, Button)(StringComparer.OrdinalIgnoreCase)
 
     ' --- 1. INITIALIZATION & NAVIGATION ---
     Private Sub SuperAdmin_Load(sender As Object, e As EventArgs) Handles MyBase.Load
@@ -47,16 +53,6 @@ Public Class SuperAdmin
         accountEdit.UseColumnTextForButtonValue = True
         accountResetPassword.Text = "Reset"
         accountResetPassword.UseColumnTextForButtonValue = True
-        If Not accountsDataGrid.Columns.Contains("accountActivity") Then
-            accountsDataGrid.Columns.Add(New DataGridViewButtonColumn With {
-                .Name = "accountActivity",
-                .HeaderText = "",
-                .Text = "Activity",
-                .UseColumnTextForButtonValue = True,
-                .MinimumWidth = 6
-            })
-        End If
-
         AddHandler pnlAccounts.Resize, AddressOf LayoutAccounts_Resize
         AddHandler pnlHeaderAccounts.Resize, AddressOf LayoutAccounts_Resize
         accountsDataGrid.Anchor = AnchorStyles.Top Or AnchorStyles.Bottom Or AnchorStyles.Left Or AnchorStyles.Right
@@ -674,8 +670,12 @@ Public Class SuperAdmin
             salesReportFilterPanel.Dock = DockStyle.Fill
             salesReportDetailsPanel.Dock = DockStyle.Fill
             salesDateFilterLabel.SetBounds(14, 14, Math.Max(1, salesReportFilterPanel.ClientSize.Width - 28), 24)
-            salesDateCaption.SetBounds(14, 48, 80, 18)
-            salesTransactionDate.SetBounds(14, 64, Math.Max(1, salesReportFilterPanel.ClientSize.Width - 28), 28)
+            salesDateCaption.SetBounds(14, 60, 80, 18)
+            salesTransactionDate.SetBounds(14, 82, Math.Max(1, salesReportFilterPanel.ClientSize.Width - 28), 28)
+            salesMonthCaption.SetBounds(14, 60, 80, 18)
+            salesReportMonthCombo.SetBounds(14, 82, Math.Max(1, salesReportFilterPanel.ClientSize.Width - 28), 28)
+            salesYearCaption.SetBounds(14, If(String.Equals(Convert.ToString(ComboBox4.SelectedItem), "Monthly", StringComparison.Ordinal), 145, 60), 80, 18)
+            salesReportYearCombo.SetBounds(14, If(String.Equals(Convert.ToString(ComboBox4.SelectedItem), "Monthly", StringComparison.Ordinal), 167, 82), Math.Max(1, salesReportFilterPanel.ClientSize.Width - 28), 28)
             transactionDetailsTitle.Dock = DockStyle.Top
             transactionDetailsTitle.Height = 34
             transactionDetailsTitle.Padding = New Padding(14, 8, 0, 0)
@@ -793,10 +793,9 @@ Public Class SuperAdmin
             salesBackToReports.ForeColor = Color.FromArgb(20, 100, 60)
             salesBackToReports.FlatAppearance.BorderSize = 1
             salesBackToReports.SetBounds(right - 126, 7, 126, 32)
-            ComboBox4.Font = New Font("Segoe UI", 9.0F)
-            ComboBox4.SetBounds(inset, 43, 150, 24)
-            salesTransactionFilter.Font = New Font("Segoe UI", 9.0F)
-            salesTransactionFilter.SetBounds(right - 150, 43, 150, 24)
+            ComboBox4.Visible = False
+            salesTransactionFilter.Visible = False
+            LayoutSalesReportFilterButtons(toolbar)
             Return
         End If
 
@@ -992,6 +991,20 @@ Public Class SuperAdmin
             .ForeColor = Color.Gray,
             .AutoSize = True
         }
+        salesMonthCaption = New Label With {
+            .Name = "salesMonthCaption",
+            .Text = "Month",
+            .Font = New Font("Segoe UI", 8.5F),
+            .ForeColor = Color.Gray,
+            .AutoSize = True
+        }
+        salesYearCaption = New Label With {
+            .Name = "salesYearCaption",
+            .Text = "Year",
+            .Font = New Font("Segoe UI", 8.5F),
+            .ForeColor = Color.Gray,
+            .AutoSize = True
+        }
         salesDateFilterLabel = New Label With {
             .Name = "salesDateFilterLabel",
             .Text = "Filter by daily",
@@ -1015,6 +1028,19 @@ Public Class SuperAdmin
             .TextAlign = ContentAlignment.MiddleRight,
             .Padding = New Padding(0, 0, 18, 0)
         }
+        salesReportMonthCombo = New ComboBox With {.Name = "salesReportMonthCombo", .DropDownStyle = ComboBoxStyle.DropDownList, .Font = New Font("Segoe UI", 9.0F)}
+        salesReportMonthCombo.Items.AddRange(New Object() {"September", "October"})
+        salesReportMonthCombo.SelectedItem = "October"
+        salesReportYearCombo = New ComboBox With {.Name = "salesReportYearCombo", .DropDownStyle = ComboBoxStyle.DropDownList, .Font = New Font("Segoe UI", 9.0F)}
+        salesReportYearCombo.Items.Add("2026")
+        salesReportYearCombo.SelectedItem = "2026"
+
+        Dim firstAvailableDate As New DateTime(2026, 9, 1)
+        Dim lastAvailableDate As New DateTime(2026, 10, 31)
+        If Date.Today < lastAvailableDate Then lastAvailableDate = Date.Today
+        salesTransactionDate.MinDate = firstAvailableDate
+        salesTransactionDate.MaxDate = lastAvailableDate
+        salesTransactionDate.Value = lastAvailableDate
 
         salesReportFilterPanel.Dock = DockStyle.Fill
         salesReportFilterPanel.Padding = New Padding(14)
@@ -1055,15 +1081,23 @@ Public Class SuperAdmin
         salesReportPageLayout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100.0F))
         salesReportPageLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 66))
         salesReportPageLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 23))
-        salesReportPageLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 66))
+        salesReportPageLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 142))
         salesReportPageLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 9))
         salesReportPageLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
 
-        panelRetailSalesReport.Controls.Add(salesTransactionFilter)
+        ComboBox4.Visible = False
+        salesTransactionFilter.Visible = False
+        AddSalesReportFilterButtonGroup(panelRetailSalesReport, {"Daily", "Monthly", "Yearly"}, salesReportPeriodButtons, 18, 66, AddressOf SelectSalesReportPeriod, 94, 29)
+        AddSalesReportFilterButtonGroup(panelRetailSalesReport, {"All", "Retail", "Wholesale"}, salesReportModeButtons, 18, 101, AddressOf SelectSalesReportMode, 82, 25)
+        UpdateSalesReportFilterButtonStyles()
         panelRetailSalesReport.Controls.Add(salesBackToReports)
         salesReportFilterPanel.Controls.Add(salesDateFilterLabel)
         salesReportFilterPanel.Controls.Add(salesDateCaption)
         salesReportFilterPanel.Controls.Add(salesTransactionDate)
+        salesReportFilterPanel.Controls.Add(salesMonthCaption)
+        salesReportFilterPanel.Controls.Add(salesReportMonthCombo)
+        salesReportFilterPanel.Controls.Add(salesYearCaption)
+        salesReportFilterPanel.Controls.Add(salesReportYearCombo)
         salesReportDetailsPanel.Controls.Add(retailDataGrid)
         salesReportDetailsPanel.Controls.Add(salesReportTotalLabel)
         salesReportDetailsPanel.Controls.Add(transactionDetailsTitle)
@@ -1081,32 +1115,148 @@ Public Class SuperAdmin
         pnlRetailSalesReport.Controls.Add(salesReportPageLayout)
 
         AddHandler retailDataGrid.CellClick, AddressOf SalesReportGrid_CellClick
-        AddHandler ComboBox4.SelectedIndexChanged, AddressOf SalesReportFilter_Changed
+        AddHandler ComboBox4.SelectedIndexChanged, AddressOf SalesReportPeriod_Changed
         AddHandler salesTransactionFilter.SelectedIndexChanged, AddressOf SalesReportFilter_Changed
         AddHandler salesTransactionDate.ValueChanged, AddressOf SalesReportFilter_Changed
+        AddHandler salesReportMonthCombo.SelectedIndexChanged, AddressOf SalesReportFilter_Changed
+        AddHandler salesReportYearCombo.SelectedIndexChanged, AddressOf SalesReportFilter_Changed
         AddHandler salesBackToReports.Click, AddressOf SalesBackToReports_Click
+        ConfigureSuperAdminSalesReportFilters()
+    End Sub
+
+    Private Sub AddSalesReportFilterButtonGroup(parent As Control,
+                                                options As String(),
+                                                buttons As Dictionary(Of String, Button),
+                                                left As Integer,
+                                                top As Integer,
+                                                onSelect As Action(Of String),
+                                                buttonWidth As Integer,
+                                                buttonHeight As Integer)
+        Dim x = left
+        For Each optionText In options
+            Dim button As New Button With {
+                .Text = optionText,
+                .Size = New Size(buttonWidth, buttonHeight),
+                .Location = New Point(x, top),
+                .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
+                .FlatStyle = FlatStyle.Flat,
+                .Cursor = Cursors.Hand,
+                .UseVisualStyleBackColor = False
+            }
+            button.FlatAppearance.BorderColor = Color.FromArgb(25, 120, 75)
+            button.FlatAppearance.BorderSize = 1
+            AddHandler button.Click, Sub(sender, e) onSelect(optionText)
+            buttons(optionText) = button
+            parent.Controls.Add(button)
+            x += button.Width + 8
+        Next
+    End Sub
+
+    Private Sub LayoutSalesReportFilterButtons(toolbar As Control)
+        Dim periodX = 18
+        For Each pair In salesReportPeriodButtons
+            pair.Value.SetBounds(periodX, 66, 94, 29)
+            periodX += pair.Value.Width + 8
+        Next
+
+        Dim modeX = 18
+        For Each pair In salesReportModeButtons
+            pair.Value.SetBounds(modeX, 101, 82, 25)
+            modeX += pair.Value.Width + 8
+        Next
+    End Sub
+
+    Private Sub SelectSalesReportPeriod(period As String)
+        If String.Equals(Convert.ToString(ComboBox4.SelectedItem), period, StringComparison.OrdinalIgnoreCase) Then Return
+        ComboBox4.SelectedItem = period
+        UpdateSalesReportFilterButtonStyles()
+    End Sub
+
+    Private Sub SelectSalesReportMode(saleMode As String)
+        If String.Equals(Convert.ToString(salesTransactionFilter.SelectedItem), saleMode, StringComparison.OrdinalIgnoreCase) Then Return
+        salesTransactionFilter.SelectedItem = saleMode
+        UpdateSalesReportFilterButtonStyles()
+    End Sub
+
+    Private Sub UpdateSalesReportFilterButtonStyles()
+        Dim selectedPeriod = Convert.ToString(ComboBox4.SelectedItem)
+        For Each pair In salesReportPeriodButtons
+            Dim isSelected = String.Equals(pair.Key, selectedPeriod, StringComparison.OrdinalIgnoreCase)
+            pair.Value.BackColor = If(isSelected, Color.FromArgb(20, 100, 60), Color.White)
+            pair.Value.ForeColor = If(isSelected, Color.White, Color.FromArgb(20, 100, 60))
+        Next
+
+        Dim selectedMode = Convert.ToString(salesTransactionFilter.SelectedItem)
+        For Each pair In salesReportModeButtons
+            Dim isSelected = String.Equals(pair.Key, selectedMode, StringComparison.OrdinalIgnoreCase)
+            pair.Value.BackColor = If(isSelected, Color.FromArgb(218, 240, 229), Color.White)
+            pair.Value.ForeColor = Color.FromArgb(20, 100, 60)
+        Next
     End Sub
 
     Private Sub GetSalesReportDateRange(ByRef fromDate As DateTime?, ByRef throughDateExclusive As DateTime?)
-        Dim selectedDate = salesTransactionDate.Value.Date
         Select Case CStr(ComboBox4.SelectedItem)
             Case "Monthly"
-                fromDate = New DateTime(selectedDate.Year, selectedDate.Month, 1)
+                Dim selectedYear = Integer.Parse(Convert.ToString(salesReportYearCombo.SelectedItem), CultureInfo.InvariantCulture)
+                Dim selectedMonth = DateTime.ParseExact(Convert.ToString(salesReportMonthCombo.SelectedItem), "MMMM", CultureInfo.InvariantCulture).Month
+                fromDate = New DateTime(selectedYear, selectedMonth, 1)
                 throughDateExclusive = fromDate.Value.AddMonths(1)
             Case "Yearly"
-                fromDate = New DateTime(selectedDate.Year, 1, 1)
+                Dim selectedYear = Integer.Parse(Convert.ToString(salesReportYearCombo.SelectedItem), CultureInfo.InvariantCulture)
+                fromDate = New DateTime(selectedYear, 1, 1)
                 throughDateExclusive = fromDate.Value.AddYears(1)
             Case Else
+                Dim selectedDate = salesTransactionDate.Value.Date
                 fromDate = selectedDate
                 throughDateExclusive = selectedDate.AddDays(1)
         End Select
     End Sub
 
+    Private Sub ConfigureSuperAdminSalesReportFilters()
+        If salesReportFilterPanel Is Nothing Then Return
+        Dim period = Convert.ToString(ComboBox4.SelectedItem)
+        salesDateFilterLabel.Text = "Filter by " & period.ToLowerInvariant()
+        salesDateCaption.Visible = String.Equals(period, "Daily", StringComparison.Ordinal)
+        salesTransactionDate.Visible = salesDateCaption.Visible
+        salesMonthCaption.Visible = String.Equals(period, "Monthly", StringComparison.Ordinal)
+        salesReportMonthCombo.Visible = salesMonthCaption.Visible
+        salesYearCaption.Visible = Not String.Equals(period, "Daily", StringComparison.Ordinal)
+        salesReportYearCombo.Visible = salesYearCaption.Visible
+        salesMonthCaption.SetBounds(14, 60, 80, 18)
+        salesReportMonthCombo.SetBounds(14, 82, Math.Max(1, salesReportFilterPanel.ClientSize.Width - 28), 28)
+        If String.Equals(period, "Monthly", StringComparison.Ordinal) Then
+            salesYearCaption.SetBounds(14, 145, 80, 18)
+            salesReportYearCombo.SetBounds(14, 167, Math.Max(1, salesReportFilterPanel.ClientSize.Width - 28), 28)
+        Else
+            salesYearCaption.SetBounds(14, 60, 80, 18)
+            salesReportYearCombo.SetBounds(14, 82, Math.Max(1, salesReportFilterPanel.ClientSize.Width - 28), 28)
+        End If
+        UpdateSalesReportFilterButtonStyles()
+    End Sub
+
+    Private Async Sub SalesReportPeriod_Changed(sender As Object, e As EventArgs)
+        Select Case Convert.ToString(ComboBox4.SelectedItem)
+            Case "Daily"
+                salesTransactionDate.Value = salesTransactionDate.MaxDate
+            Case "Monthly"
+                salesReportMonthCombo.SelectedItem = "October"
+                salesReportYearCombo.SelectedItem = "2026"
+            Case "Yearly"
+                salesReportYearCombo.SelectedItem = "2026"
+        End Select
+        ConfigureSuperAdminSalesReportFilters()
+        Await ReloadCurrentSalesReport()
+    End Sub
+
     Private Async Sub SalesReportFilter_Changed(sender As Object, e As EventArgs)
+        Await ReloadCurrentSalesReport()
+    End Sub
+
+    Private Async Function ReloadCurrentSalesReport() As Task
         If Not salesFiltersInitialized OrElse Not pnlRetailSalesReport.Visible OrElse retailDataGrid.DataSource Is Nothing Then Return
         Await ShowSalesReport(pnlRetailSalesReport, retailDataGrid, Nothing,
                               "retailTransactionID", "retailDate", "retailCustomer", "retailCashier", "retailType", "retailTotal", "retailStatus", retailGenerated, True)
-    End Sub
+    End Function
 
     Private Sub SalesBackToReports_Click(sender As Object, e As EventArgs)
         ShowPrimaryView(pnlReports, "Reports")
@@ -1144,17 +1294,32 @@ Public Class SuperAdmin
                 header.Controls.Add(New Label With {.Text = receiptNumber & "  |  " & saleDate.ToString("MMMM dd, yyyy  h:mm tt", CultureInfo.CurrentCulture), .AutoSize = True, .Font = New Font("Segoe UI", 9.0F), .ForeColor = Color.Gray, .Location = New Point(24, 47)})
 
                 Dim content As New Panel With {.Dock = DockStyle.Fill, .AutoScroll = True, .BackColor = Color.White}
-                Dim salePanel As New Panel With {.Location = New Point(20, 12), .Size = New Size(646, 224), .BorderStyle = BorderStyle.FixedSingle, .BackColor = Color.White}
+                Dim isWholesaleReceipt = String.Equals(DbText(sale, "sale_mode"), "Wholesale", StringComparison.OrdinalIgnoreCase)
+                Dim salePanel As New Panel With {.Location = New Point(20, 12), .Size = New Size(646, If(isWholesaleReceipt, 340, 224)), .BorderStyle = BorderStyle.FixedSingle, .BackColor = Color.White}
                 salePanel.Controls.Add(New Label With {.Text = "SALE INFORMATION", .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(20, 100, 60), .Location = New Point(16, 13)})
                 AddReceiptDetailField(salePanel, "Sale Type", DbText(sale, "sale_mode"), 16, 48)
-                AddReceiptDetailField(salePanel, "Customer Type", DbText(sale, "customer_type"), 326, 48)
-                AddReceiptDetailField(salePanel, "Customer", If(String.IsNullOrWhiteSpace(DbText(sale, "customer_name")), "Walk-in", DbText(sale, "customer_name")), 16, 102)
-                If Not String.IsNullOrWhiteSpace(DbText(sale, "customer_id_number")) Then AddReceiptDetailField(salePanel, "Customer ID", DbText(sale, "customer_id_number"), 326, 102)
-                AddReceiptDetailField(salePanel, "Cashier", DbText(sale, "cashier_name"), 16, 160)
+                If isWholesaleReceipt Then
+                    AddReceiptDetailField(salePanel, "Wholesale Client", DbText(sale, "wholesale_company_name"), 326, 48)
+                    AddReceiptDetailField(salePanel, "FDA LTO No.", If(String.IsNullOrWhiteSpace(DbText(sale, "wholesale_customer_license")), DbText(sale, "customer_id_number"), DbText(sale, "wholesale_customer_license")), 16, 102)
+                    AddReceiptDetailField(salePanel, "Contact Person", If(String.IsNullOrWhiteSpace(DbText(sale, "contact_person")), DbText(sale, "customer_name"), DbText(sale, "contact_person")), 326, 102)
+                    AddReceiptDetailField(salePanel, "Contact No.", DbText(sale, "contact_number"), 16, 156)
+                    AddReceiptDetailField(salePanel, "Shipping Address", DbText(sale, "customer_address"), 326, 156)
+                    AddReceiptDetailField(salePanel, "Purchase Order No.", DbText(sale, "purchase_order_no"), 16, 210)
+                    AddReceiptDetailField(salePanel, "Purchase Order Date", If(sale.IsNull("purchase_order_date"), String.Empty, Convert.ToDateTime(sale("purchase_order_date")).ToString("MM/dd/yyyy", CultureInfo.InvariantCulture)), 326, 210)
+                    Dim paymentDescription = If(String.Equals(DbText(sale, "payment_method"), "E-payment", StringComparison.OrdinalIgnoreCase), "E-payment · " & DbText(sale, "payment_provider"), If(String.IsNullOrWhiteSpace(DbText(sale, "payment_method")), "Cash", DbText(sale, "payment_method")))
+                    AddReceiptDetailField(salePanel, "Mode of Payment", paymentDescription, 16, 264)
+                    AddReceiptDetailField(salePanel, "Cashier Initials", ReceiptStaffInitials(DbText(sale, "cashier_initials")), 326, 264)
+                Else
+                    AddReceiptDetailField(salePanel, "Customer Type", DbText(sale, "customer_type"), 326, 48)
+                    AddReceiptDetailField(salePanel, "Customer", If(String.IsNullOrWhiteSpace(DbText(sale, "customer_name")), "Walk-in", DbText(sale, "customer_name")), 16, 102)
+                    If Not String.IsNullOrWhiteSpace(DbText(sale, "customer_id_number")) Then AddReceiptDetailField(salePanel, "Customer ID", DbText(sale, "customer_id_number"), 326, 102)
+                    AddReceiptDetailField(salePanel, "Cashier Initials", ReceiptStaffInitials(DbText(sale, "cashier_initials")), 16, 160)
+                End If
 
-                Dim itemHeading As New Label With {.Text = "ITEMS", .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(20, 100, 60), .Location = New Point(22, 252)}
+                Dim itemHeadingTop = If(isWholesaleReceipt, 368, 252)
+                Dim itemHeading As New Label With {.Text = "ITEMS", .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(20, 100, 60), .Location = New Point(22, itemHeadingTop)}
                 Dim itemGrid As New DataGridView With {
-                    .Location = New Point(20, 282), .Size = New Size(646, 224), .ReadOnly = True,
+                    .Location = New Point(20, itemHeadingTop + 30), .Size = New Size(646, 224), .ReadOnly = True,
                     .AllowUserToAddRows = False, .AllowUserToDeleteRows = False, .AllowUserToResizeRows = False,
                     .AutoGenerateColumns = False, .AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
                     .SelectionMode = DataGridViewSelectionMode.FullRowSelect, .MultiSelect = False,
@@ -1190,7 +1355,7 @@ Public Class SuperAdmin
                 Next
                 itemGrid.DataSource = itemRows
 
-                Dim totalTop = 526
+                Dim totalTop = itemHeadingTop + 274
                 Dim hasPrescription = details.AsEnumerable().Any(Function(row) Not row.IsNull("is_prescription") AndAlso Convert.ToBoolean(row("is_prescription")))
                 If hasPrescription Then
                     Dim prescriptionPanel As New Panel With {.Location = New Point(20, totalTop), .Size = New Size(646, 186), .BorderStyle = BorderStyle.FixedSingle, .BackColor = Color.White}
@@ -1252,11 +1417,30 @@ Public Class SuperAdmin
             "Receipt No.: " & receiptNumber,
             "Transaction No.: " & saleId.ToString(CultureInfo.InvariantCulture),
             "Date and Time: " & saleDate.ToString("MM/dd/yyyy hh:mm tt", CultureInfo.InvariantCulture),
-            "Sale Type: " & DbText(sale, "sale_mode"), "Cashier: " & DbText(sale, "cashier_name"),
-            "Customer Type: " & DbText(sale, "customer_type")
+            "Sale Type: " & DbText(sale, "sale_mode"),
+            "Cashier Initials: " & ReceiptStaffInitials(DbText(sale, "cashier_initials"))
         }
-        If Not String.IsNullOrWhiteSpace(DbText(sale, "customer_name")) Then lines.Add("Customer Name: " & DbText(sale, "customer_name"))
-        If Not String.IsNullOrWhiteSpace(DbText(sale, "customer_id_number")) Then lines.Add("Customer ID: " & DbText(sale, "customer_id_number"))
+        If String.Equals(DbText(sale, "sale_mode"), "Wholesale", StringComparison.OrdinalIgnoreCase) Then
+            If Not String.IsNullOrWhiteSpace(DbText(sale, "wholesale_company_name")) Then lines.Add("Company: " & DbText(sale, "wholesale_company_name"))
+            Dim license = If(String.IsNullOrWhiteSpace(DbText(sale, "wholesale_customer_license")), DbText(sale, "customer_id_number"), DbText(sale, "wholesale_customer_license"))
+            If Not String.IsNullOrWhiteSpace(license) Then lines.Add("FDA LTO No.: " & license)
+            Dim contactPerson = If(String.IsNullOrWhiteSpace(DbText(sale, "contact_person")), DbText(sale, "customer_name"), DbText(sale, "contact_person"))
+            If Not String.IsNullOrWhiteSpace(contactPerson) Then lines.Add("Contact Person: " & contactPerson)
+            If Not String.IsNullOrWhiteSpace(DbText(sale, "contact_number")) Then lines.Add("Contact No.: " & DbText(sale, "contact_number"))
+            If Not String.IsNullOrWhiteSpace(DbText(sale, "customer_address")) Then lines.Add("Shipping Address: " & DbText(sale, "customer_address"))
+            If Not String.IsNullOrWhiteSpace(DbText(sale, "purchase_order_no")) Then lines.Add("Purchase Order No.: " & DbText(sale, "purchase_order_no"))
+            If Not sale.IsNull("purchase_order_date") Then lines.Add("Purchase Order Date: " & Convert.ToDateTime(sale("purchase_order_date")).ToString("MM/dd/yyyy", CultureInfo.InvariantCulture))
+            Dim paymentDescription = If(String.Equals(DbText(sale, "payment_method"), "E-payment", StringComparison.OrdinalIgnoreCase),
+                                        "E-payment" & If(String.IsNullOrWhiteSpace(DbText(sale, "payment_provider")), String.Empty, " - " & DbText(sale, "payment_provider")),
+                                        If(String.IsNullOrWhiteSpace(DbText(sale, "payment_method")), "Cash", DbText(sale, "payment_method")))
+            lines.Add("Mode of Payment: " & paymentDescription)
+            If Not String.IsNullOrWhiteSpace(DbText(sale, "payment_account_name")) Then lines.Add("Account Name: " & DbText(sale, "payment_account_name"))
+            If Not String.IsNullOrWhiteSpace(DbText(sale, "payment_reference_number")) Then lines.Add("Payment Reference No.: " & DbText(sale, "payment_reference_number"))
+        Else
+            lines.Add("Customer Type: " & DbText(sale, "customer_type"))
+            If Not String.IsNullOrWhiteSpace(DbText(sale, "customer_name")) Then lines.Add("Customer Name: " & DbText(sale, "customer_name"))
+            If Not String.IsNullOrWhiteSpace(DbText(sale, "customer_id_number")) Then lines.Add("Customer ID: " & DbText(sale, "customer_id_number"))
+        End If
         lines.Add(New String("-"c, 76))
         lines.Add("ITEMS")
         For Each row As DataRow In details.Rows
@@ -1451,7 +1635,7 @@ Public Class SuperAdmin
             Using connection = GetConnection()
                 connection.Open()
                 Dim table As New DataTable()
-                Using adapter As New MySqlDataAdapter("SELECT user_id AS UserID, username AS Username, full_name AS FullName, role AS Role, IF(is_active, 'Active', 'Inactive') AS Status, last_login_date AS LastLogin FROM users ORDER BY username", connection)
+                Using adapter As New MySqlDataAdapter("SELECT user_id AS UserID, username AS Username, full_name AS FullName, role AS Role, IF(is_active, 'Active', 'Inactive') AS Status FROM users ORDER BY username", connection)
                     adapter.Fill(table)
                 End Using
 
@@ -1462,7 +1646,6 @@ Public Class SuperAdmin
                 accountUsername.DataPropertyName = "Username"
                 accountRole.DataPropertyName = "Role"
                 accountStatus.DataPropertyName = "Status"
-                accountLastLogin.DataPropertyName = "LastLogin"
 
                 accountsDataGrid.DataSource = table
                 accountsDataGrid.ClearSelection()
@@ -1512,45 +1695,7 @@ Public Class SuperAdmin
                 ResetPassword(userId.Value)
             Case "accountEnableDisable"
                 ToggleAccount(userId.Value, e.RowIndex)
-            Case "accountActivity"
-                ShowUserActivity(userId.Value)
         End Select
-    End Sub
-
-    Private Sub ShowUserActivity(userId As Integer)
-        Try
-            Dim activityTable As New DataTable()
-            Using connection = GetConnection()
-                connection.Open()
-                Const query = "SELECT user_id AS UserID, username AS Username, full_name AS FullName, role AS Role, activity AS Activity, created_at AS EventTime FROM user_activity WHERE user_id = @userId ORDER BY created_at DESC, activity_id DESC"
-                Using adapter As New MySqlDataAdapter(query, connection)
-                    adapter.SelectCommand.Parameters.AddWithValue("@userId", userId)
-                    adapter.Fill(activityTable)
-                End Using
-            End Using
-
-            Dim activityGrid As New DataGridView With {
-                .Dock = DockStyle.Fill,
-                .ReadOnly = True,
-                .AutoGenerateColumns = True,
-                .AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                .DataSource = activityTable,
-                .AllowUserToAddRows = False,
-                .AllowUserToDeleteRows = False
-            }
-            Dim dialog As New Form With {
-                .Text = "User Activity - ID " & userId.ToString(),
-                .StartPosition = FormStartPosition.CenterParent,
-                .Size = New Size(900, 500),
-                .MinimumSize = New Size(650, 350),
-                .BackColor = Color.White
-            }
-            dialog.Controls.Add(activityGrid)
-            dialog.ShowDialog(Me)
-        Catch ex As Exception
-            MessageBox.Show("Could not load activity for user " & userId.ToString() & ". " & ex.Message,
-                            "User activity", MessageBoxButtons.OK, MessageBoxIcon.Error)
-        End Try
     End Sub
 
     Private Function SelectedUserId(rowIndex As Integer) As Integer?
@@ -1624,8 +1769,6 @@ Public Class SuperAdmin
         Public HireDate As DateTime?
         Public BirthDate As DateTime?
         Public IsActive As Boolean
-        Public LastLoginText As String
-        Public CreatedAtText As String
     End Class
 
     Private Function GetAccountDetails(id As Integer) As AccountDetails
@@ -1648,9 +1791,7 @@ Public Class SuperAdmin
                         .ContactNumber = ReadText(reader, "contact_number"),
                         .HireDate = ReadDate(reader, "hire_date"),
                         .BirthDate = ReadDate(reader, "birth_date"),
-                        .IsActive = Convert.ToBoolean(reader("is_active")),
-                        .LastLoginText = ReadText(reader, "last_login_date"),
-                        .CreatedAtText = ReadText(reader, "created_at")
+                        .IsActive = Convert.ToBoolean(reader("is_active"))
                     }
                 End Using
             End Using

@@ -39,13 +39,14 @@ Public Class ProductManager
                 conn.Open()
                 Dim query As String = "SELECT p.product_ID AS 'ID', " &
                                   "c.category_name AS 'Category', " &
+                                  "parent.category_name AS 'Parent Category', " &
                                   "s.company_name AS 'Supplier', " &
                                   "p.brand_name AS 'Brand Name', " &
                                   "p.generic_name AS 'Generic Name', " &
                                   "p.CPR_number AS 'CPR Number', " &
                                   "p.quantity_per_box AS 'Qty/Box', " &
-                                  "COALESCE((SELECT SUM(pb.quantity_remaining) FROM productbatches pb WHERE pb.product_ID = p.product_ID), 0) AS 'Stock Quantity', " &
-                                  "(SELECT MIN(pb.expiry_date) FROM productbatches pb WHERE pb.product_ID = p.product_ID AND pb.quantity_remaining > 0) AS 'Expiry Date', " &
+                                  "COALESCE((SELECT SUM(pb.quantity_remaining) FROM inventory_batch pb WHERE pb.product_ID = p.product_ID), 0) AS 'Stock Quantity', " &
+                                  "(SELECT MIN(pb.expiry_date) FROM inventory_batch pb WHERE pb.product_ID = p.product_ID AND pb.quantity_remaining > 0) AS 'Expiry Date', " &
                                   "p.reorder_point AS 'Reorder Point', " &
                                   "p.retail_price AS 'Retail Price', " &
                                   "p.wholesale_price_per_box AS 'Wholesale Price', " &
@@ -57,6 +58,7 @@ Public Class ProductManager
                                   "p.date_added AS 'Date Added' " &
                                   "FROM product p " &
                                   "INNER JOIN product_category c ON p.category_ID = c.category_ID " &
+                                  "LEFT JOIN product_category parent ON c.parent_category_id = parent.category_ID " &
                                   "INNER JOIN supplier s ON p.supplier_ID = s.supplier_ID"
 
                 Dim conditions As New List(Of String)
@@ -120,7 +122,7 @@ Public Class ProductManager
         Using connection = GetConnection()
             connection.Open()
             Const query As String = "SELECT batch_id AS 'Batch ID', batch_no AS 'Batch No', expiry_date AS 'Expiry Date', quantity_remaining AS 'Remaining' " &
-                                    "FROM productbatches WHERE product_ID = @id ORDER BY expiry_date, batch_id"
+                                    "FROM inventory_batch WHERE product_ID = @id ORDER BY expiry_date, batch_id"
             Using command As New MySqlCommand(query, connection)
                 command.Parameters.AddWithValue("@id", productId)
                 Using adapter As New MySqlDataAdapter(command)
@@ -136,7 +138,7 @@ Public Class ProductManager
             connection.Open()
             Using transaction = connection.BeginTransaction()
                 Try
-                    Const checkQuery As String = "SELECT product_ID, expiry_date FROM productbatches WHERE batch_id = @batchId FOR UPDATE"
+                    Const checkQuery As String = "SELECT product_ID, expiry_date FROM inventory_batch WHERE batch_id = @batchId FOR UPDATE"
                     Dim productId As Integer
                     Using command As New MySqlCommand(checkQuery, connection, transaction)
                         command.Parameters.AddWithValue("@batchId", batchId)
@@ -149,14 +151,14 @@ Public Class ProductManager
                         End Using
                     End Using
 
-                    Const deleteQuery As String = "DELETE FROM productbatches WHERE batch_id = @batchId"
+                    Const deleteQuery As String = "DELETE FROM inventory_batch WHERE batch_id = @batchId"
                     Using command As New MySqlCommand(deleteQuery, connection, transaction)
                         command.Parameters.AddWithValue("@batchId", batchId)
                         If command.ExecuteNonQuery() <> 1 Then Return False
                     End Using
 
                     Const updateStock As String = "UPDATE product SET stock_quantity = " &
-                        "(SELECT COALESCE(SUM(quantity_remaining), 0) FROM productbatches WHERE product_ID = @productId) " &
+                        "(SELECT COALESCE(SUM(quantity_remaining), 0) FROM inventory_batch WHERE product_ID = @productId) " &
                         "WHERE product_ID = @productId"
                     Using command As New MySqlCommand(updateStock, connection, transaction)
                         command.Parameters.AddWithValue("@productId", productId)

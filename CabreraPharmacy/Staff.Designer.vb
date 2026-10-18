@@ -39,11 +39,17 @@ Partial Class Staff
         modePanel = New Panel()
         retailModeButton = New Button()
         wholesaleModeButton = New Button()
+        parentFilterPanel = New Panel()
+        allParentFilterButton = New Button()
+        medicineFilterButton = New Button()
+        supplementsFilterButton = New Button()
+        medicalSupplyFilterButton = New Button()
         searchPanel = New Panel()
         searchLabel = New Label()
         searchFilterCombo = New ComboBox()
         searchTextBox = New TextBox()
         searchButton = New Button()
+        resultsPanel = New Panel()
         resultsGrid = New DataGridView()
         quantityPanel = New Panel()
         qtyLabel = New Label()
@@ -232,6 +238,7 @@ Partial Class Staff
 
         transactionView.Controls.Add(transactionLayout)
         transactionView.Dock = DockStyle.Fill
+        transactionView.AutoScroll = False
         transactionLayout.ColumnCount = 2
         transactionLayout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 70.0F))
         transactionLayout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 30.0F))
@@ -241,15 +248,19 @@ Partial Class Staff
         transactionLayout.RowCount = 1
         transactionLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
         transactionLeftPanel.Dock = DockStyle.Fill
+        transactionLeftPanel.AutoScroll = True
         transactionLeftPanel.Padding = New Padding(0, 0, 10, 0)
         transactionLeftLayout.ColumnCount = 1
         transactionLeftLayout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100.0F))
-        transactionLeftLayout.Dock = DockStyle.Fill
-        transactionLeftLayout.RowCount = 5
-        transactionLeftLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 46.0F))
+        transactionLeftLayout.Dock = DockStyle.Top
+        transactionLeftLayout.Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right
+        transactionLeftLayout.Margin = New Padding(0)
+        transactionLeftLayout.RowCount = 6
+        transactionLeftLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 56.0F))
+        transactionLeftLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 56.0F))
         transactionLeftLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 48.0F))
-        transactionLeftLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
-        transactionLeftLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 48.0F))
+        transactionLeftLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 380.0F))
+        transactionLeftLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 76.0F))
         transactionLeftLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 160.0F))
         transactionLeftPanel.Controls.Add(transactionLeftLayout)
 
@@ -261,6 +272,26 @@ Partial Class Staff
         wholesaleModeButton = ConfigureModeButton(wholesaleModeButton, "Wholesale", 132, False)
         transactionLeftLayout.Controls.Add(modePanel, 0, 0)
 
+        parentFilterPanel.BackColor = Color.White
+        parentFilterPanel.Dock = DockStyle.Fill
+        parentFilterPanel.Controls.Add(allParentFilterButton)
+        parentFilterPanel.Controls.Add(medicineFilterButton)
+        parentFilterPanel.Controls.Add(supplementsFilterButton)
+        parentFilterPanel.Controls.Add(medicalSupplyFilterButton)
+        allParentFilterButton = ConfigureModeButton(allParentFilterButton, "All", 10, True)
+        medicineFilterButton = ConfigureModeButton(medicineFilterButton, "Medicine", 138, False)
+        supplementsFilterButton = ConfigureModeButton(supplementsFilterButton, "Supplements", 266, False)
+        medicalSupplyFilterButton = ConfigureModeButton(medicalSupplyFilterButton, "Medical Supply", 394, False)
+        allParentFilterButton.Height = 30
+        medicineFilterButton.Height = 30
+        supplementsFilterButton.Height = 30
+        medicalSupplyFilterButton.Height = 30
+        allParentFilterButton.Tag = "All"
+        medicineFilterButton.Tag = "Medicine"
+        supplementsFilterButton.Tag = "Supplements"
+        medicalSupplyFilterButton.Tag = "Medical Supply"
+        transactionLeftLayout.Controls.Add(parentFilterPanel, 0, 1)
+
         searchPanel.BackColor = Color.White
         searchPanel.Controls.Add(searchLabel)
         searchPanel.Controls.Add(searchFilterCombo)
@@ -270,13 +301,23 @@ Partial Class Staff
         searchLabel.Location = New Point(12, 15)
         searchLabel.Text = "Category:"
         searchFilterCombo.DropDownStyle = ComboBoxStyle.DropDownList
+        searchFilterCombo.DrawMode = DrawMode.OwnerDrawFixed
+        searchFilterCombo.BackColor = Color.White
+        searchFilterCombo.ForeColor = Color.FromArgb(20, 100, 60)
         searchFilterCombo.Items.AddRange(New Object() {"All Categories"})
         searchFilterCombo.Location = New Point(90, 11)
-        searchFilterCombo.Size = New Size(220, 25)
-        searchTextBox.Location = New Point(325, 11)
-        searchTextBox.Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right
-        searchTextBox.Size = New Size(500, 25)
-        transactionLeftLayout.Controls.Add(searchPanel, 0, 1)
+        searchFilterCombo.Size = New Size(180, 25)
+        searchTextBox.Location = New Point(285, 11)
+        searchTextBox.Anchor = AnchorStyles.Top Or AnchorStyles.Left
+        searchTextBox.Size = New Size(360, 25)
+        searchTextBox.PlaceholderText = "Search by product name or brand..."
+        transactionLeftLayout.Controls.Add(searchPanel, 0, 2)
+
+        resultsPanel.BackColor = Color.White
+        resultsPanel.Dock = DockStyle.Fill
+        resultsPanel.Margin = New Padding(3)
+        resultsPanel.Padding = New Padding(8)
+        transactionLeftLayout.Controls.Add(resultsPanel, 0, 3)
 
         resultsGrid.AllowUserToAddRows = False
         resultsGrid.AllowUserToDeleteRows = False
@@ -291,8 +332,8 @@ Partial Class Staff
         resultsGrid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(218, 240, 229)
         resultsGrid.DefaultCellStyle.SelectionForeColor = Color.Black
         resultsGrid.Dock = DockStyle.Fill
-        resultsGrid.Margin = New Padding(0, 0, 0, 8)
-        transactionLeftLayout.Controls.Add(resultsGrid, 0, 2)
+        resultsGrid.Margin = New Padding(0)
+        resultsPanel.Controls.Add(resultsGrid)
 
         quantityPanel.BackColor = Color.White
         quantityPanel.Controls.Add(qtyLabel)
@@ -313,13 +354,14 @@ Partial Class Staff
         addToCartButton = ConfigureActionButton(addToCartButton, "ADD TO CART", 725, 7, 150, 34)
         addToCartButton.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         quantityPanel.Controls.Add(addToCartButton)
-        transactionLeftLayout.Controls.Add(quantityPanel, 0, 3)
+        transactionLeftLayout.Controls.Add(quantityPanel, 0, 4)
 
         transactionDetailsPanel.Dock = DockStyle.Fill
         transactionDetailsPanel.Controls.Add(prescriptionPanel)
         transactionDetailsPanel.Controls.Add(wholesaleDetailsPanel)
-        transactionLeftLayout.Controls.Add(transactionDetailsPanel, 0, 4)
+        transactionLeftLayout.Controls.Add(transactionDetailsPanel, 0, 5)
         prescriptionPanel.BackColor = Color.White
+        prescriptionPanel.Margin = New Padding(0)
         prescriptionPanel.Controls.Add(prescriptionTitle)
         AddField(prescriptionPanel, rxNoLabel, "Prescription No.", rxNoTextBox, 12, 43, 290)
         rxNoTextBox.CharacterCasing = CharacterCasing.Upper
@@ -335,6 +377,7 @@ Partial Class Staff
         prescriptionTitle = ConfigureSectionLabel(prescriptionTitle, "Prescription Information", 12, 12)
 
         wholesaleDetailsPanel.BackColor = Color.White
+        wholesaleDetailsPanel.Margin = New Padding(0)
         wholesaleDetailsPanel.Controls.Add(wholesaleDetailsTitle)
         wholesaleDetailsPanel.Controls.Add(customerSearchButton)
         AddField(wholesaleDetailsPanel, customerLicenseLabel, "License No.", customerLicenseTextBox, 12, 48, 190)
@@ -647,11 +690,17 @@ Partial Class Staff
     Friend WithEvents modePanel As Panel
     Friend WithEvents retailModeButton As Button
     Friend WithEvents wholesaleModeButton As Button
+    Friend WithEvents parentFilterPanel As Panel
+    Friend WithEvents allParentFilterButton As Button
+    Friend WithEvents medicineFilterButton As Button
+    Friend WithEvents supplementsFilterButton As Button
+    Friend WithEvents medicalSupplyFilterButton As Button
     Friend WithEvents searchPanel As Panel
     Friend WithEvents searchLabel As Label
     Friend WithEvents searchFilterCombo As ComboBox
     Friend WithEvents searchTextBox As TextBox
     Friend WithEvents searchButton As Button
+    Friend WithEvents resultsPanel As Panel
     Friend WithEvents resultsGrid As DataGridView
     Friend WithEvents quantityPanel As Panel
     Friend WithEvents qtyLabel As Label

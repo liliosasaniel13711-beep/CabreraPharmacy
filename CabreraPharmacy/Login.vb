@@ -85,6 +85,7 @@ Public Class Login
         Try
             Dim userId As Integer
             Dim fullName As String
+            Dim staffInitials As String
             Dim role As String
 
             Using connection = GetConnection()
@@ -93,6 +94,7 @@ Public Class Login
                 Const query = "SELECT user_id AS UserID, " &
                               "username AS Username, " &
                               "full_name AS FullName, " &
+                              "staff_initials AS StaffInitials, " &
                               "role AS Role, " &
                               "password_hash AS PasswordHash, " &
                               "is_active AS IsActive " &
@@ -125,6 +127,7 @@ Public Class Login
 
                         userId = reader.GetInt32("UserID")
                         fullName = reader.GetString("FullName")
+                        staffInitials = If(reader.IsDBNull(reader.GetOrdinal("StaffInitials")), String.Empty, reader.GetString("StaffInitials"))
                         role = reader.GetString("Role")
                     End Using
                 End Using
@@ -135,13 +138,13 @@ Public Class Login
             ' Routes to the correct form based on the user's role in the database
             Select Case normalizedRole
                 Case "superadmin", "superadministrator"
-                    CompleteLogin(userId, username, fullName, role, New SuperAdmin())
+                    CompleteLogin(userId, username, fullName, staffInitials, role, New SuperAdmin())
 
                 Case "admin", "administrator"
-                    CompleteLogin(userId, username, fullName, role, New Admin())
+                    CompleteLogin(userId, username, fullName, staffInitials, role, New Admin())
 
                 Case "staff"
-                    CompleteLogin(userId, username, fullName, role, New Staff())
+                    CompleteLogin(userId, username, fullName, staffInitials, role, New Staff())
 
                 Case Else
                     MessageBox.Show(
@@ -166,14 +169,14 @@ Public Class Login
     Private Sub CompleteLogin(userId As Integer,
                           username As String,
                           fullName As String,
+                          staffInitials As String,
                           role As String,
                           page As Form)
-
-        UpdateLastLoginDate(userId)
 
         CurrentUserID = userId
         CurrentUsername = username
         CurrentFullName = fullName
+        CurrentStaffInitials = staffInitials
         CurrentRole = role
 
         MyBase.Hide()
@@ -186,25 +189,13 @@ Public Class Login
         CurrentUserID = 0
         CurrentUsername = ""
         CurrentFullName = ""
+        CurrentStaffInitials = ""
         CurrentRole = ""
 
         PasswordField.Clear()
         Me.Show()
         Me.Activate()
         UsernameField.Focus()
-    End Sub
-
-    Private Sub UpdateLastLoginDate(userId As Integer)
-        Using connection = GetConnection()
-            connection.Open()
-
-            Const sql = "UPDATE users SET last_login_date = NOW() WHERE user_id = @id"
-
-            Using command As New MySqlCommand(sql, connection)
-                command.Parameters.AddWithValue("@id", userId)
-                command.ExecuteNonQuery()
-            End Using
-        End Using
     End Sub
 
     ' --- PASSWORD VISIBILITY TOGGLES ---

@@ -15,6 +15,7 @@ End Class
 
 Public Class SaleRecord
     Public Property SaleMode As String
+    Public Property WholesaleClientId As Integer?
     Public Property CustomerType As String
     Public Property CustomerName As String
     Public Property CustomerIdNumber As String
@@ -27,13 +28,13 @@ Public Class SaleRecord
     Public Property PrescriberName As String
     Public Property PrescriberLicense As String
     Public Property PrescriptionDate As DateTime?
-    Public Property WholesaleCustomerLicense As String
-    Public Property ContactPerson As String
-    Public Property ContactNumber As String
-    Public Property CustomerAddress As String
     Public Property PurchaseOrderNumber As String
     Public Property PurchaseOrderDate As DateTime?
     Public Property DeliveryDate As DateTime?
+    Public Property PaymentMethod As String
+    Public Property PaymentProvider As String
+    Public Property PaymentAccountName As String
+    Public Property PaymentReferenceNumber As String
     Public Property Items As List(Of SaleLineRecord)
 End Class
 
@@ -56,8 +57,8 @@ Public Class SalesRepository
             connection.Open()
             Using dbTransaction = connection.BeginTransaction()
                 Try
-                    Const insertSale = "INSERT INTO pharmacy_sales (sale_mode, cashier_user_id, customer_type, customer_name, customer_id_number, subtotal, discount_amount, total_amount, amount_received, change_amount, prescription_no, prescribing_practioner, prc_liscense, prescription_date) " &
-                                       "VALUES (@saleMode, @cashierId, @customerType, @customerName, @customerId, @subtotal, @discount, @total, @cash, @change, @rxNumber, @prescriber, @prescriberLicense, @rxDate)"
+                    Const insertSale = "INSERT INTO pharmacy_sales (sale_mode, cashier_user_id, customer_type, customer_name, customer_id_number, subtotal, discount_amount, total_amount, amount_received, change_amount, prescription_no, prescribing_practioner, prc_liscense, prescription_date, purchase_order_no, purchase_order_date, payment_method, payment_provider, payment_account_name, payment_reference_number, wholesale_client_id) " &
+                                       "VALUES (@saleMode, @cashierId, @customerType, @customerName, @customerId, @subtotal, @discount, @total, @cash, @change, @rxNumber, @prescriber, @prescriberLicense, @rxDate, @poNumber, @poDate, @paymentMethod, @paymentProvider, @paymentAccountName, @paymentReference, @wholesaleClientId)"
                     Dim saleId As Long
                     Using command As New MySqlCommand(insertSale, connection, dbTransaction)
                         command.Parameters.AddWithValue("@saleMode", sale.SaleMode)
@@ -74,6 +75,13 @@ Public Class SalesRepository
                         AddNullable(command, "@prescriber", sale.PrescriberName)
                         AddNullable(command, "@prescriberLicense", sale.PrescriberLicense)
                         AddNullable(command, "@rxDate", sale.PrescriptionDate)
+                        AddNullable(command, "@poNumber", sale.PurchaseOrderNumber)
+                        AddNullable(command, "@poDate", sale.PurchaseOrderDate)
+                        AddNullable(command, "@paymentMethod", sale.PaymentMethod)
+                        AddNullable(command, "@paymentProvider", sale.PaymentProvider)
+                        AddNullable(command, "@paymentAccountName", sale.PaymentAccountName)
+                        AddNullable(command, "@paymentReference", sale.PaymentReferenceNumber)
+                        AddNullable(command, "@wholesaleClientId", sale.WholesaleClientId)
                         command.ExecuteNonQuery()
                     End Using
 
@@ -139,7 +147,7 @@ Public Class SalesRepository
 
         Dim batches As New List(Of KeyValuePair(Of Long, Integer))()
         Dim availableQuantity As Integer = 0
-        Const selectBatches = "SELECT batch_id, quantity_remaining FROM productbatches " &
+        Const selectBatches = "SELECT batch_id, quantity_remaining FROM inventory_batch " &
                               "WHERE product_ID = @productId AND quantity_remaining > 0 AND expiry_date >= CURDATE() " &
                               "ORDER BY expiry_date, batch_id FOR UPDATE"
         Using command As New MySqlCommand(selectBatches, connection, transaction)
@@ -164,7 +172,7 @@ Public Class SalesRepository
         For Each batch In batches
             If remainingToDeduct = 0 Then Exit For
             Dim quantityFromBatch = Math.Min(remainingToDeduct, batch.Value)
-            Const updateBatch = "UPDATE productbatches SET quantity_remaining = quantity_remaining - @quantity " &
+            Const updateBatch = "UPDATE inventory_batch SET quantity_remaining = quantity_remaining - @quantity " &
                                 "WHERE batch_id = @batchId AND quantity_remaining >= @quantity"
             Using command As New MySqlCommand(updateBatch, connection, transaction)
                 command.Parameters.AddWithValue("@quantity", quantityFromBatch)
@@ -177,7 +185,7 @@ Public Class SalesRepository
         Next
 
         Const synchronizeProductStock = "UPDATE product SET stock_quantity = " &
-                                        "(SELECT COALESCE(SUM(quantity_remaining), 0) FROM productbatches WHERE product_ID = @productId) " &
+                                        "(SELECT COALESCE(SUM(quantity_remaining), 0) FROM inventory_batch WHERE product_ID = @productId) " &
                                         "WHERE product_ID = @productId"
         Using command As New MySqlCommand(synchronizeProductStock, connection, transaction)
             command.Parameters.AddWithValue("@productId", productId)
@@ -218,10 +226,12 @@ Public Class SalesRepository
         Using connection = GetConnection()
             connection.Open()
             Const query = "SELECT ps.sale_id AS TransactionID, ps.created_at AS SaleDate, " &
-                          "COALESCE(NULLIF(ps.customer_name, ''), 'Walk-in') AS Customer, " &
+                          "COALESCE(NULLIF(wc.company_name, ''), NULLIF(ps.customer_name, ''), 'Walk-in') AS Customer, " &
                           "COALESCE(NULLIF(u.full_name, ''), u.username, 'Unknown cashier') AS Cashier, " &
                           "ps.sale_mode AS SaleType, ps.total_amount AS Total, 'Completed' AS Status " &
-                          "FROM pharmacy_sales ps LEFT JOIN users u ON u.user_id = ps.cashier_user_id " &
+                          "FROM pharmacy_sales ps " &
+                          "LEFT JOIN wholesale_clients wc ON wc.client_id = ps.wholesale_client_id " &
+                          "LEFT JOIN users u ON u.user_id = ps.cashier_user_id " &
                           "WHERE (@mode IS NULL OR ps.sale_mode = @mode) " &
                           "AND (@cashierId IS NULL OR ps.cashier_user_id = @cashierId) " &
                           "AND (@fromDate IS NULL OR ps.created_at >= @fromDate) " &
@@ -279,10 +289,17 @@ Public Class SalesRepository
                           "ps.customer_name, ps.customer_id_number, ps.subtotal, ps.discount_amount, " &
                           "ps.total_amount, ps.amount_received, ps.change_amount, ps.prescription_no, " &
                           "ps.prescribing_practioner, ps.prc_liscense, ps.prescription_date, " &
+                          "ps.purchase_order_no, ps.purchase_order_date, ps.payment_method, ps.payment_provider, ps.payment_account_name, ps.payment_reference_number, " &
+                          "wc.company_name AS wholesale_company_name, wc.fda_lto_no AS wholesale_customer_license, " &
+                          "CONCAT_WS(' ', NULLIF(wc.first_name, ''), NULLIF(wc.last_name, '')) AS contact_person, " &
+                          "wc.contact_no_1 AS contact_number, " &
+                          "CONCAT_WS(', ', NULLIF(wc.shipping_address_line, ''), NULLIF(wc.barangay, ''), NULLIF(wc.city_municipality, ''), NULLIF(wc.province, ''), NULLIF(wc.postal_code, '')) AS customer_address, " &
                           "COALESCE(NULLIF(u.full_name, ''), u.username, 'Unknown cashier') AS cashier_name, " &
+                          "COALESCE(NULLIF(u.staff_initials, ''), '') AS cashier_initials, " &
                           "si.sale_item_id, si.product_id, si.brand_name, si.generic_name, si.dosage, si.unit, " &
                           "si.quantity, si.unit_price, si.line_total, si.is_prescription " &
                           "FROM pharmacy_sales ps " &
+                          "LEFT JOIN wholesale_clients wc ON wc.client_id = ps.wholesale_client_id " &
                           "LEFT JOIN users u ON u.user_id = ps.cashier_user_id " &
                           "LEFT JOIN pharmacy_sale_items si ON si.sale_id = ps.sale_id " &
                           "WHERE ps.sale_id = @saleId ORDER BY si.sale_item_id"

@@ -22,12 +22,20 @@ Public Class Admin
     Private inventorySearchBox As TextBox
     Private inventoryFilterButtons As New Dictionary(Of String, Button)(StringComparer.OrdinalIgnoreCase)
     Private inventoryActiveFilter As String = "All"
+    Private inventoryParentFilterButtons As New Dictionary(Of String, Button)(StringComparer.OrdinalIgnoreCase)
+    Private inventorySelectedParentCategory As String = "All"
     Private priceManagerProducts As DataTable
+    Private priceManagerCategories As DataTable
     Private priceManagerSearchBox As TextBox
     Private priceManagerCategoryFilter As ComboBox
     Private priceManagerProductList As FlowLayoutPanel
-    Private salesReportPeriodCombo As ComboBox
-    Private salesReportTypeCombo As ComboBox
+    Private priceManagerSelectedParentCategory As String = "All"
+    Private priceManagerUpdatingCategoryFilter As Boolean
+    Private priceManagerParentFilterButtons As Dictionary(Of String, Button)
+    Private salesReportPeriod As String = "Daily"
+    Private salesReportType As String = "All"
+    Private salesReportPeriodButtons As New Dictionary(Of String, Button)(StringComparer.OrdinalIgnoreCase)
+    Private salesReportTypeButtons As New Dictionary(Of String, Button)(StringComparer.OrdinalIgnoreCase)
     Private salesReportDatePicker As DateTimePicker
     Private salesReportMonthCombo As ComboBox
     Private salesReportYearCombo As ComboBox
@@ -193,7 +201,7 @@ Public Class Admin
 
         Dim layout As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 1, .RowCount = 2, .BackColor = lightGray, .Margin = New Padding(0)}
         layout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
-        layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 104))
+        layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 142))
         layout.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
 
         Dim header As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = New Padding(0, 0, 0, 12)}
@@ -211,16 +219,11 @@ Public Class Admin
         AddHandler printReportButton.Click, AddressOf PrintSalesReport
         header.Controls.Add(printReportButton)
 
-        salesReportPeriodCombo = New ComboBox With {.DropDownStyle = ComboBoxStyle.DropDownList, .Font = New Font("Segoe UI", 9.0F), .Size = New Size(150, 30), .Location = New Point(18, 66)}
-        salesReportPeriodCombo.Items.AddRange(New Object() {"Daily", "Monthly", "Yearly"})
-        salesReportPeriodCombo.SelectedItem = "Daily"
-        salesReportTypeCombo = New ComboBox With {.DropDownStyle = ComboBoxStyle.DropDownList, .Font = New Font("Segoe UI", 9.0F), .Size = New Size(150, 30), .Anchor = AnchorStyles.Top Or AnchorStyles.Right}
-        salesReportTypeCombo.Items.AddRange(New Object() {"All", "Retail", "Wholesale"})
-        salesReportTypeCombo.SelectedItem = "All"
-        salesReportTypeCombo.Location = New Point(header.ClientSize.Width - salesReportTypeCombo.Width - 16, 66)
-        AddHandler header.Resize, Sub(sender, e) salesReportTypeCombo.Left = header.ClientSize.Width - salesReportTypeCombo.Width - 16
-        header.Controls.Add(salesReportPeriodCombo)
-        header.Controls.Add(salesReportTypeCombo)
+        salesReportPeriodButtons.Clear()
+        salesReportTypeButtons.Clear()
+        AddSalesReportButtonGroup(header, {"Daily", "Monthly", "Yearly"}, salesReportPeriodButtons, 18, 66, AddressOf SelectSalesReportPeriod)
+        AddSalesReportButtonGroup(header, {"All", "Retail", "Wholesale"}, salesReportTypeButtons, 18, 101, AddressOf SelectSalesReportType, 82, 25)
+        UpdateSalesReportButtonStyles()
 
         Dim body As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 2, .RowCount = 1, .BackColor = lightGray, .Margin = New Padding(0)}
         body.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 225))
@@ -263,9 +266,55 @@ Public Class Admin
         layout.Controls.Add(body, 0, 1)
         reportsView.Controls.Add(layout)
 
-        AddHandler salesReportPeriodCombo.SelectedIndexChanged, Sub(sender, e) ConfigureSalesReportFilters()
-        AddHandler salesReportTypeCombo.SelectedIndexChanged, Sub(sender, e) LoadSalesReportRows()
         ConfigureSalesReportFilters()
+    End Sub
+
+    Private Sub AddSalesReportButtonGroup(parent As Control, options As String(), buttons As Dictionary(Of String, Button), left As Integer, top As Integer, onSelect As Action(Of String), Optional buttonWidth As Integer = 94, Optional buttonHeight As Integer = 29)
+        Dim x = left
+        For Each optionText In options
+            Dim button As New Button With {
+                .Text = optionText,
+                .Size = New Size(buttonWidth, buttonHeight),
+                .Location = New Point(x, top),
+                .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
+                .FlatStyle = FlatStyle.Flat,
+                .Cursor = Cursors.Hand,
+                .UseVisualStyleBackColor = False
+            }
+            button.FlatAppearance.BorderColor = activeGreen
+            button.FlatAppearance.BorderSize = 1
+            AddHandler button.Click, Sub(sender, e) onSelect(optionText)
+            buttons(optionText) = button
+            parent.Controls.Add(button)
+            x += button.Width + 8
+        Next
+    End Sub
+
+    Private Sub SelectSalesReportPeriod(period As String)
+        If String.Equals(salesReportPeriod, period, StringComparison.OrdinalIgnoreCase) Then Return
+        salesReportPeriod = period
+        UpdateSalesReportButtonStyles()
+        ConfigureSalesReportFilters()
+    End Sub
+
+    Private Sub SelectSalesReportType(saleType As String)
+        If String.Equals(salesReportType, saleType, StringComparison.OrdinalIgnoreCase) Then Return
+        salesReportType = saleType
+        UpdateSalesReportButtonStyles()
+        LoadSalesReportRows()
+    End Sub
+
+    Private Sub UpdateSalesReportButtonStyles()
+        For Each pair In salesReportPeriodButtons
+            Dim isSelected = String.Equals(pair.Key, salesReportPeriod, StringComparison.OrdinalIgnoreCase)
+            pair.Value.BackColor = If(isSelected, darkGreen, Color.White)
+            pair.Value.ForeColor = If(isSelected, Color.White, darkGreen)
+        Next
+        For Each pair In salesReportTypeButtons
+            Dim isSelected = String.Equals(pair.Key, salesReportType, StringComparison.OrdinalIgnoreCase)
+            pair.Value.BackColor = If(isSelected, Color.FromArgb(218, 240, 229), Color.White)
+            pair.Value.ForeColor = darkGreen
+        Next
     End Sub
 
     Private Sub ConfigureSalesReportFilters()
@@ -274,7 +323,7 @@ Public Class Admin
         salesReportDatePicker = Nothing
         salesReportMonthCombo = Nothing
         salesReportYearCombo = Nothing
-        Dim period = Convert.ToString(salesReportPeriodCombo.SelectedItem)
+        Dim period = salesReportPeriod
         AddFilterHeader("Filter by " & period.ToLowerInvariant())
 
         If String.Equals(period, "Daily", StringComparison.Ordinal) Then
@@ -320,9 +369,9 @@ Public Class Admin
     End Function
 
     Private Sub LoadSalesReportRows()
-        If salesReportGrid Is Nothing OrElse salesReportPeriodCombo Is Nothing Then Return
+        If salesReportGrid Is Nothing Then Return
         Try
-            Dim period = Convert.ToString(salesReportPeriodCombo.SelectedItem)
+            Dim period = salesReportPeriod
             Dim year As Integer = 2026
             If Not String.Equals(period, "Daily", StringComparison.Ordinal) Then
                 If salesReportYearCombo Is Nothing OrElse salesReportYearCombo.SelectedItem Is Nothing Then Return
@@ -349,7 +398,7 @@ Public Class Admin
                 periodCaption = startDate.ToString("MMMM yyyy", CultureInfo.CurrentCulture)
             End If
 
-            Dim selectedType = Convert.ToString(salesReportTypeCombo.SelectedItem)
+            Dim selectedType = salesReportType
             Dim mode = If(String.Equals(selectedType, "All", StringComparison.Ordinal), Nothing, selectedType)
             Dim allRows = New SalesRepository().GetTransactionReport(mode, Nothing, startDate, endDate)
             Dim rows = allRows.Clone()
@@ -370,12 +419,12 @@ Public Class Admin
 
     Private Sub PrintSalesReport(sender As Object, e As EventArgs)
         Try
-            If salesReportGrid Is Nothing OrElse salesReportPeriodCombo Is Nothing Then Return
+            If salesReportGrid Is Nothing Then Return
             Dim rows = TryCast(salesReportGrid.DataSource, DataTable)
             If rows Is Nothing Then Return
 
-            Dim period = Convert.ToString(salesReportPeriodCombo.SelectedItem)
-            Dim saleType = Convert.ToString(salesReportTypeCombo.SelectedItem)
+            Dim period = salesReportPeriod
+            Dim saleType = salesReportType
             Dim periodCaption = salesReportDetailsLabel.Text.Replace("Transaction Details — ", String.Empty)
             Dim title = period & " Sales Report"
             Dim saleDate As DateTime
@@ -545,19 +594,34 @@ Public Class Admin
                 header.Controls.Add(New Label With {.Text = receiptNumber & "  |  " & saleDate.ToString("MMMM dd, yyyy  h:mm tt", CultureInfo.CurrentCulture), .AutoSize = True, .Font = New Font("Segoe UI", 9.0F), .ForeColor = Color.Gray, .Location = New Point(22, 47)})
 
                 Dim content As New Panel With {.Dock = DockStyle.Fill, .AutoScroll = True, .BackColor = Color.White, .Padding = New Padding(22)}
-                Dim customerPanel As New Panel With {.Location = New Point(20, 12), .Size = New Size(646, 224), .BorderStyle = BorderStyle.FixedSingle, .BackColor = Color.White}
+                Dim isWholesaleReceipt = String.Equals(DbText(sale, "sale_mode"), "Wholesale", StringComparison.OrdinalIgnoreCase)
+                Dim customerPanel As New Panel With {.Location = New Point(20, 12), .Size = New Size(646, If(isWholesaleReceipt, 340, 224)), .BorderStyle = BorderStyle.FixedSingle, .BackColor = Color.White}
                 customerPanel.Controls.Add(New Label With {.Text = "SALE INFORMATION", .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(16, 13)})
                 AddReceiptDetailField(customerPanel, "Sale Type", DbText(sale, "sale_mode"), 16, 48)
-                AddReceiptDetailField(customerPanel, "Customer Type", DbText(sale, "customer_type"), 326, 48)
-                AddReceiptDetailField(customerPanel, "Customer", If(String.IsNullOrWhiteSpace(DbText(sale, "customer_name")), "Walk-in", DbText(sale, "customer_name")), 16, 102)
-                If Not String.IsNullOrWhiteSpace(DbText(sale, "customer_id_number")) Then
-                    AddReceiptDetailField(customerPanel, "Customer ID", DbText(sale, "customer_id_number"), 326, 102)
+                If isWholesaleReceipt Then
+                    AddReceiptDetailField(customerPanel, "Wholesale Client", DbText(sale, "wholesale_company_name"), 326, 48)
+                    AddReceiptDetailField(customerPanel, "FDA LTO No.", If(String.IsNullOrWhiteSpace(DbText(sale, "wholesale_customer_license")), DbText(sale, "customer_id_number"), DbText(sale, "wholesale_customer_license")), 16, 102)
+                    AddReceiptDetailField(customerPanel, "Contact Person", If(String.IsNullOrWhiteSpace(DbText(sale, "contact_person")), DbText(sale, "customer_name"), DbText(sale, "contact_person")), 326, 102)
+                    AddReceiptDetailField(customerPanel, "Contact No.", DbText(sale, "contact_number"), 16, 156)
+                    AddReceiptDetailField(customerPanel, "Shipping Address", DbText(sale, "customer_address"), 326, 156)
+                    AddReceiptDetailField(customerPanel, "Purchase Order No.", DbText(sale, "purchase_order_no"), 16, 210)
+                    AddReceiptDetailField(customerPanel, "Purchase Order Date", If(sale.IsNull("purchase_order_date"), String.Empty, Convert.ToDateTime(sale("purchase_order_date")).ToString("MM/dd/yyyy", CultureInfo.InvariantCulture)), 326, 210)
+                    Dim paymentDescription = If(String.Equals(DbText(sale, "payment_method"), "E-payment", StringComparison.OrdinalIgnoreCase), "E-payment · " & DbText(sale, "payment_provider"), If(String.IsNullOrWhiteSpace(DbText(sale, "payment_method")), "Cash", DbText(sale, "payment_method")))
+                    AddReceiptDetailField(customerPanel, "Mode of Payment", paymentDescription, 16, 264)
+                    AddReceiptDetailField(customerPanel, "Cashier Initials", ReceiptStaffInitials(DbText(sale, "cashier_initials")), 326, 264)
+                Else
+                    AddReceiptDetailField(customerPanel, "Customer Type", DbText(sale, "customer_type"), 326, 48)
+                    AddReceiptDetailField(customerPanel, "Customer", If(String.IsNullOrWhiteSpace(DbText(sale, "customer_name")), "Walk-in", DbText(sale, "customer_name")), 16, 102)
+                    If Not String.IsNullOrWhiteSpace(DbText(sale, "customer_id_number")) Then
+                        AddReceiptDetailField(customerPanel, "Customer ID", DbText(sale, "customer_id_number"), 326, 102)
+                    End If
+                    AddReceiptDetailField(customerPanel, "Cashier Initials", ReceiptStaffInitials(DbText(sale, "cashier_initials")), 16, 160)
                 End If
-                AddReceiptDetailField(customerPanel, "Cashier", DbText(sale, "cashier_name"), 16, 160)
 
-                Dim itemHeading As New Label With {.Text = "ITEMS", .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(22, 252)}
+                Dim itemHeadingTop = If(isWholesaleReceipt, 368, 252)
+                Dim itemHeading As New Label With {.Text = "ITEMS", .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(22, itemHeadingTop)}
                 Dim itemGrid As New DataGridView With {
-                    .Location = New Point(20, 282),
+                    .Location = New Point(20, itemHeadingTop + 30),
                     .Size = New Size(646, 224),
                     .ReadOnly = True,
                     .AllowUserToAddRows = False,
@@ -603,7 +667,7 @@ Public Class Admin
                 Next
                 itemGrid.DataSource = itemRows
 
-                Dim rxTop = 526
+                Dim rxTop = itemHeadingTop + 274
                 Dim hasPrescription = details.AsEnumerable().Any(Function(row) Not row.IsNull("is_prescription") AndAlso Convert.ToBoolean(row("is_prescription")))
                 If hasPrescription Then
                     Dim rxPanel As New Panel With {.Location = New Point(20, rxTop), .Size = New Size(646, 186), .BorderStyle = BorderStyle.FixedSingle, .BackColor = Color.White}
@@ -672,11 +736,29 @@ Public Class Admin
             "Transaction No.: " & saleId.ToString(CultureInfo.InvariantCulture),
             "Date and Time: " & saleDate.ToString("MM/dd/yyyy hh:mm tt", CultureInfo.InvariantCulture),
             "Sale Type: " & DbText(sale, "sale_mode"),
-            "Cashier: " & DbText(sale, "cashier_name"),
-            "Customer Type: " & DbText(sale, "customer_type")
+            "Cashier Initials: " & ReceiptStaffInitials(DbText(sale, "cashier_initials"))
         }
-        If Not String.IsNullOrWhiteSpace(DbText(sale, "customer_name")) Then lines.Add("Customer Name: " & DbText(sale, "customer_name"))
-        If Not String.IsNullOrWhiteSpace(DbText(sale, "customer_id_number")) Then lines.Add("Customer ID: " & DbText(sale, "customer_id_number"))
+        If String.Equals(DbText(sale, "sale_mode"), "Wholesale", StringComparison.OrdinalIgnoreCase) Then
+            If Not String.IsNullOrWhiteSpace(DbText(sale, "wholesale_company_name")) Then lines.Add("Company: " & DbText(sale, "wholesale_company_name"))
+            Dim license = If(String.IsNullOrWhiteSpace(DbText(sale, "wholesale_customer_license")), DbText(sale, "customer_id_number"), DbText(sale, "wholesale_customer_license"))
+            If Not String.IsNullOrWhiteSpace(license) Then lines.Add("FDA LTO No.: " & license)
+            Dim contactPerson = If(String.IsNullOrWhiteSpace(DbText(sale, "contact_person")), DbText(sale, "customer_name"), DbText(sale, "contact_person"))
+            If Not String.IsNullOrWhiteSpace(contactPerson) Then lines.Add("Contact Person: " & contactPerson)
+            If Not String.IsNullOrWhiteSpace(DbText(sale, "contact_number")) Then lines.Add("Contact No.: " & DbText(sale, "contact_number"))
+            If Not String.IsNullOrWhiteSpace(DbText(sale, "customer_address")) Then lines.Add("Shipping Address: " & DbText(sale, "customer_address"))
+            If Not String.IsNullOrWhiteSpace(DbText(sale, "purchase_order_no")) Then lines.Add("Purchase Order No.: " & DbText(sale, "purchase_order_no"))
+            If Not sale.IsNull("purchase_order_date") Then lines.Add("Purchase Order Date: " & Convert.ToDateTime(sale("purchase_order_date")).ToString("MM/dd/yyyy", CultureInfo.InvariantCulture))
+            Dim paymentDescription = If(String.Equals(DbText(sale, "payment_method"), "E-payment", StringComparison.OrdinalIgnoreCase),
+                                        "E-payment" & If(String.IsNullOrWhiteSpace(DbText(sale, "payment_provider")), String.Empty, " - " & DbText(sale, "payment_provider")),
+                                        If(String.IsNullOrWhiteSpace(DbText(sale, "payment_method")), "Cash", DbText(sale, "payment_method")))
+            lines.Add("Mode of Payment: " & paymentDescription)
+            If Not String.IsNullOrWhiteSpace(DbText(sale, "payment_account_name")) Then lines.Add("Account Name: " & DbText(sale, "payment_account_name"))
+            If Not String.IsNullOrWhiteSpace(DbText(sale, "payment_reference_number")) Then lines.Add("Payment Reference No.: " & DbText(sale, "payment_reference_number"))
+        Else
+            lines.Add("Customer Type: " & DbText(sale, "customer_type"))
+            If Not String.IsNullOrWhiteSpace(DbText(sale, "customer_name")) Then lines.Add("Customer Name: " & DbText(sale, "customer_name"))
+            If Not String.IsNullOrWhiteSpace(DbText(sale, "customer_id_number")) Then lines.Add("Customer ID: " & DbText(sale, "customer_id_number"))
+        End If
         lines.Add(New String("-"c, 76))
         lines.Add("ITEMS")
         For Each row As DataRow In details.Rows
@@ -807,12 +889,12 @@ Public Class Admin
             .Padding = New Padding(0)
         }
         layout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100.0F))
-        layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 118.0F))
+        layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 170.0F))
         layout.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
 
         Dim toolbar As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White}
         Dim filterLabel As New Label With {
-            .Text = "Filter by status",
+            .Text = "Filter by parent category",
             .AutoSize = True,
             .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold),
             .ForeColor = Color.Black,
@@ -821,62 +903,104 @@ Public Class Admin
         toolbar.Controls.Add(filterLabel)
 
         Dim filterPanel As New FlowLayoutPanel With {
-            .Location = New Point(8, 28),
-            .Size = New Size(650, 34),
+            .Location = New Point(8, 86),
+            .Size = New Size(650, 32),
             .WrapContents = False,
             .BackColor = Color.White,
             .Margin = New Padding(0),
             .Padding = New Padding(0)
         }
-        For Each filterName In {"All", "Low Stock", "Near Expiry", "Expired"}
+        For Each filterName In {"All", "Low Stock", "Near Expiry", "Expired", "In Stock"}
             Dim filterButton As New Button With {
                 .Text = filterName,
                 .Tag = filterName,
                 .AutoSize = True,
                 .FlatStyle = FlatStyle.Flat,
-                .BackColor = Color.FromArgb(240, 240, 240),
-                .ForeColor = Color.FromArgb(40, 40, 40),
+                .BackColor = Color.White,
+                .ForeColor = Color.FromArgb(20, 100, 60),
                 .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
                 .Margin = New Padding(0, 0, 6, 0),
                 .Padding = New Padding(6, 2, 6, 2),
                 .Height = 28
             }
-            filterButton.FlatAppearance.BorderSize = 0
+            filterButton.FlatAppearance.BorderColor = Color.FromArgb(20, 100, 60)
+            filterButton.FlatAppearance.BorderSize = 1
             AddHandler filterButton.Click, AddressOf InventoryFilterButton_Click
             inventoryFilterButtons(filterName) = filterButton
             filterPanel.Controls.Add(filterButton)
         Next
+        toolbar.Controls.Add(New Label With {
+            .Text = "Filter by status",
+            .AutoSize = True,
+            .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold),
+            .ForeColor = Color.Black,
+            .Location = New Point(8, 62)
+        })
         toolbar.Controls.Add(filterPanel)
-
+        Dim parentFilterPanel As New FlowLayoutPanel With {
+            .Location = New Point(8, 28),
+            .Size = New Size(520, 34),
+            .WrapContents = False,
+            .BackColor = Color.White,
+            .Margin = New Padding(0),
+            .Padding = New Padding(0)
+        }
+        For Each parentName In {"All", "Medicine", "Supplements", "Medical Supply"}
+            Dim parentButton As New Button With {
+                .Text = parentName,
+                .Tag = parentName,
+                .Size = New Size(120, 30),
+                .FlatStyle = FlatStyle.Flat,
+                .BackColor = If(parentName = "All", Color.FromArgb(20, 100, 60), Color.White),
+                .ForeColor = If(parentName = "All", Color.White, Color.FromArgb(20, 100, 60)),
+                .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
+                .Margin = New Padding(0, 0, 8, 0),
+                .Cursor = Cursors.Hand,
+                .UseVisualStyleBackColor = False
+            }
+            parentButton.FlatAppearance.BorderColor = Color.FromArgb(20, 100, 60)
+            parentButton.FlatAppearance.BorderSize = 1
+            AddHandler parentButton.Click, AddressOf InventoryParentFilterButton_Click
+            inventoryParentFilterButtons(parentName) = parentButton
+            parentFilterPanel.Controls.Add(parentButton)
+        Next
         inventorySearchBox = New TextBox With {
-            .Location = New Point(8, 69),
-            .Size = New Size(620, 30),
-            .Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right,
+            .Location = New Point(600, 28),
+            .Size = New Size(300, 30),
             .Font = New Font("Segoe UI", 10.0F),
             .BackColor = Color.White,
             .ForeColor = Color.Black,
             .BorderStyle = BorderStyle.FixedSingle,
-            .PlaceholderText = "Search product ID, category, brand, generic name, or status..."
+            .PlaceholderText = "Search inventory..."
         }
         AddHandler inventorySearchBox.TextChanged, AddressOf InventorySearchBox_TextChanged
-        toolbar.Controls.Add(inventorySearchBox)
 
         Dim clearButton As New Button With {
             .Text = "Clear",
-            .Location = New Point(638, 68),
-            .Size = New Size(78, 31),
-            .Anchor = AnchorStyles.Top Or AnchorStyles.Right,
+            .Location = New Point(600, 86),
+            .Size = New Size(78, 30),
             .FlatStyle = FlatStyle.Flat,
             .BackColor = Color.FromArgb(240, 240, 240),
             .ForeColor = Color.FromArgb(40, 40, 40),
-            .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
+            .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
+            .Margin = New Padding(0)
         }
         clearButton.FlatAppearance.BorderColor = Color.FromArgb(80, 80, 80)
         AddHandler clearButton.Click,
             Sub(sender, e)
                 inventorySearchBox.Clear()
                 SetInventoryFilter("All")
+                SetInventoryParentFilter("All")
             End Sub
+        Dim positionInventorySearchControls As Action =
+            Sub()
+                inventorySearchBox.Left = Math.Max(parentFilterPanel.Right + 12, toolbar.ClientSize.Width - inventorySearchBox.Width - 8)
+                clearButton.Left = Math.Max(filterPanel.Right + 12, toolbar.ClientSize.Width - clearButton.Width - 8)
+            End Sub
+        AddHandler toolbar.Resize, Sub(sender, e) positionInventorySearchControls()
+        positionInventorySearchControls()
+        toolbar.Controls.Add(parentFilterPanel)
+        toolbar.Controls.Add(inventorySearchBox)
         toolbar.Controls.Add(clearButton)
 
         dgvInventory.Dock = DockStyle.Fill
@@ -1229,6 +1353,21 @@ Public Class Admin
         If button IsNot Nothing Then SetInventoryFilter(Convert.ToString(button.Tag))
     End Sub
 
+    Private Sub InventoryParentFilterButton_Click(sender As Object, e As EventArgs)
+        Dim button = TryCast(sender, Button)
+        If button IsNot Nothing Then SetInventoryParentFilter(Convert.ToString(button.Tag))
+    End Sub
+
+    Private Sub SetInventoryParentFilter(parentName As String)
+        inventorySelectedParentCategory = If(String.IsNullOrWhiteSpace(parentName), "All", parentName)
+        For Each entry In inventoryParentFilterButtons
+            Dim active = String.Equals(entry.Key, inventorySelectedParentCategory, StringComparison.OrdinalIgnoreCase)
+            entry.Value.BackColor = If(active, Color.FromArgb(20, 100, 60), Color.White)
+            entry.Value.ForeColor = If(active, Color.White, Color.FromArgb(20, 100, 60))
+        Next
+        ApplyInventoryFilters()
+    End Sub
+
     Private Sub InventorySearchBox_TextChanged(sender As Object, e As EventArgs)
         ApplyInventoryFilters()
     End Sub
@@ -1237,8 +1376,8 @@ Public Class Admin
         inventoryActiveFilter = If(String.IsNullOrWhiteSpace(filterName), "All", filterName)
         For Each entry In inventoryFilterButtons
             Dim active = String.Equals(entry.Key, inventoryActiveFilter, StringComparison.OrdinalIgnoreCase)
-            entry.Value.BackColor = If(active, Color.FromArgb(20, 100, 60), Color.FromArgb(240, 240, 240))
-            entry.Value.ForeColor = If(active, Color.White, Color.FromArgb(40, 40, 40))
+            entry.Value.BackColor = If(active, Color.FromArgb(218, 240, 229), Color.White)
+            entry.Value.ForeColor = Color.FromArgb(20, 100, 60)
         Next
         ApplyInventoryFilters()
     End Sub
@@ -1257,6 +1396,8 @@ Public Class Admin
                     includeByStatus = status.IsNearExpiry
                 Case "Expired"
                     includeByStatus = status.IsExpired
+                Case "In Stock"
+                    includeByStatus = status.IsInStock
             End Select
 
             Dim includeBySearch = search.Length = 0 OrElse
@@ -1266,7 +1407,11 @@ Public Class Admin
                 Convert.ToString(row("Generic Name")).IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0 OrElse
                 Convert.ToString(row("Status")).IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0
 
-            If includeByStatus AndAlso includeBySearch Then visibleRows.ImportRow(row)
+            Dim includeByParent = inventorySelectedParentCategory = "All" OrElse
+                (inventoryRows.Columns.Contains("Parent Category") AndAlso
+                 String.Equals(Convert.ToString(row("Parent Category")), inventorySelectedParentCategory, StringComparison.OrdinalIgnoreCase))
+
+            If includeByStatus AndAlso includeByParent AndAlso includeBySearch Then visibleRows.ImportRow(row)
         Next
         dgvInventory.DataSource = visibleRows
     End Sub
@@ -1284,8 +1429,9 @@ Public Class Admin
         If isExpired Then labels.Add("Expired")
         If isLowStock Then labels.Add("Low Stock")
         If isNearExpiry Then labels.Add("Near Expiry")
-        Dim label = If(labels.Count = 0, "In Stock", String.Join(" · ", labels))
-        Return New InventoryStatusInfo With {.Label = label, .IsLowStock = isLowStock, .IsNearExpiry = isNearExpiry, .IsExpired = isExpired}
+        Dim isInStock = labels.Count = 0
+        Dim label = If(isInStock, "In Stock", String.Join(" · ", labels))
+        Return New InventoryStatusInfo With {.Label = label, .IsLowStock = isLowStock, .IsNearExpiry = isNearExpiry, .IsExpired = isExpired, .IsInStock = isInStock}
     End Function
 
     Private Class InventoryStatusInfo
@@ -1293,6 +1439,7 @@ Public Class Admin
         Public Property IsLowStock As Boolean
         Public Property IsNearExpiry As Boolean
         Public Property IsExpired As Boolean
+        Public Property IsInStock As Boolean
     End Class
 
     Private Sub InventoryGrid_DataBindingComplete(sender As Object, e As DataGridViewBindingCompleteEventArgs)
@@ -1360,30 +1507,25 @@ Public Class Admin
 
     Private Sub LoadPriceManagerData()
         Try
+            ApplyWholesaleDiscountRule()
             priceManagerProducts = New ProductManager().GetProducts(includeInactive:=True)
             If priceManagerProducts Is Nothing Then priceManagerProducts = New DataTable()
-
-            Dim selectedCategory = If(priceManagerCategoryFilter Is Nothing, "All Categories", Convert.ToString(priceManagerCategoryFilter.SelectedItem))
-            If priceManagerCategoryFilter IsNot Nothing Then
-                priceManagerCategoryFilter.BeginUpdate()
-                priceManagerCategoryFilter.Items.Clear()
-                priceManagerCategoryFilter.Items.Add("All Categories")
-                If priceManagerProducts.Columns.Contains("Category") Then
-                    For Each category In priceManagerProducts.AsEnumerable().Select(Function(row) Convert.ToString(row("Category"))).Where(Function(value) Not String.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(Function(value) value)
-                        priceManagerCategoryFilter.Items.Add(category)
-                    Next
-                End If
-                If priceManagerCategoryFilter.Items.Contains(selectedCategory) Then
-                    priceManagerCategoryFilter.SelectedItem = selectedCategory
-                Else
-                    priceManagerCategoryFilter.SelectedIndex = 0
-                End If
-                priceManagerCategoryFilter.EndUpdate()
-            End If
+            LoadPriceManagerCategories()
+            PopulatePriceManagerCategoryFilter()
             RenderPriceManagerProducts()
         Catch ex As Exception
             MessageBox.Show("Could not load product prices. " & ex.Message, "Price Manager", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
+    End Sub
+
+    Private Sub ApplyWholesaleDiscountRule()
+        Using connection = GetConnection()
+            connection.Open()
+            Const query As String = "UPDATE product SET wholesale_price_per_box = ROUND(retail_price * quantity_per_box * 0.90, 2) WHERE retail_price IS NOT NULL AND quantity_per_box > 0"
+            Using command As New MySqlCommand(query, connection)
+                command.ExecuteNonQuery()
+            End Using
+        End Using
     End Sub
 
     Private Sub InitializePriceManagerUi()
@@ -1403,27 +1545,158 @@ Public Class Admin
 
         Dim listing As New TableLayoutPanel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(12), .Margin = New Padding(0), .ColumnCount = 1, .RowCount = 3}
         listing.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
-        listing.RowStyles.Add(New RowStyle(SizeType.Absolute, 46))
+        listing.RowStyles.Add(New RowStyle(SizeType.Absolute, 48))
         listing.RowStyles.Add(New RowStyle(SizeType.Absolute, 44))
         listing.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
-        priceManagerSearchBox = New TextBox With {.Dock = DockStyle.Fill, .Font = New Font("Segoe UI", 10.0F), .PlaceholderText = "Search product ID, category, brand, generic name...", .Margin = New Padding(0, 3, 0, 5)}
-        priceManagerCategoryFilter = New ComboBox With {.DropDownStyle = ComboBoxStyle.DropDownList, .Font = New Font("Segoe UI", 10.0F), .Dock = DockStyle.Left, .Width = 260, .Margin = New Padding(0, 3, 0, 5)}
+        Dim filterSearchRow As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 2, .RowCount = 1, .BackColor = Color.White, .Margin = New Padding(0)}
+        filterSearchRow.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 58))
+        filterSearchRow.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 42))
+        filterSearchRow.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
+        Dim parentFilterPanel As New FlowLayoutPanel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .FlowDirection = FlowDirection.LeftToRight, .WrapContents = False, .Padding = New Padding(0, 7, 0, 0), .Margin = New Padding(0)}
+        priceManagerSearchBox = New TextBox With {.Dock = DockStyle.Fill, .Font = New Font("Segoe UI", 10.0F), .PlaceholderText = "Search product ID, category, brand, generic name...", .Margin = New Padding(12, 7, 0, 5)}
+        priceManagerParentFilterButtons = New Dictionary(Of String, Button)(StringComparer.OrdinalIgnoreCase)
+        For Each category In {"All", "Medicine", "Supplements", "Medical Supply"}
+            Dim filterButton As New Button With {
+                .Text = category,
+                .Tag = category,
+                .Size = New Size(120, 32),
+                .Margin = New Padding(0, 0, 8, 0),
+                .BackColor = If(category = "All", darkGreen, Color.White),
+                .ForeColor = If(category = "All", Color.White, darkGreen),
+                .FlatStyle = FlatStyle.Flat,
+                .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
+                .Cursor = Cursors.Hand,
+                .UseVisualStyleBackColor = False
+            }
+            filterButton.FlatAppearance.BorderColor = darkGreen
+            filterButton.FlatAppearance.BorderSize = 1
+            priceManagerParentFilterButtons.Add(category, filterButton)
+            parentFilterPanel.Controls.Add(filterButton)
+            AddHandler filterButton.Click, AddressOf PriceManagerParentFilter_Click
+        Next
+        priceManagerCategoryFilter = New ComboBox With {
+            .DropDownStyle = ComboBoxStyle.DropDownList,
+            .DrawMode = DrawMode.OwnerDrawFixed,
+            .BackColor = Color.White,
+            .ForeColor = darkGreen,
+            .Font = New Font("Segoe UI", 10.0F),
+            .Dock = DockStyle.Left,
+            .Width = 260,
+            .Margin = New Padding(0, 3, 0, 5)
+        }
         priceManagerCategoryFilter.Items.Add("All Categories")
         priceManagerCategoryFilter.SelectedIndex = 0
+        filterSearchRow.Controls.Add(parentFilterPanel, 0, 0)
+        filterSearchRow.Controls.Add(priceManagerSearchBox, 1, 0)
         Dim productArea As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = New Padding(0)}
         Dim detailsHeader As New Label With {.Text = "PRODUCT DETAILS", .Dock = DockStyle.Top, .Height = 32, .BackColor = Color.FromArgb(240, 245, 241), .ForeColor = Color.FromArgb(65, 80, 70), .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold), .TextAlign = ContentAlignment.MiddleLeft, .Padding = New Padding(8, 0, 0, 0)}
         priceManagerProductList = New FlowLayoutPanel With {.Dock = DockStyle.Fill, .AutoScroll = True, .FlowDirection = FlowDirection.TopDown, .WrapContents = False, .BackColor = Color.White, .Padding = New Padding(0, 8, 0, 0)}
         productArea.Controls.Add(priceManagerProductList)
         productArea.Controls.Add(detailsHeader)
-        listing.Controls.Add(priceManagerSearchBox, 0, 0)
+        listing.Controls.Add(filterSearchRow, 0, 0)
         listing.Controls.Add(priceManagerCategoryFilter, 0, 1)
         listing.Controls.Add(productArea, 0, 2)
         page.Controls.Add(listing, 0, 0)
         priceManagerView.Controls.Add(page)
 
         AddHandler priceManagerSearchBox.TextChanged, Sub(sender, e) RenderPriceManagerProducts()
-        AddHandler priceManagerCategoryFilter.SelectedIndexChanged, Sub(sender, e) RenderPriceManagerProducts()
+        AddHandler priceManagerCategoryFilter.SelectedIndexChanged,
+            Sub(sender, e)
+                If Not priceManagerUpdatingCategoryFilter Then RenderPriceManagerProducts()
+            End Sub
+        AddHandler priceManagerCategoryFilter.DrawItem, AddressOf PriceManagerCategoryFilter_DrawItem
         AddHandler priceManagerProductList.ClientSizeChanged, AddressOf PriceManagerProductList_Resize
+    End Sub
+
+    Private Sub PriceManagerParentFilter_Click(sender As Object, e As EventArgs)
+        Dim filterButton = TryCast(sender, Button)
+        If filterButton Is Nothing Then Return
+
+        priceManagerSelectedParentCategory = Convert.ToString(filterButton.Tag)
+        For Each entry In priceManagerParentFilterButtons
+            Dim isSelected = String.Equals(entry.Key, priceManagerSelectedParentCategory, StringComparison.OrdinalIgnoreCase)
+            entry.Value.BackColor = If(isSelected, darkGreen, Color.White)
+            entry.Value.ForeColor = If(isSelected, Color.White, darkGreen)
+        Next
+
+        PopulatePriceManagerCategoryFilter()
+        RenderPriceManagerProducts()
+    End Sub
+
+    Private Sub PopulatePriceManagerCategoryFilter()
+        If priceManagerCategoryFilter Is Nothing OrElse priceManagerProducts Is Nothing Then Return
+
+        priceManagerUpdatingCategoryFilter = True
+        priceManagerCategoryFilter.BeginUpdate()
+        Try
+            Dim previousCategory = Convert.ToString(priceManagerCategoryFilter.SelectedItem)
+            priceManagerCategoryFilter.Items.Clear()
+            priceManagerCategoryFilter.Items.Add("All Categories")
+            Dim categories = priceManagerProducts.AsEnumerable()
+            If priceManagerSelectedParentCategory <> "All" AndAlso priceManagerProducts.Columns.Contains("Parent Category") Then
+                categories = categories.Where(Function(row) String.Equals(
+                    Convert.ToString(row("Parent Category")), priceManagerSelectedParentCategory, StringComparison.OrdinalIgnoreCase))
+            End If
+
+            Dim categoryNames As IEnumerable(Of String)
+            If priceManagerCategories IsNot Nothing AndAlso priceManagerCategories.Columns.Contains("Parent Category") Then
+                categoryNames = priceManagerCategories.AsEnumerable().
+                    Where(Function(row) priceManagerSelectedParentCategory = "All" OrElse
+                        String.Equals(Convert.ToString(row("Parent Category")), priceManagerSelectedParentCategory, StringComparison.OrdinalIgnoreCase)).
+                    Select(Function(row) Convert.ToString(row("Category"))).
+                    Where(Function(value) Not String.IsNullOrWhiteSpace(value)).
+                    Distinct(StringComparer.OrdinalIgnoreCase).
+                    OrderBy(Function(value) value)
+            Else
+                categoryNames = categories.Select(Function(row) Convert.ToString(row("Category"))).
+                Where(Function(value) Not String.IsNullOrWhiteSpace(value)).
+                Distinct(StringComparer.OrdinalIgnoreCase).
+                OrderBy(Function(value) value)
+            End If
+            For Each category In categoryNames
+                priceManagerCategoryFilter.Items.Add(category)
+            Next
+            If Not String.IsNullOrWhiteSpace(previousCategory) AndAlso priceManagerCategoryFilter.Items.Contains(previousCategory) Then
+                priceManagerCategoryFilter.SelectedItem = previousCategory
+            Else
+                priceManagerCategoryFilter.SelectedIndex = 0
+            End If
+        Finally
+            priceManagerCategoryFilter.EndUpdate()
+            priceManagerUpdatingCategoryFilter = False
+        End Try
+    End Sub
+
+    Private Sub LoadPriceManagerCategories()
+        Const query As String = "SELECT child.category_name AS 'Category', parent.category_name AS 'Parent Category' " &
+                                "FROM product_category child " &
+                                "INNER JOIN product_category parent ON child.parent_category_id = parent.category_ID " &
+                                "WHERE child.is_active = 1 AND parent.is_active = 1 " &
+                                "ORDER BY parent.category_name, child.category_name"
+        priceManagerCategories = New DataTable()
+        Using connection = GetConnection()
+            connection.Open()
+            Using adapter As New MySqlDataAdapter(query, connection)
+                adapter.Fill(priceManagerCategories)
+            End Using
+        End Using
+    End Sub
+
+    Private Sub PriceManagerCategoryFilter_DrawItem(sender As Object, e As DrawItemEventArgs)
+        If e.Index < 0 Then Return
+
+        Dim isSelected = (e.State And DrawItemState.Selected) = DrawItemState.Selected
+        Dim background = If(isSelected, Color.FromArgb(218, 240, 229), Color.White)
+        Dim foreground = If(isSelected, darkGreen, Color.Black)
+        Using brush As New SolidBrush(background)
+            e.Graphics.FillRectangle(brush, e.Bounds)
+        End Using
+        TextRenderer.DrawText(e.Graphics,
+                              Convert.ToString(priceManagerCategoryFilter.Items(e.Index)),
+                              e.Font,
+                              e.Bounds,
+                              foreground,
+                              TextFormatFlags.Left Or TextFormatFlags.VerticalCenter)
     End Sub
 
     Private Sub RenderPriceManagerProducts()
@@ -1439,6 +1712,8 @@ Public Class Admin
 
         For Each product As DataRow In priceManagerProducts.Rows
             Dim category = Convert.ToString(product("Category"))
+            If priceManagerSelectedParentCategory <> "All" AndAlso priceManagerProducts.Columns.Contains("Parent Category") AndAlso
+               Not String.Equals(Convert.ToString(product("Parent Category")), priceManagerSelectedParentCategory, StringComparison.OrdinalIgnoreCase) Then Continue For
             If Not String.Equals(selectedCategory, "All Categories", StringComparison.OrdinalIgnoreCase) AndAlso Not String.Equals(category, selectedCategory, StringComparison.OrdinalIgnoreCase) Then Continue For
 
             Dim searchable = String.Join(" ", {Convert.ToString(product("ID")), category, Convert.ToString(product("Brand Name")), Convert.ToString(product("Generic Name"))})
@@ -1456,12 +1731,12 @@ Public Class Admin
     Private Sub PriceManagerProductList_Resize(sender As Object, e As EventArgs)
         If priceManagerProductList Is Nothing Then Return
         For Each card As Control In priceManagerProductList.Controls
-            If TypeOf card Is Panel Then card.Width = Math.Max(320, priceManagerProductList.ClientSize.Width - 28)
+            If TypeOf card Is Panel Then card.Width = Math.Max(320, priceManagerProductList.ClientSize.Width - 24)
         Next
     End Sub
 
     Private Function CreatePriceProductCard(product As DataRow) As Control
-        Dim card As New Panel With {.Width = Math.Max(320, priceManagerProductList.ClientSize.Width - 28), .Height = 148, .BackColor = Color.White, .Margin = New Padding(0, 0, 0, 8), .BorderStyle = BorderStyle.FixedSingle}
+        Dim card As New Panel With {.Width = Math.Max(320, priceManagerProductList.ClientSize.Width - 24), .Height = 148, .BackColor = Color.White, .Margin = New Padding(12, 0, 12, 8), .BorderStyle = BorderStyle.FixedSingle}
         Dim brand = Convert.ToString(product("Brand Name"))
         Dim generic = Convert.ToString(product("Generic Name"))
         Dim id = Convert.ToString(product("ID"))
@@ -1505,8 +1780,6 @@ Public Class Admin
         Dim originalRetail = Convert.ToDecimal(product("Retail Price"))
         Dim originalWholesale = Convert.ToDecimal(product("Wholesale Price"))
         Dim quantityPerBox = If(product.IsNull("Qty/Box"), 0D, Convert.ToDecimal(product("Qty/Box")))
-        Dim originalBoxRetailTotal = originalRetail * quantityPerBox
-        Dim wholesaleMultiplier = If(originalBoxRetailTotal > 0D, originalWholesale / originalBoxRetailTotal, 1D)
         Using prompt As New Form With {.Text = "Edit Prices", .StartPosition = FormStartPosition.CenterParent, .FormBorderStyle = FormBorderStyle.None, .ControlBox = False, .ClientSize = New Size(420, 250), .MinimizeBox = False, .MaximizeBox = False, .BackColor = Color.White}
             AddBlackDialogBorder(prompt)
             prompt.Controls.Add(New Label With {.Text = Convert.ToString(product("Brand Name")), .AutoSize = True, .Font = New Font("Segoe UI", 12.0F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(18, 16)})
@@ -1516,7 +1789,7 @@ Public Class Admin
             prompt.Controls.Add(New Label With {.Text = "Wholesale price per box", .AutoSize = True, .Location = New Point(195, 58)})
             Dim wholesaleBox As New TextBox With {.Text = wholesaleText, .Location = New Point(195, 80), .Width = 200, .ReadOnly = True}
             prompt.Controls.Add(wholesaleBox)
-            Dim autoWholesaleCheck As New CheckBox With {.Text = "Auto-calculate wholesale using the current discount", .AutoSize = True, .Checked = True, .Location = New Point(18, 118), .ForeColor = Color.FromArgb(65, 80, 70)}
+            Dim autoWholesaleCheck As New CheckBox With {.Text = "Auto-calculate wholesale at 10% below box retail value", .AutoSize = True, .Checked = True, .Location = New Point(18, 118), .ForeColor = Color.FromArgb(65, 80, 70)}
             prompt.Controls.Add(autoWholesaleCheck)
             Dim boxQuantityNote As New Label With {.Text = "Box quantity: " & quantityPerBox.ToString("0.##", CultureInfo.CurrentCulture) & " " & Convert.ToString(product("Unit")), .AutoSize = True, .ForeColor = Color.Gray, .Location = New Point(18, 146)}
             prompt.Controls.Add(boxQuantityNote)
@@ -1530,11 +1803,12 @@ Public Class Admin
                     If Not autoWholesaleCheck.Checked Then Return
                     Dim retailPrice As Decimal
                     If Decimal.TryParse(retailBox.Text, NumberStyles.Currency, CultureInfo.CurrentCulture, retailPrice) AndAlso retailPrice >= 0D Then
-                        Dim calculated = Decimal.Round(retailPrice * quantityPerBox * wholesaleMultiplier, 2, MidpointRounding.AwayFromZero)
+                        Dim calculated = Decimal.Round(retailPrice * quantityPerBox * 0.90D, 2, MidpointRounding.AwayFromZero)
                         wholesaleBox.Text = calculated.ToString("0.00", CultureInfo.CurrentCulture)
                     End If
                 End Sub
             AddHandler retailBox.TextChanged, Sub(sender, e) updateAutoWholesale()
+            updateAutoWholesale()
             AddHandler autoWholesaleCheck.CheckedChanged,
                 Sub(sender, e)
                     wholesaleBox.ReadOnly = autoWholesaleCheck.Checked
