@@ -1488,7 +1488,7 @@ Partial Class SuperAdmin
         retailTitle.Name = "retailTitle"
         retailTitle.Size = New Size(177, 26)
         retailTitle.TabIndex = 6
-        retailTitle.Text = "Retail Sales Report"
+        retailTitle.Text = "Sales Report"
         ' 
         ' TableLayoutPanel6
         ' 
@@ -2120,7 +2120,7 @@ Partial Class SuperAdmin
         titleRetailSalesReport.Name = "titleRetailSalesReport"
         titleRetailSalesReport.Size = New Size(177, 26)
         titleRetailSalesReport.TabIndex = 5
-        titleRetailSalesReport.Text = "Retail Sales Report"
+        titleRetailSalesReport.Text = "Sales Report"
         ' 
         ' Panel24
         ' 

@@ -1,7 +1,10 @@
 ﻿Imports MySql.Data.MySqlClient
 Imports System.Text.RegularExpressions
 Imports System.Data
+Imports System.Diagnostics
 Imports System.Drawing.Printing
+Imports System.Globalization
+Imports System.IO
 Imports System.Threading.Tasks
 
 Public Class SuperAdmin
@@ -10,11 +13,24 @@ Public Class SuperAdmin
     Private printTitle As String
     Private printRowIndex As Integer
     Private printColumns As DataGridViewColumn()
+    Private WithEvents salesTransactionFilter As ComboBox
+    Private WithEvents salesTransactionDate As DateTimePicker
+    Private salesBackToReports As Button
+    Private transactionDetailsTitle As Label
+    Private salesDateFilterLabel As Label
+    Private salesDateCaption As Label
+    Private salesFiltersInitialized As Boolean
+    Private salesReportFilterPanel As Panel
+    Private salesReportDetailsPanel As Panel
+    Private salesReportTotalLabel As Label
+    Private salesReportPageLayout As TableLayoutPanel
+    Private salesReportBody As TableLayoutPanel
 
     ' --- 1. INITIALIZATION & NAVIGATION ---
     Private Sub SuperAdmin_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         Me.WindowState = FormWindowState.Maximized
         Me.FormBorderStyle = FormBorderStyle.None
+        InitializeSalesReportFilters()
         AddHandler Me.Resize, AddressOf SuperAdmin_Resize
         motherPanel.Dock = DockStyle.None
         motherPanel.Anchor = AnchorStyles.Top Or AnchorStyles.Bottom Or AnchorStyles.Left Or AnchorStyles.Right
@@ -146,6 +162,11 @@ Public Class SuperAdmin
                 wholesalePrintReport.Click,
                 employeePrintReport.Click
         Dim printButton = DirectCast(sender, Button)
+        If printButton Is retailPrintReport Then
+            PrintSalesReportPdf()
+            Return
+        End If
+
         Dim reportGrid As DataGridView
         Dim reportTitle As String
 
@@ -256,6 +277,124 @@ Public Class SuperAdmin
 
             e.HasMorePages = printRowIndex < printGrid.Rows.Count
         End Using
+    End Sub
+
+    Private Sub PrintSalesReportPdf()
+        Try
+            Dim rows = TryCast(retailDataGrid.DataSource, DataTable)
+            If rows Is Nothing Then
+                MessageBox.Show("Load the report before printing.", "Print report", MessageBoxButtons.OK, MessageBoxIcon.Information)
+                Return
+            End If
+
+            Dim period = Convert.ToString(ComboBox4.SelectedItem, CultureInfo.InvariantCulture)
+            Dim saleType = If(salesTransactionFilter.SelectedIndex <= 0, "All", Convert.ToString(salesTransactionFilter.SelectedItem, CultureInfo.InvariantCulture))
+            Dim fromDate As DateTime?
+            Dim throughDateExclusive As DateTime?
+            GetSalesReportDateRange(fromDate, throughDateExclusive)
+            If Not fromDate.HasValue OrElse Not throughDateExclusive.HasValue Then Return
+
+            Dim startDate = fromDate.Value
+            Dim endDate = throughDateExclusive.Value
+            Dim periodCaption = transactionDetailsTitle.Text.Replace("Transaction Details — ", String.Empty)
+            Dim destinationFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "sales_report", period.ToLowerInvariant())
+            Dim fileSuffix As String
+            If String.Equals(period, "Daily", StringComparison.OrdinalIgnoreCase) Then
+                fileSuffix = startDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+            ElseIf String.Equals(period, "Monthly", StringComparison.OrdinalIgnoreCase) Then
+                destinationFolder = Path.Combine(destinationFolder, startDate.Year.ToString(CultureInfo.InvariantCulture), startDate.ToString("MMMM", CultureInfo.InvariantCulture))
+                fileSuffix = startDate.ToString("MMMM_yyyy", CultureInfo.InvariantCulture)
+            Else
+                destinationFolder = Path.Combine(destinationFolder, startDate.Year.ToString(CultureInfo.InvariantCulture))
+                fileSuffix = startDate.Year.ToString(CultureInfo.InvariantCulture)
+            End If
+
+            Dim mode = If(String.Equals(saleType, "All", StringComparison.OrdinalIgnoreCase), Nothing, saleType)
+            Dim itemDetails = New SalesRepository().GetSalesReportItemDetails(mode, startDate, endDate)
+            Dim total = rows.AsEnumerable().Sum(Function(row) If(row.IsNull("Total"), 0D, Convert.ToDecimal(row("Total"))))
+            Dim retailRows = rows.AsEnumerable().Where(Function(row) String.Equals(Convert.ToString(row("SaleType")), "Retail", StringComparison.OrdinalIgnoreCase)).ToList()
+            Dim wholesaleRows = rows.AsEnumerable().Where(Function(row) String.Equals(Convert.ToString(row("SaleType")), "Wholesale", StringComparison.OrdinalIgnoreCase)).ToList()
+            Dim itemCount = itemDetails.AsEnumerable().Sum(Function(row) If(row.IsNull("Quantity"), 0, Convert.ToInt32(row("Quantity"))))
+            Dim lines As New List(Of String) From {
+                "CABRERA'S DRUGSTORE AND MEDICAL SUPPLIES",
+                period & " Sales Report",
+                "@META|Report Period: " & periodCaption & "|Sale Type: " & saleType,
+                "@META|Generated: " & DateTime.Now.ToString("MMMM dd, yyyy h:mm tt", CultureInfo.CurrentCulture) & "|Prepared by: " & CurrentFullName,
+                "@SECTION|SALES SUMMARY",
+                "@SUMMARY|Transactions|" & rows.Rows.Count.ToString(CultureInfo.InvariantCulture) & "|Items Sold|" & itemCount.ToString(CultureInfo.InvariantCulture),
+                "@TOTAL|TOTAL SALES|PHP " & total.ToString("N2", CultureInfo.InvariantCulture),
+                "@SECTION|TRANSACTION DETAILS"
+            }
+            If String.Equals(saleType, "All", StringComparison.OrdinalIgnoreCase) Then
+                lines.Insert(6, "@SUMMARY|Retail Sales|PHP " & retailRows.Sum(Function(row) Convert.ToDecimal(row("Total"))).ToString("N2", CultureInfo.InvariantCulture) & "|Wholesale Sales|PHP " & wholesaleRows.Sum(Function(row) Convert.ToDecimal(row("Total"))).ToString("N2", CultureInfo.InvariantCulture))
+            ElseIf String.Equals(saleType, "Retail", StringComparison.OrdinalIgnoreCase) Then
+                lines.Insert(6, "@SUMMARY|Retail Sales|PHP " & retailRows.Sum(Function(row) Convert.ToDecimal(row("Total"))).ToString("N2", CultureInfo.InvariantCulture))
+            Else
+                lines.Insert(6, "@SUMMARY|Wholesale Sales|PHP " & wholesaleRows.Sum(Function(row) Convert.ToDecimal(row("Total"))).ToString("N2", CultureInfo.InvariantCulture))
+            End If
+
+            If String.Equals(period, "Yearly", StringComparison.OrdinalIgnoreCase) Then
+                Dim monthlyTotals = Enumerable.Range(1, 12).Select(Function(monthNumber) New With {
+                    .MonthLabel = New DateTime(startDate.Year, monthNumber, 1).ToString("MMMM", CultureInfo.CurrentCulture),
+                    .Sales = rows.AsEnumerable().Where(Function(row) Convert.ToDateTime(row("SaleDate")).Month = monthNumber).Sum(Function(row) If(row.IsNull("Total"), 0D, Convert.ToDecimal(row("Total"))))
+                }).ToList()
+                Dim insertAt = lines.FindIndex(Function(line) line.StartsWith("@TOTAL|", StringComparison.Ordinal))
+                For monthIndex = 0 To monthlyTotals.Count - 1 Step 2
+                    Dim leftMonth = monthlyTotals(monthIndex)
+                    If monthIndex + 1 < monthlyTotals.Count Then
+                        Dim rightMonth = monthlyTotals(monthIndex + 1)
+                        lines.Insert(insertAt, "@MONTHSUMMARY|" & leftMonth.MonthLabel & "|PHP " & leftMonth.Sales.ToString("N2", CultureInfo.InvariantCulture) & "|" & rightMonth.MonthLabel & "|PHP " & rightMonth.Sales.ToString("N2", CultureInfo.InvariantCulture))
+                    Else
+                        lines.Insert(insertAt, "@MONTHSUMMARY|" & leftMonth.MonthLabel & "|PHP " & leftMonth.Sales.ToString("N2", CultureInfo.InvariantCulture))
+                    End If
+                    insertAt += 1
+                Next
+            End If
+
+            Const tableHeader = "@TABLE|TRANSACTION ID|SALE DATE / TIME|CUSTOMER|CASHIER|TYPE|MEDICINE / DETAILS|QTY|UNIT PRICE|AMOUNT TOTAL"
+            If String.Equals(period, "Yearly", StringComparison.OrdinalIgnoreCase) Then
+                For Each monthGroup In itemDetails.AsEnumerable().GroupBy(Function(row) Convert.ToDateTime(row("SaleDate")).Month).OrderBy(Function(group) group.Key)
+                    Dim monthRows = rows.AsEnumerable().Where(Function(row) Convert.ToDateTime(row("SaleDate")).Month = monthGroup.Key).ToList()
+                    Dim monthDate = New DateTime(startDate.Year, monthGroup.Key, 1)
+                    Dim monthSales = monthRows.Sum(Function(row) Convert.ToDecimal(row("Total")))
+                    lines.Add("@MONTH|" & monthDate.ToString("MMMM yyyy", CultureInfo.CurrentCulture) & "|Transactions: " & monthRows.Count.ToString(CultureInfo.InvariantCulture) & "|Sales: PHP " & monthSales.ToString("N2", CultureInfo.InvariantCulture))
+                    lines.Add(tableHeader)
+                    For Each row As DataRow In monthGroup
+                        AddSalesReportItemLine(lines, row)
+                    Next
+                Next
+            Else
+                lines.Add(tableHeader)
+                For Each row As DataRow In itemDetails.Rows
+                    AddSalesReportItemLine(lines, row)
+                Next
+            End If
+            If itemDetails.Rows.Count = 0 Then lines.Add("@NOTE|No transaction items were recorded for this period.")
+
+            Directory.CreateDirectory(destinationFolder)
+            Dim reportPrefix = If(String.Equals(saleType, "Retail", StringComparison.OrdinalIgnoreCase), "retail_sales_report", If(String.Equals(saleType, "Wholesale", StringComparison.OrdinalIgnoreCase), "wholesale_sales_report", "sales_summary"))
+            Dim outputPath = Path.Combine(destinationFolder, reportPrefix & "_" & fileSuffix & ".pdf")
+            Staff.CreateReportPdf(outputPath, lines)
+            Process.Start(New ProcessStartInfo(outputPath) With {.UseShellExecute = True})
+        Catch ex As Exception
+            MessageBox.Show("Unable to create or open the sales report PDF. " & ex.Message, "Sales Report", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Sub
+
+    Private Sub AddSalesReportItemLine(lines As List(Of String), row As DataRow)
+        Dim medicineName = Convert.ToString(row("BrandName"))
+        If Not String.IsNullOrWhiteSpace(Convert.ToString(row("GenericName"))) Then medicineName &= " / " & Convert.ToString(row("GenericName"))
+        If Not String.IsNullOrWhiteSpace(Convert.ToString(row("Dosage"))) Then medicineName &= " / " & Convert.ToString(row("Dosage"))
+        If Not String.IsNullOrWhiteSpace(Convert.ToString(row("Unit"))) Then medicineName &= " (" & Convert.ToString(row("Unit")) & ")"
+        lines.Add(String.Join("|", {
+            "@TABLE",
+            Convert.ToString(row("TransactionID"), CultureInfo.InvariantCulture),
+            Convert.ToDateTime(row("SaleDate")).ToString("MM/dd/yyyy hh:mm tt", CultureInfo.InvariantCulture),
+            Convert.ToString(row("Customer")), Convert.ToString(row("Cashier")), Convert.ToString(row("SaleType")),
+            medicineName, Convert.ToString(row("Quantity"), CultureInfo.InvariantCulture),
+            "PHP " & Convert.ToDecimal(row("UnitPrice")).ToString("N2", CultureInfo.InvariantCulture),
+            "PHP " & Convert.ToDecimal(row("LineTotal")).ToString("N2", CultureInfo.InvariantCulture)
+        }))
     End Sub
 
     Private Sub ShowPrimaryView(view As Panel, pageTitle As String)
@@ -491,11 +630,65 @@ Public Class SuperAdmin
         If reportPage.ClientSize.Width <= 0 OrElse reportPage.ClientSize.Height <= 0 Then Return
 
         Dim horizontalPadding = 14
+        Dim isSalesReport = reportPage Is pnlRetailSalesReport
+        Dim contentWidth = Math.Max(1, reportPage.ClientSize.Width - horizontalPadding * 2)
+
+        If isSalesReport Then
+            pageHeader.Visible = True
+            pageHeader.Dock = DockStyle.Fill
+            headerTitle.AutoSize = False
+            headerTitle.Text = "Reports"
+            headerTitle.SetBounds(20, 6, Math.Max(1, reportPage.ClientSize.Width - 360), 30)
+            headerTitle.Font = New Font("Segoe UI", 21.0F, FontStyle.Bold)
+            headerTitle.ForeColor = Color.FromArgb(20, 100, 60)
+            headerStore.AutoSize = False
+            headerStore.Text = "Sales and inventory reports"
+            headerStore.SetBounds(20, 37, Math.Max(1, reportPage.ClientSize.Width - 360), 18)
+            headerStore.Font = New Font("Segoe UI", 9.0F)
+            headerStore.ForeColor = Color.Gray
+
+            If headerUserName IsNot Nothing Then
+                headerUserName.SetBounds(reportPage.ClientSize.Width - 310, 10, 280, 20)
+                headerUserName.TextAlign = HorizontalAlignment.Right
+                headerUserName.Text = "Welcome, " & CurrentFullName & " (Super Admin)"
+            End If
+            If headerRole IsNot Nothing Then
+                headerRole.SetBounds(reportPage.ClientSize.Width - 310, 32, 280, 16)
+                headerRole.Text = "Super Admin / Owner"
+                headerRole.TextAlign = ContentAlignment.MiddleRight
+            End If
+
+            Dim avatar = TryCast(pageHeader.Controls("reportHeaderAvatar"), Panel)
+            If avatar Is Nothing Then
+                avatar = New Panel With {.Name = "reportHeaderAvatar", .BackColor = Color.FromArgb(20, 100, 60)}
+                pageHeader.Controls.Add(avatar)
+            End If
+            avatar.SetBounds(reportPage.ClientSize.Width - 350, 8, 36, 36)
+            avatar.BringToFront()
+            If headerUserName IsNot Nothing Then headerUserName.BringToFront()
+            If headerRole IsNot Nothing Then headerRole.BringToFront()
+
+            If salesReportPageLayout IsNot Nothing Then salesReportPageLayout.Dock = DockStyle.Fill
+            toolbar.Dock = DockStyle.Fill
+            LayoutReportToolbar(reportPage, toolbar)
+            salesReportFilterPanel.Dock = DockStyle.Fill
+            salesReportDetailsPanel.Dock = DockStyle.Fill
+            salesDateFilterLabel.SetBounds(14, 14, Math.Max(1, salesReportFilterPanel.ClientSize.Width - 28), 24)
+            salesDateCaption.SetBounds(14, 48, 80, 18)
+            salesTransactionDate.SetBounds(14, 64, Math.Max(1, salesReportFilterPanel.ClientSize.Width - 28), 28)
+            transactionDetailsTitle.Dock = DockStyle.Top
+            transactionDetailsTitle.Height = 34
+            transactionDetailsTitle.Padding = New Padding(14, 8, 0, 0)
+            retailDataGrid.Dock = DockStyle.Fill
+            salesReportTotalLabel.Dock = DockStyle.Bottom
+            salesReportTotalLabel.Height = 44
+            Return
+        End If
+
         Dim headerHeight = 100
         Dim toolbarTop = headerHeight + 14
         Dim toolbarHeight = 100
         Dim gridTop = toolbarTop + toolbarHeight + 14
-        Dim contentWidth = Math.Max(1, reportPage.ClientSize.Width - horizontalPadding * 2)
 
         pageHeader.SetBounds(0, 0, reportPage.ClientSize.Width, headerHeight)
         toolbar.SetBounds(horizontalPadding, toolbarTop, contentWidth, toolbarHeight)
@@ -587,6 +780,26 @@ Public Class SuperAdmin
             printButton.SetBounds(right - buttonWidth, 12, buttonWidth, 34)
         End If
 
+        If toolbar Is panelRetailSalesReport Then
+            titleRetailSalesReport.Font = New Font("Segoe UI", 14.0F, FontStyle.Bold)
+            titleRetailSalesReport.SetBounds(inset, 7, Math.Max(1, toolbar.ClientSize.Width - 390), 24)
+            retailGenerated.Font = New Font("Segoe UI", 8.5F)
+            retailGenerated.SetBounds(inset, 31, Math.Max(1, toolbar.ClientSize.Width - 390), 18)
+            retailGenerated.Visible = True
+            retailPrintReport.Font = New Font("Segoe UI", 9.0F)
+            retailPrintReport.SetBounds(right - 126 - 10 - 112, 7, 112, 32)
+            salesBackToReports.Font = New Font("Segoe UI", 9.0F)
+            salesBackToReports.BackColor = Color.White
+            salesBackToReports.ForeColor = Color.FromArgb(20, 100, 60)
+            salesBackToReports.FlatAppearance.BorderSize = 1
+            salesBackToReports.SetBounds(right - 126, 7, 126, 32)
+            ComboBox4.Font = New Font("Segoe UI", 9.0F)
+            ComboBox4.SetBounds(inset, 43, 150, 24)
+            salesTransactionFilter.Font = New Font("Segoe UI", 9.0F)
+            salesTransactionFilter.SetBounds(right - 150, 43, 150, 24)
+            Return
+        End If
+
         Dim generated = toolbar.Controls.OfType(Of TextBox)().FirstOrDefault(Function(textBox) textBox.Name.ToLowerInvariant().Contains("generated"))
         If toolbar Is panelEmployeeSalesReport Then generated = TextBox67
         If generated IsNot Nothing Then
@@ -636,8 +849,8 @@ Public Class SuperAdmin
     End Sub
 
     Private Async Sub retailViewReport_Click(sender As Object, e As EventArgs) Handles retailViewReport.Click
-        Await ShowSalesReport(pnlRetailSalesReport, retailDataGrid, "Retail",
-                        "retailTransactionID", "retailDate", "retailCustomer", "retailCashier", "retailType", "retailTotal", "retailStatus", retailGenerated)
+        Await ShowSalesReport(pnlRetailSalesReport, retailDataGrid, Nothing,
+                        "retailTransactionID", "retailDate", "retailCustomer", "retailCashier", "retailType", "retailTotal", "retailStatus", retailGenerated, True)
     End Sub
 
     Private Async Sub wholesaleViewReport_Click(sender As Object, e As EventArgs) Handles wholesaleViewReport.Click
@@ -660,7 +873,8 @@ Public Class SuperAdmin
                                 typeColumn As String,
                                 totalColumn As String,
                                 statusColumn As String,
-                                generatedLabel As TextBox) As Task
+                                generatedLabel As TextBox,
+                                Optional useSalesReportFilters As Boolean = False) As Task
         Try
             Dim columnNames = {idColumn, dateColumn, customerColumn, cashierColumn, typeColumn, totalColumn, statusColumn}
             Dim propertyNames = {"TransactionID", "SaleDate", "Customer", "Cashier", "SaleType", "Total", "Status"}
@@ -673,16 +887,415 @@ Public Class SuperAdmin
             grid.ReadOnly = True
             grid.RowHeadersVisible = False
             grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect
+            grid.MultiSelect = False
             grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
-            grid.DataSource = Await Task.Run(Function() New SalesRepository().GetTransactionReport(saleMode))
+            grid.BackgroundColor = Color.White
+            grid.BorderStyle = BorderStyle.None
+            grid.GridColor = Color.FromArgb(230, 234, 231)
+            grid.EnableHeadersVisualStyles = False
+            grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(245, 247, 246)
+            grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.Gray
+            grid.ColumnHeadersDefaultCellStyle.Font = New Font("Segoe UI", 8.5F, FontStyle.Bold)
+            grid.DefaultCellStyle.Font = New Font("Segoe UI", 9.0F)
+            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(225, 245, 230)
+            grid.DefaultCellStyle.SelectionForeColor = Color.Black
+            grid.RowTemplate.Height = 36
+            Dim fromDate As DateTime? = Nothing
+            Dim throughDateExclusive As DateTime? = Nothing
+            If useSalesReportFilters Then
+                GetSalesReportDateRange(fromDate, throughDateExclusive)
+                saleMode = If(salesTransactionFilter.SelectedIndex <= 0, Nothing, CStr(salesTransactionFilter.SelectedItem))
+            End If
+            grid.DataSource = Await Task.Run(Function() New SalesRepository().GetTransactionReport(saleMode,
+                                                                                                  fromDate:=fromDate,
+                                                                                                  throughDateExclusive:=throughDateExclusive))
             grid.Columns(dateColumn).DefaultCellStyle.Format = "g"
-            grid.Columns(totalColumn).DefaultCellStyle.Format = "'P' #,##0.00"
-            generatedLabel.Text = "Generated: " & DateTime.Now.ToString("MMM dd, yyyy h:mm tt") & " | By: " & CurrentFullName
+            grid.Columns(totalColumn).DefaultCellStyle.Format = "₱#,##0.00"
+            grid.Columns(idColumn).HeaderText = "TransactionID"
+            grid.Columns(dateColumn).HeaderText = "SaleDate"
+            grid.Columns(customerColumn).HeaderText = "Customer"
+            grid.Columns(cashierColumn).HeaderText = "Cashier"
+            grid.Columns(typeColumn).HeaderText = "SaleType"
+            grid.Columns(totalColumn).HeaderText = "Total"
+            grid.Columns(statusColumn).HeaderText = "Status"
+            generatedLabel.Text = "Generated: " & DateTime.Now.ToString("MMMM dd, yyyy, h:mm tt") & " | By: " & CurrentFullName
+
+            If useSalesReportFilters Then
+                Dim startDate As DateTime
+                Dim endDate As DateTime
+                GetSalesReportDateRange(fromDate, throughDateExclusive)
+                startDate = fromDate.Value
+                endDate = throughDateExclusive.Value
+                Dim periodCaption = If(ComboBox4.SelectedIndex = 0,
+                                       startDate.ToString("MMMM dd, yyyy"),
+                                       If(ComboBox4.SelectedIndex = 1,
+                                          startDate.ToString("MMMM yyyy"),
+                                          startDate.ToString("yyyy")))
+                transactionDetailsTitle.Text = "Transaction Details — " & periodCaption
+                Dim reportRows = TryCast(grid.DataSource, DataTable)
+                Dim total As Decimal = 0D
+                If reportRows IsNot Nothing AndAlso reportRows.Columns.Contains("Total") Then
+                    total = reportRows.AsEnumerable().Sum(Function(row) If(row.IsNull("Total"), 0D, Convert.ToDecimal(row("Total"))))
+                End If
+                salesReportTotalLabel.Text = "TOTAL SALES: ₱" & total.ToString("N2")
+                salesDateFilterLabel.Text = "Filter by " & CStr(ComboBox4.SelectedItem).ToLowerInvariant()
+            End If
 
             ShowReportPanel(reportPanel)
         Catch ex As Exception
             MessageBox.Show("Could not load sales report. " & ex.Message, "Sales reports", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
+    End Function
+
+    Private Sub InitializeSalesReportFilters()
+        If salesFiltersInitialized Then Return
+        salesFiltersInitialized = True
+
+        ComboBox4.Items.Clear()
+        ComboBox4.Items.AddRange(New Object() {"Daily", "Monthly", "Yearly"})
+        ComboBox4.DropDownStyle = ComboBoxStyle.DropDownList
+        ComboBox4.SelectedIndex = 0
+
+        salesTransactionFilter = New ComboBox With {
+            .Name = "salesTransactionFilter",
+            .DropDownStyle = ComboBoxStyle.DropDownList,
+            .Font = New Font("Segoe UI", 9.0F)
+        }
+        salesTransactionFilter.Items.AddRange(New Object() {"All", "Retail", "Wholesale"})
+        salesTransactionFilter.SelectedIndex = 0
+        salesTransactionDate = New DateTimePicker With {
+            .Name = "salesTransactionDate",
+            .Font = New Font("Segoe UI", 9.0F),
+            .Format = DateTimePickerFormat.Custom,
+            .CustomFormat = "MMMM dd, yyyy",
+            .Value = Date.Today
+        }
+        salesBackToReports = New Button With {
+            .Name = "salesBackToReports",
+            .Text = "Back to Reports",
+            .BackColor = Color.FromArgb(20, 100, 60),
+            .ForeColor = Color.White,
+            .FlatStyle = FlatStyle.Flat,
+            .Font = New Font("Segoe UI", 9.0F)
+        }
+        salesBackToReports.FlatAppearance.BorderSize = 0
+        transactionDetailsTitle = New Label With {
+            .Name = "transactionDetailsTitle",
+            .Text = "Transaction details",
+            .Font = New Font("Segoe UI", 11.0F, FontStyle.Bold),
+            .AutoSize = True
+        }
+        salesDateCaption = New Label With {
+            .Name = "salesDateCaption",
+            .Text = "Date",
+            .Font = New Font("Segoe UI", 8.5F),
+            .ForeColor = Color.Gray,
+            .AutoSize = True
+        }
+        salesDateFilterLabel = New Label With {
+            .Name = "salesDateFilterLabel",
+            .Text = "Filter by daily",
+            .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold),
+            .ForeColor = Color.FromArgb(20, 100, 60),
+            .AutoSize = True
+        }
+        salesReportFilterPanel = New Panel With {
+            .Name = "salesReportFilterPanel",
+            .BackColor = Color.White
+        }
+        salesReportDetailsPanel = New Panel With {
+            .Name = "salesReportDetailsPanel",
+            .BackColor = Color.White
+        }
+        salesReportTotalLabel = New Label With {
+            .Name = "salesReportTotalLabel",
+            .Text = "TOTAL SALES: ₱0.00",
+            .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold),
+            .ForeColor = Color.FromArgb(20, 100, 60),
+            .TextAlign = ContentAlignment.MiddleRight,
+            .Padding = New Padding(0, 0, 18, 0)
+        }
+
+        salesReportFilterPanel.Dock = DockStyle.Fill
+        salesReportFilterPanel.Padding = New Padding(14)
+        salesReportFilterPanel.Margin = New Padding(0, 0, 12, 0)
+        salesReportDetailsPanel.Dock = DockStyle.Fill
+        salesReportDetailsPanel.Margin = Padding.Empty
+        transactionDetailsTitle.Dock = DockStyle.Top
+        transactionDetailsTitle.AutoSize = False
+        transactionDetailsTitle.Height = 34
+        transactionDetailsTitle.Padding = New Padding(14, 8, 0, 0)
+        retailDataGrid.Dock = DockStyle.Fill
+        retailDataGrid.RowTemplate.Height = 36
+        salesReportTotalLabel.Dock = DockStyle.Bottom
+        salesReportTotalLabel.Height = 44
+
+        salesReportBody = New TableLayoutPanel With {
+            .Name = "salesReportBody",
+            .Dock = DockStyle.Fill,
+            .ColumnCount = 2,
+            .RowCount = 1,
+            .BackColor = Color.FromArgb(245, 245, 245),
+            .Margin = New Padding(14, 0, 14, 14),
+            .Padding = Padding.Empty
+        }
+        salesReportBody.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 225))
+        salesReportBody.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100.0F))
+        salesReportBody.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
+
+        salesReportPageLayout = New TableLayoutPanel With {
+            .Name = "salesReportPageLayout",
+            .Dock = DockStyle.Fill,
+            .ColumnCount = 1,
+            .RowCount = 5,
+            .BackColor = Color.FromArgb(245, 245, 245),
+            .Margin = Padding.Empty,
+            .Padding = Padding.Empty
+        }
+        salesReportPageLayout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100.0F))
+        salesReportPageLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 66))
+        salesReportPageLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 23))
+        salesReportPageLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 66))
+        salesReportPageLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 9))
+        salesReportPageLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
+
+        panelRetailSalesReport.Controls.Add(salesTransactionFilter)
+        panelRetailSalesReport.Controls.Add(salesBackToReports)
+        salesReportFilterPanel.Controls.Add(salesDateFilterLabel)
+        salesReportFilterPanel.Controls.Add(salesDateCaption)
+        salesReportFilterPanel.Controls.Add(salesTransactionDate)
+        salesReportDetailsPanel.Controls.Add(retailDataGrid)
+        salesReportDetailsPanel.Controls.Add(salesReportTotalLabel)
+        salesReportDetailsPanel.Controls.Add(transactionDetailsTitle)
+        salesReportBody.Controls.Add(salesReportFilterPanel, 0, 0)
+        salesReportBody.Controls.Add(salesReportDetailsPanel, 1, 0)
+
+        Panel24.Dock = DockStyle.Fill
+        Panel24.Margin = Padding.Empty
+        panelRetailSalesReport.Dock = DockStyle.Fill
+        panelRetailSalesReport.Margin = New Padding(14, 0, 14, 0)
+        pnlRetailSalesReport.Controls.Clear()
+        salesReportPageLayout.Controls.Add(Panel24, 0, 0)
+        salesReportPageLayout.Controls.Add(panelRetailSalesReport, 0, 2)
+        salesReportPageLayout.Controls.Add(salesReportBody, 0, 4)
+        pnlRetailSalesReport.Controls.Add(salesReportPageLayout)
+
+        AddHandler retailDataGrid.CellClick, AddressOf SalesReportGrid_CellClick
+        AddHandler ComboBox4.SelectedIndexChanged, AddressOf SalesReportFilter_Changed
+        AddHandler salesTransactionFilter.SelectedIndexChanged, AddressOf SalesReportFilter_Changed
+        AddHandler salesTransactionDate.ValueChanged, AddressOf SalesReportFilter_Changed
+        AddHandler salesBackToReports.Click, AddressOf SalesBackToReports_Click
+    End Sub
+
+    Private Sub GetSalesReportDateRange(ByRef fromDate As DateTime?, ByRef throughDateExclusive As DateTime?)
+        Dim selectedDate = salesTransactionDate.Value.Date
+        Select Case CStr(ComboBox4.SelectedItem)
+            Case "Monthly"
+                fromDate = New DateTime(selectedDate.Year, selectedDate.Month, 1)
+                throughDateExclusive = fromDate.Value.AddMonths(1)
+            Case "Yearly"
+                fromDate = New DateTime(selectedDate.Year, 1, 1)
+                throughDateExclusive = fromDate.Value.AddYears(1)
+            Case Else
+                fromDate = selectedDate
+                throughDateExclusive = selectedDate.AddDays(1)
+        End Select
+    End Sub
+
+    Private Async Sub SalesReportFilter_Changed(sender As Object, e As EventArgs)
+        If Not salesFiltersInitialized OrElse Not pnlRetailSalesReport.Visible OrElse retailDataGrid.DataSource Is Nothing Then Return
+        Await ShowSalesReport(pnlRetailSalesReport, retailDataGrid, Nothing,
+                              "retailTransactionID", "retailDate", "retailCustomer", "retailCashier", "retailType", "retailTotal", "retailStatus", retailGenerated, True)
+    End Sub
+
+    Private Sub SalesBackToReports_Click(sender As Object, e As EventArgs)
+        ShowPrimaryView(pnlReports, "Reports")
+    End Sub
+
+    Private Sub SalesReportGrid_CellClick(sender As Object, e As DataGridViewCellEventArgs)
+        If e.RowIndex < 0 OrElse Not retailDataGrid.Columns.Contains("retailTransactionID") Then Return
+        Dim value = retailDataGrid.Rows(e.RowIndex).Cells("retailTransactionID").Value
+        If value Is Nothing OrElse value Is DBNull.Value Then Return
+        ShowTransactionDetailsDialog(Convert.ToInt64(value, CultureInfo.InvariantCulture))
+    End Sub
+
+    Private Sub ShowTransactionDetailsDialog(saleId As Long)
+        Try
+            Dim details = New SalesRepository().GetSaleReceiptDetails(saleId)
+            If details.Rows.Count = 0 Then
+                MessageBox.Show("The transaction details could not be found.", "Transaction Details", MessageBoxButtons.OK, MessageBoxIcon.Information)
+                Return
+            End If
+
+            Dim sale = details.Rows(0)
+            Dim saleDate = Convert.ToDateTime(sale("created_at"), CultureInfo.InvariantCulture)
+            Dim receiptNumber = "RCPT-" & saleId.ToString("D8", CultureInfo.InvariantCulture)
+            Dim receiptLines = BuildSavedReceiptLines(details, receiptNumber, saleId, saleDate)
+            Using dialog As New Form()
+                dialog.Text = "Transaction Details"
+                dialog.StartPosition = FormStartPosition.CenterParent
+                dialog.ClientSize = New Size(700, 620)
+                dialog.BackColor = Color.White
+                dialog.Font = New Font("Segoe UI", 9.0F)
+                dialog.ShowInTaskbar = False
+
+                Dim header As New Panel With {.Dock = DockStyle.Top, .Height = 82, .BackColor = Color.White}
+                header.Controls.Add(New Label With {.Text = "Transaction Details", .AutoSize = True, .Font = New Font("Segoe UI", 16.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(20, 100, 60), .Location = New Point(22, 12)})
+                header.Controls.Add(New Label With {.Text = receiptNumber & "  |  " & saleDate.ToString("MMMM dd, yyyy  h:mm tt", CultureInfo.CurrentCulture), .AutoSize = True, .Font = New Font("Segoe UI", 9.0F), .ForeColor = Color.Gray, .Location = New Point(24, 47)})
+
+                Dim content As New Panel With {.Dock = DockStyle.Fill, .AutoScroll = True, .BackColor = Color.White}
+                Dim salePanel As New Panel With {.Location = New Point(20, 12), .Size = New Size(646, 224), .BorderStyle = BorderStyle.FixedSingle, .BackColor = Color.White}
+                salePanel.Controls.Add(New Label With {.Text = "SALE INFORMATION", .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(20, 100, 60), .Location = New Point(16, 13)})
+                AddReceiptDetailField(salePanel, "Sale Type", DbText(sale, "sale_mode"), 16, 48)
+                AddReceiptDetailField(salePanel, "Customer Type", DbText(sale, "customer_type"), 326, 48)
+                AddReceiptDetailField(salePanel, "Customer", If(String.IsNullOrWhiteSpace(DbText(sale, "customer_name")), "Walk-in", DbText(sale, "customer_name")), 16, 102)
+                If Not String.IsNullOrWhiteSpace(DbText(sale, "customer_id_number")) Then AddReceiptDetailField(salePanel, "Customer ID", DbText(sale, "customer_id_number"), 326, 102)
+                AddReceiptDetailField(salePanel, "Cashier", DbText(sale, "cashier_name"), 16, 160)
+
+                Dim itemHeading As New Label With {.Text = "ITEMS", .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(20, 100, 60), .Location = New Point(22, 252)}
+                Dim itemGrid As New DataGridView With {
+                    .Location = New Point(20, 282), .Size = New Size(646, 224), .ReadOnly = True,
+                    .AllowUserToAddRows = False, .AllowUserToDeleteRows = False, .AllowUserToResizeRows = False,
+                    .AutoGenerateColumns = False, .AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                    .SelectionMode = DataGridViewSelectionMode.FullRowSelect, .MultiSelect = False,
+                    .RowHeadersVisible = False, .BackgroundColor = Color.White, .BorderStyle = BorderStyle.FixedSingle,
+                    .GridColor = Color.FromArgb(230, 234, 231), .EnableHeadersVisualStyles = False
+                }
+                itemGrid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(235, 245, 239)
+                itemGrid.ColumnHeadersDefaultCellStyle.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
+                itemGrid.DefaultCellStyle.Font = New Font("Segoe UI", 9.0F)
+                itemGrid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(225, 245, 230)
+                itemGrid.DefaultCellStyle.SelectionForeColor = Color.Black
+                itemGrid.RowTemplate.Height = 30
+                itemGrid.Columns.AddRange(New DataGridViewColumn() {
+                    New DataGridViewTextBoxColumn With {.Name = "Product", .DataPropertyName = "Product", .HeaderText = "Product", .FillWeight = 240, .SortMode = DataGridViewColumnSortMode.NotSortable},
+                    New DataGridViewTextBoxColumn With {.Name = "ProductID", .DataPropertyName = "ProductID", .HeaderText = "Product ID", .FillWeight = 55, .SortMode = DataGridViewColumnSortMode.NotSortable},
+                    New DataGridViewTextBoxColumn With {.Name = "Quantity", .DataPropertyName = "Quantity", .HeaderText = "Quantity", .FillWeight = 55, .SortMode = DataGridViewColumnSortMode.NotSortable},
+                    New DataGridViewTextBoxColumn With {.Name = "UnitPrice", .DataPropertyName = "UnitPrice", .HeaderText = "Unit Price", .FillWeight = 70, .SortMode = DataGridViewColumnSortMode.NotSortable, .DefaultCellStyle = New DataGridViewCellStyle With {.Format = "₱#,##0.00"}},
+                    New DataGridViewTextBoxColumn With {.Name = "LineTotal", .DataPropertyName = "LineTotal", .HeaderText = "Line Total", .FillWeight = 75, .SortMode = DataGridViewColumnSortMode.NotSortable, .DefaultCellStyle = New DataGridViewCellStyle With {.Format = "₱#,##0.00"}}
+                })
+                Dim itemRows As New DataTable()
+                itemRows.Columns.Add("Product", GetType(String))
+                itemRows.Columns.Add("ProductID", GetType(String))
+                itemRows.Columns.Add("Quantity", GetType(Integer))
+                itemRows.Columns.Add("UnitPrice", GetType(Decimal))
+                itemRows.Columns.Add("LineTotal", GetType(Decimal))
+                For Each row As DataRow In details.Rows
+                    If row.IsNull("sale_item_id") Then Continue For
+                    Dim productName = DbText(row, "brand_name")
+                    If Not String.IsNullOrWhiteSpace(DbText(row, "generic_name")) Then productName &= " - " & DbText(row, "generic_name")
+                    If Not String.IsNullOrWhiteSpace(DbText(row, "dosage")) Then productName &= " - " & DbText(row, "dosage")
+                    If Not String.IsNullOrWhiteSpace(DbText(row, "unit")) Then productName &= " (" & DbText(row, "unit") & ")"
+                    itemRows.Rows.Add(productName, DbText(row, "product_id"), Convert.ToInt32(row("quantity")), Convert.ToDecimal(row("unit_price")), Convert.ToDecimal(row("line_total")))
+                Next
+                itemGrid.DataSource = itemRows
+
+                Dim totalTop = 526
+                Dim hasPrescription = details.AsEnumerable().Any(Function(row) Not row.IsNull("is_prescription") AndAlso Convert.ToBoolean(row("is_prescription")))
+                If hasPrescription Then
+                    Dim prescriptionPanel As New Panel With {.Location = New Point(20, totalTop), .Size = New Size(646, 186), .BorderStyle = BorderStyle.FixedSingle, .BackColor = Color.White}
+                    prescriptionPanel.Controls.Add(New Label With {.Text = "PRESCRIPTION INFORMATION", .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(20, 100, 60), .Location = New Point(16, 12)})
+                    AddReceiptDetailField(prescriptionPanel, "Prescription No.", DbText(sale, "prescription_no"), 16, 48)
+                    AddReceiptDetailField(prescriptionPanel, "Prescribing Practitioner", DbText(sale, "prescribing_practioner"), 326, 48)
+                    AddReceiptDetailField(prescriptionPanel, "PRC License No.", DbText(sale, "prc_liscense"), 16, 104)
+                    AddReceiptDetailField(prescriptionPanel, "Prescription Date", If(sale.IsNull("prescription_date"), String.Empty, Convert.ToDateTime(sale("prescription_date")).ToString("MM/dd/yyyy", CultureInfo.InvariantCulture)), 326, 104)
+                    content.Controls.Add(prescriptionPanel)
+                    totalTop += 202
+                End If
+                Dim totalPanel As New Panel With {.Location = New Point(20, totalTop), .Size = New Size(646, 188), .BorderStyle = BorderStyle.FixedSingle, .BackColor = Color.FromArgb(248, 250, 248)}
+                AddReceiptDetailField(totalPanel, "Subtotal", "₱" & Convert.ToDecimal(sale("subtotal")).ToString("N2", CultureInfo.CurrentCulture), 16, 18)
+                AddReceiptDetailField(totalPanel, "Discount", "₱" & Convert.ToDecimal(sale("discount_amount")).ToString("N2", CultureInfo.CurrentCulture), 326, 18)
+                AddReceiptDetailField(totalPanel, "Total Due", "₱" & Convert.ToDecimal(sale("total_amount")).ToString("N2", CultureInfo.CurrentCulture), 16, 78, True)
+                AddReceiptDetailField(totalPanel, "Cash Received", "₱" & Convert.ToDecimal(sale("amount_received")).ToString("N2", CultureInfo.CurrentCulture), 326, 78)
+                AddReceiptDetailField(totalPanel, "Change", "₱" & Convert.ToDecimal(sale("change_amount")).ToString("N2", CultureInfo.CurrentCulture), 16, 138)
+                content.Controls.Add(salePanel)
+                content.Controls.Add(itemHeading)
+                content.Controls.Add(itemGrid)
+                content.Controls.Add(totalPanel)
+
+                Dim footer As New Panel With {.Dock = DockStyle.Bottom, .Height = 72, .BackColor = Color.White}
+                Dim closeButton As New Button With {.Text = "Close", .Size = New Size(110, 40), .Anchor = AnchorStyles.Top Or AnchorStyles.Right, .BackColor = Color.White, .ForeColor = Color.FromArgb(20, 100, 60), .FlatStyle = FlatStyle.Flat, .DialogResult = DialogResult.OK}
+                closeButton.Location = New Point(footer.ClientSize.Width - closeButton.Width - 12, 12)
+                AddHandler footer.Resize, Sub(sender, e) closeButton.Left = footer.ClientSize.Width - closeButton.Width - 12
+                Dim printButton As New Button With {.Text = "Print Receipt", .Size = New Size(150, 40), .Anchor = AnchorStyles.Top Or AnchorStyles.Right, .BackColor = Color.FromArgb(20, 100, 60), .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat}
+                printButton.Location = New Point(closeButton.Left - printButton.Width - 10, 12)
+                AddHandler footer.Resize, Sub(sender, e) printButton.Left = closeButton.Left - printButton.Width - 10
+                AddHandler printButton.Click,
+                    Sub(sender, e)
+                        Try
+                            Dim path = Staff.CreateReceiptPdf(receiptNumber, saleDate, receiptLines)
+                            Process.Start(New ProcessStartInfo(path) With {.UseShellExecute = True})
+                        Catch ex As Exception
+                            MessageBox.Show("Unable to create or open the receipt PDF. " & ex.Message, "Print Receipt", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                        End Try
+                    End Sub
+                footer.Controls.Add(printButton)
+                footer.Controls.Add(closeButton)
+                dialog.Controls.Add(content)
+                dialog.Controls.Add(footer)
+                dialog.Controls.Add(header)
+                dialog.AcceptButton = closeButton
+                dialog.ShowDialog(Me)
+            End Using
+        Catch ex As Exception
+            MessageBox.Show("Could not load transaction details. " & ex.Message, "Transaction Details", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Sub
+
+    Private Function BuildSavedReceiptLines(details As DataTable,
+                                            receiptNumber As String,
+                                            saleId As Long,
+                                            saleDate As DateTime) As List(Of String)
+        Dim sale = details.Rows(0)
+        Dim lines As New List(Of String) From {
+            "CABRERA'S DRUGSTORE AND MEDICAL SUPPLIES", "SALES RECEIPT", New String("-"c, 76),
+            "Receipt No.: " & receiptNumber,
+            "Transaction No.: " & saleId.ToString(CultureInfo.InvariantCulture),
+            "Date and Time: " & saleDate.ToString("MM/dd/yyyy hh:mm tt", CultureInfo.InvariantCulture),
+            "Sale Type: " & DbText(sale, "sale_mode"), "Cashier: " & DbText(sale, "cashier_name"),
+            "Customer Type: " & DbText(sale, "customer_type")
+        }
+        If Not String.IsNullOrWhiteSpace(DbText(sale, "customer_name")) Then lines.Add("Customer Name: " & DbText(sale, "customer_name"))
+        If Not String.IsNullOrWhiteSpace(DbText(sale, "customer_id_number")) Then lines.Add("Customer ID: " & DbText(sale, "customer_id_number"))
+        lines.Add(New String("-"c, 76))
+        lines.Add("ITEMS")
+        For Each row As DataRow In details.Rows
+            If row.IsNull("sale_item_id") Then Continue For
+            Dim productName = DbText(row, "brand_name")
+            If Not String.IsNullOrWhiteSpace(DbText(row, "generic_name")) Then productName &= " - " & DbText(row, "generic_name")
+            If Not String.IsNullOrWhiteSpace(DbText(row, "dosage")) Then productName &= " - " & DbText(row, "dosage")
+            lines.Add(productName)
+            lines.Add("  " & DbText(row, "quantity") & " " & DbText(row, "unit") & " x PHP " &
+                      Convert.ToDecimal(row("unit_price")).ToString("N2", CultureInfo.InvariantCulture) & " = PHP " &
+                      Convert.ToDecimal(row("line_total")).ToString("N2", CultureInfo.InvariantCulture))
+        Next
+        If details.AsEnumerable().Any(Function(row) Not row.IsNull("is_prescription") AndAlso Convert.ToBoolean(row("is_prescription"))) Then
+            lines.Add(New String("-"c, 76))
+            lines.Add("PRESCRIPTION INFORMATION")
+            lines.Add("Prescription No.: " & DbText(sale, "prescription_no"))
+            lines.Add("Prescribing Practitioner: " & DbText(sale, "prescribing_practioner"))
+            lines.Add("PRC License No.: " & DbText(sale, "prc_liscense"))
+            If Not sale.IsNull("prescription_date") Then lines.Add("Prescription Date: " & Convert.ToDateTime(sale("prescription_date")).ToString("MM/dd/yyyy", CultureInfo.InvariantCulture))
+        End If
+        lines.Add(New String("-"c, 76))
+        lines.Add("Subtotal: PHP " & Convert.ToDecimal(sale("subtotal")).ToString("N2", CultureInfo.InvariantCulture))
+        lines.Add("Discount: PHP " & Convert.ToDecimal(sale("discount_amount")).ToString("N2", CultureInfo.InvariantCulture))
+        lines.Add("TOTAL DUE: PHP " & Convert.ToDecimal(sale("total_amount")).ToString("N2", CultureInfo.InvariantCulture))
+        lines.Add("Cash Received: PHP " & Convert.ToDecimal(sale("amount_received")).ToString("N2", CultureInfo.InvariantCulture))
+        lines.Add("Change: PHP " & Convert.ToDecimal(sale("change_amount")).ToString("N2", CultureInfo.InvariantCulture))
+        lines.Add("Thank you for your purchase!")
+        Return lines
+    End Function
+
+    Private Sub AddReceiptDetailField(panel As Panel, caption As String, value As String, x As Integer, y As Integer, Optional emphasized As Boolean = False)
+        Dim fieldWidth = Math.Max(120, panel.ClientSize.Width \ 2 - 24)
+        panel.Controls.Add(New Label With {.Text = caption, .AutoSize = True, .MaximumSize = New Size(fieldWidth, 0), .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(x, y)})
+        panel.Controls.Add(New Label With {.Text = value, .AutoSize = True, .MaximumSize = New Size(fieldWidth, 0), .Font = New Font("Segoe UI", 9.5F, FontStyle.Bold), .ForeColor = If(emphasized, Color.FromArgb(20, 100, 60), Color.FromArgb(35, 45, 40)), .Location = New Point(x, y + 22)})
+    End Sub
+
+    Private Function DbText(row As DataRow, columnName As String) As String
+        If row Is Nothing OrElse Not row.Table.Columns.Contains(columnName) OrElse row.IsNull(columnName) Then Return String.Empty
+        Return Convert.ToString(row(columnName), CultureInfo.CurrentCulture)
     End Function
 
     Private Async Sub inventoryViewReport_Click(sender As Object, e As EventArgs) Handles inventoryViewReport.Click
