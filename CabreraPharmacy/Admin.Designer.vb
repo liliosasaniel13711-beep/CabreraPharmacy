@@ -24,6 +24,7 @@ Partial Class Admin
     Private Sub InitializeComponent()
         mainLayout = New TableLayoutPanel()
         sidebar = New Panel()
+        logoBox = New PictureBox()
         PharName = New Label()
         navDashboard = New Button()
         navPriceManager = New Button()
@@ -86,9 +87,9 @@ Partial Class Admin
         reportsCard = New Panel()
         reportsDesc = New Label()
         reportsHead = New Label()
-        logoBox = New PictureBox()
         mainLayout.SuspendLayout()
         sidebar.SuspendLayout()
+        CType(logoBox, ComponentModel.ISupportInitialize).BeginInit()
         rightLayout.SuspendLayout()
         headerPanel.SuspendLayout()
         userPanel.SuspendLayout()
@@ -111,13 +112,12 @@ Partial Class Admin
         inventoryCard.SuspendLayout()
         reportsView.SuspendLayout()
         reportsCard.SuspendLayout()
-        CType(logoBox, ComponentModel.ISupportInitialize).BeginInit()
         SuspendLayout()
         ' 
         ' mainLayout
         ' 
         mainLayout.ColumnCount = 2
-        mainLayout.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 251F))
+        mainLayout.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 220F))
         mainLayout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100F))
         mainLayout.Controls.Add(sidebar, 0, 0)
         mainLayout.Controls.Add(rightLayout, 1, 0)
@@ -127,7 +127,7 @@ Partial Class Admin
         mainLayout.Name = "mainLayout"
         mainLayout.RowCount = 1
         mainLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 100F))
-        mainLayout.Size = New Size(1924, 1055)
+        mainLayout.Size = New Size(1684, 791)
         mainLayout.TabIndex = 0
         ' 
         ' sidebar
@@ -144,8 +144,19 @@ Partial Class Admin
         sidebar.Location = New Point(0, 0)
         sidebar.Margin = New Padding(0)
         sidebar.Name = "sidebar"
-        sidebar.Size = New Size(251, 1055)
+        sidebar.Size = New Size(220, 791)
         sidebar.TabIndex = 0
+        ' 
+        ' logoBox
+        ' 
+        logoBox.BackColor = Color.FromArgb(CByte(255), CByte(215), CByte(0))
+        logoBox.Image = My.Resources.Resources._769082459_1379172074148575_7892593615181140804_n
+        logoBox.Location = New Point(20, 23)
+        logoBox.Name = "logoBox"
+        logoBox.Size = New Size(50, 50)
+        logoBox.SizeMode = PictureBoxSizeMode.Zoom
+        logoBox.TabIndex = 7
+        logoBox.TabStop = False
         ' 
         ' PharName
         ' 
@@ -153,10 +164,10 @@ Partial Class Admin
         PharName.BackColor = Color.Transparent
         PharName.Font = New Font("Segoe UI", 10F, FontStyle.Bold)
         PharName.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        PharName.Location = New Point(91, 27)
-        PharName.MaximumSize = New Size(149, 0)
+        PharName.Location = New Point(80, 20)
+        PharName.MaximumSize = New Size(130, 0)
         PharName.Name = "PharName"
-        PharName.Size = New Size(146, 69)
+        PharName.Size = New Size(122, 57)
         PharName.TabIndex = 1
         PharName.Text = "Cabrera's" & vbCrLf & "Drugstore and Medical Supplies"
         ' 
@@ -168,11 +179,10 @@ Partial Class Admin
         navDashboard.FlatStyle = FlatStyle.Flat
         navDashboard.Font = New Font("Segoe UI", 11F, FontStyle.Bold)
         navDashboard.ForeColor = Color.White
-        navDashboard.Location = New Point(23, 160)
-        navDashboard.Margin = New Padding(3, 4, 3, 4)
+        navDashboard.Location = New Point(20, 120)
         navDashboard.Name = "navDashboard"
-        navDashboard.Padding = New Padding(11, 0, 0, 0)
-        navDashboard.Size = New Size(206, 60)
+        navDashboard.Padding = New Padding(10, 0, 0, 0)
+        navDashboard.Size = New Size(180, 45)
         navDashboard.TabIndex = 2
         navDashboard.Tag = "Dashboard"
         navDashboard.Text = "Dashboard"
@@ -187,11 +197,10 @@ Partial Class Admin
         navPriceManager.FlatStyle = FlatStyle.Flat
         navPriceManager.Font = New Font("Segoe UI", 11F, FontStyle.Bold)
         navPriceManager.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        navPriceManager.Location = New Point(23, 233)
-        navPriceManager.Margin = New Padding(3, 4, 3, 4)
+        navPriceManager.Location = New Point(20, 175)
         navPriceManager.Name = "navPriceManager"
-        navPriceManager.Padding = New Padding(11, 0, 0, 0)
-        navPriceManager.Size = New Size(206, 60)
+        navPriceManager.Padding = New Padding(10, 0, 0, 0)
+        navPriceManager.Size = New Size(180, 45)
         navPriceManager.TabIndex = 3
         navPriceManager.Tag = "Price Manager"
         navPriceManager.Text = "Price Manager"
@@ -206,11 +215,10 @@ Partial Class Admin
         navInventory.FlatStyle = FlatStyle.Flat
         navInventory.Font = New Font("Segoe UI", 11F, FontStyle.Bold)
         navInventory.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        navInventory.Location = New Point(23, 307)
-        navInventory.Margin = New Padding(3, 4, 3, 4)
+        navInventory.Location = New Point(20, 230)
         navInventory.Name = "navInventory"
-        navInventory.Padding = New Padding(11, 0, 0, 0)
-        navInventory.Size = New Size(206, 60)
+        navInventory.Padding = New Padding(10, 0, 0, 0)
+        navInventory.Size = New Size(180, 45)
         navInventory.TabIndex = 4
         navInventory.Tag = "Inventory"
         navInventory.Text = "Inventory"
@@ -225,11 +233,10 @@ Partial Class Admin
         navReports.FlatStyle = FlatStyle.Flat
         navReports.Font = New Font("Segoe UI", 11F, FontStyle.Bold)
         navReports.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        navReports.Location = New Point(23, 380)
-        navReports.Margin = New Padding(3, 4, 3, 4)
+        navReports.Location = New Point(20, 285)
         navReports.Name = "navReports"
-        navReports.Padding = New Padding(11, 0, 0, 0)
-        navReports.Size = New Size(206, 60)
+        navReports.Padding = New Padding(10, 0, 0, 0)
+        navReports.Size = New Size(180, 45)
         navReports.TabIndex = 5
         navReports.Tag = "Reports"
         navReports.Text = "Reports"
@@ -243,10 +250,9 @@ Partial Class Admin
         logoutadmin_button.FlatAppearance.BorderColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
         logoutadmin_button.FlatStyle = FlatStyle.Flat
         logoutadmin_button.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        logoutadmin_button.Location = New Point(23, 948)
-        logoutadmin_button.Margin = New Padding(3, 4, 3, 4)
+        logoutadmin_button.Location = New Point(20, 711)
         logoutadmin_button.Name = "logoutadmin_button"
-        logoutadmin_button.Size = New Size(206, 60)
+        logoutadmin_button.Size = New Size(180, 45)
         logoutadmin_button.TabIndex = 6
         logoutadmin_button.Text = "Log Out"
         logoutadmin_button.UseVisualStyleBackColor = False
@@ -258,13 +264,13 @@ Partial Class Admin
         rightLayout.Controls.Add(headerPanel, 0, 0)
         rightLayout.Controls.Add(bodyPanel, 0, 1)
         rightLayout.Dock = DockStyle.Fill
-        rightLayout.Location = New Point(251, 0)
+        rightLayout.Location = New Point(220, 0)
         rightLayout.Margin = New Padding(0)
         rightLayout.Name = "rightLayout"
         rightLayout.RowCount = 2
-        rightLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 133F))
+        rightLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 100F))
         rightLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 100F))
-        rightLayout.Size = New Size(1673, 1055)
+        rightLayout.Size = New Size(1464, 791)
         rightLayout.TabIndex = 1
         ' 
         ' headerPanel
@@ -277,7 +283,7 @@ Partial Class Admin
         headerPanel.Location = New Point(0, 0)
         headerPanel.Margin = New Padding(0)
         headerPanel.Name = "headerPanel"
-        headerPanel.Size = New Size(1673, 133)
+        headerPanel.Size = New Size(1464, 100)
         headerPanel.TabIndex = 0
         ' 
         ' titleLabel
@@ -285,9 +291,9 @@ Partial Class Admin
         titleLabel.AutoSize = True
         titleLabel.Font = New Font("Segoe UI", 24F, FontStyle.Bold)
         titleLabel.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        titleLabel.Location = New Point(23, 13)
+        titleLabel.Location = New Point(20, 10)
         titleLabel.Name = "titleLabel"
-        titleLabel.Size = New Size(229, 54)
+        titleLabel.Size = New Size(184, 45)
         titleLabel.TabIndex = 0
         titleLabel.Text = "Dashboard"
         ' 
@@ -296,9 +302,9 @@ Partial Class Admin
         subtitleLabel.AutoSize = True
         subtitleLabel.Font = New Font("Segoe UI", 11F)
         subtitleLabel.ForeColor = Color.Gray
-        subtitleLabel.Location = New Point(23, 73)
+        subtitleLabel.Location = New Point(20, 55)
         subtitleLabel.Name = "subtitleLabel"
-        subtitleLabel.Size = New Size(470, 25)
+        subtitleLabel.Size = New Size(369, 20)
         subtitleLabel.TabIndex = 1
         subtitleLabel.Text = "Overview of Cabrera's Drugstore and Medical Supplies"
         ' 
@@ -311,19 +317,17 @@ Partial Class Admin
         userPanel.Controls.Add(userAvatar)
         userPanel.Controls.Add(welcomeadmin_label)
         userPanel.Controls.Add(userRoleLabel)
-        userPanel.Location = New Point(1381, 13)
-        userPanel.Margin = New Padding(3, 4, 3, 4)
+        userPanel.Location = New Point(1221, 10)
         userPanel.Name = "userPanel"
-        userPanel.Size = New Size(269, 84)
+        userPanel.Size = New Size(223, 63)
         userPanel.TabIndex = 2
         ' 
         ' userAvatar
         ' 
         userAvatar.BackColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        userAvatar.Location = New Point(0, 13)
-        userAvatar.Margin = New Padding(3, 4, 3, 4)
+        userAvatar.Location = New Point(0, 10)
         userAvatar.Name = "userAvatar"
-        userAvatar.Size = New Size(57, 67)
+        userAvatar.Size = New Size(50, 50)
         userAvatar.TabIndex = 0
         userAvatar.TabStop = False
         ' 
@@ -333,9 +337,9 @@ Partial Class Admin
         welcomeadmin_label.BackColor = Color.Transparent
         welcomeadmin_label.Font = New Font("Segoe UI", 11F, FontStyle.Bold)
         welcomeadmin_label.ForeColor = Color.Black
-        welcomeadmin_label.Location = New Point(69, 13)
+        welcomeadmin_label.Location = New Point(60, 10)
         welcomeadmin_label.Name = "welcomeadmin_label"
-        welcomeadmin_label.Size = New Size(151, 25)
+        welcomeadmin_label.Size = New Size(119, 20)
         welcomeadmin_label.TabIndex = 1
         welcomeadmin_label.Text = "welcome admin"
         ' 
@@ -344,9 +348,9 @@ Partial Class Admin
         userRoleLabel.AutoSize = True
         userRoleLabel.Font = New Font("Segoe UI", 9F)
         userRoleLabel.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        userRoleLabel.Location = New Point(69, 43)
+        userRoleLabel.Location = New Point(60, 32)
         userRoleLabel.Name = "userRoleLabel"
-        userRoleLabel.Size = New Size(197, 20)
+        userRoleLabel.Size = New Size(160, 15)
         userRoleLabel.TabIndex = 2
         userRoleLabel.Text = "Admin / Pharmacy Assistant "
         ' 
@@ -358,11 +362,11 @@ Partial Class Admin
         bodyPanel.Controls.Add(inventoryView)
         bodyPanel.Controls.Add(reportsView)
         bodyPanel.Dock = DockStyle.Fill
-        bodyPanel.Location = New Point(0, 133)
+        bodyPanel.Location = New Point(0, 100)
         bodyPanel.Margin = New Padding(0)
         bodyPanel.Name = "bodyPanel"
-        bodyPanel.Padding = New Padding(23, 27, 23, 27)
-        bodyPanel.Size = New Size(1673, 922)
+        bodyPanel.Padding = New Padding(20, 20, 20, 20)
+        bodyPanel.Size = New Size(1464, 691)
         bodyPanel.TabIndex = 1
         ' 
         ' dashboardView
@@ -370,10 +374,9 @@ Partial Class Admin
         dashboardView.BackColor = Color.FromArgb(CByte(245), CByte(245), CByte(245))
         dashboardView.Controls.Add(cardGrid)
         dashboardView.Dock = DockStyle.Fill
-        dashboardView.Location = New Point(23, 27)
-        dashboardView.Margin = New Padding(3, 4, 3, 4)
+        dashboardView.Location = New Point(20, 20)
         dashboardView.Name = "dashboardView"
-        dashboardView.Size = New Size(1627, 868)
+        dashboardView.Size = New Size(1424, 651)
         dashboardView.TabIndex = 0
         ' 
         ' cardGrid
@@ -393,12 +396,11 @@ Partial Class Admin
         cardGrid.Controls.Add(card8, 3, 1)
         cardGrid.Dock = DockStyle.Fill
         cardGrid.Location = New Point(0, 0)
-        cardGrid.Margin = New Padding(3, 4, 3, 4)
         cardGrid.Name = "cardGrid"
         cardGrid.RowCount = 2
         cardGrid.RowStyles.Add(New RowStyle(SizeType.Percent, 50F))
         cardGrid.RowStyles.Add(New RowStyle(SizeType.Percent, 50F))
-        cardGrid.Size = New Size(1627, 868)
+        cardGrid.Size = New Size(1424, 651)
         cardGrid.TabIndex = 0
         ' 
         ' card1
@@ -408,11 +410,11 @@ Partial Class Admin
         card1.Controls.Add(card1Footer)
         card1.Controls.Add(card1Title)
         card1.Dock = DockStyle.Fill
-        card1.Location = New Point(11, 13)
-        card1.Margin = New Padding(11, 13, 11, 13)
+        card1.Location = New Point(10, 10)
+        card1.Margin = New Padding(10, 10, 10, 10)
         card1.Name = "card1"
-        card1.Padding = New Padding(23, 27, 23, 27)
-        card1.Size = New Size(384, 408)
+        card1.Padding = New Padding(20, 20, 20, 20)
+        card1.Size = New Size(336, 305)
         card1.TabIndex = 0
         ' 
         ' card1Value
@@ -420,9 +422,9 @@ Partial Class Admin
         card1Value.Dock = DockStyle.Fill
         card1Value.Font = New Font("Segoe UI", 24F)
         card1Value.ForeColor = Color.Black
-        card1Value.Location = New Point(23, 58)
+        card1Value.Location = New Point(20, 43)
         card1Value.Name = "card1Value"
-        card1Value.Size = New Size(338, 292)
+        card1Value.Size = New Size(296, 219)
         card1Value.TabIndex = 2
         card1Value.Text = "0.00"
         card1Value.TextAlign = ContentAlignment.MiddleLeft
@@ -432,9 +434,9 @@ Partial Class Admin
         card1Footer.Dock = DockStyle.Bottom
         card1Footer.Font = New Font("Segoe UI", 9F)
         card1Footer.ForeColor = Color.Gray
-        card1Footer.Location = New Point(23, 350)
+        card1Footer.Location = New Point(20, 262)
         card1Footer.Name = "card1Footer"
-        card1Footer.Size = New Size(338, 31)
+        card1Footer.Size = New Size(296, 23)
         card1Footer.TabIndex = 1
         card1Footer.Text = "August 18, 2026"
         ' 
@@ -443,9 +445,9 @@ Partial Class Admin
         card1Title.Dock = DockStyle.Top
         card1Title.Font = New Font("Segoe UI", 11F, FontStyle.Bold)
         card1Title.ForeColor = Color.Black
-        card1Title.Location = New Point(23, 27)
+        card1Title.Location = New Point(20, 20)
         card1Title.Name = "card1Title"
-        card1Title.Size = New Size(338, 31)
+        card1Title.Size = New Size(296, 23)
         card1Title.TabIndex = 0
         card1Title.Text = "Today's Sale"
         ' 
@@ -456,11 +458,11 @@ Partial Class Admin
         card2.Controls.Add(card2Footer)
         card2.Controls.Add(card2Title)
         card2.Dock = DockStyle.Fill
-        card2.Location = New Point(417, 13)
-        card2.Margin = New Padding(11, 13, 11, 13)
+        card2.Location = New Point(366, 10)
+        card2.Margin = New Padding(10, 10, 10, 10)
         card2.Name = "card2"
-        card2.Padding = New Padding(23, 27, 23, 27)
-        card2.Size = New Size(384, 408)
+        card2.Padding = New Padding(20, 20, 20, 20)
+        card2.Size = New Size(336, 305)
         card2.TabIndex = 1
         ' 
         ' card2Value
@@ -468,9 +470,9 @@ Partial Class Admin
         card2Value.Dock = DockStyle.Fill
         card2Value.Font = New Font("Segoe UI", 24F)
         card2Value.ForeColor = Color.Black
-        card2Value.Location = New Point(23, 58)
+        card2Value.Location = New Point(20, 43)
         card2Value.Name = "card2Value"
-        card2Value.Size = New Size(338, 292)
+        card2Value.Size = New Size(296, 219)
         card2Value.TabIndex = 2
         card2Value.Text = "0.00"
         card2Value.TextAlign = ContentAlignment.MiddleLeft
@@ -480,9 +482,9 @@ Partial Class Admin
         card2Footer.Dock = DockStyle.Bottom
         card2Footer.Font = New Font("Segoe UI", 9F)
         card2Footer.ForeColor = Color.Gray
-        card2Footer.Location = New Point(23, 350)
+        card2Footer.Location = New Point(20, 262)
         card2Footer.Name = "card2Footer"
-        card2Footer.Size = New Size(338, 31)
+        card2Footer.Size = New Size(296, 23)
         card2Footer.TabIndex = 1
         card2Footer.Text = "0 Transactions"
         ' 
@@ -491,9 +493,9 @@ Partial Class Admin
         card2Title.Dock = DockStyle.Top
         card2Title.Font = New Font("Segoe UI", 11F, FontStyle.Bold)
         card2Title.ForeColor = Color.Black
-        card2Title.Location = New Point(23, 27)
+        card2Title.Location = New Point(20, 20)
         card2Title.Name = "card2Title"
-        card2Title.Size = New Size(338, 31)
+        card2Title.Size = New Size(296, 23)
         card2Title.TabIndex = 0
         card2Title.Text = "Retail Sales"
         ' 
@@ -504,11 +506,11 @@ Partial Class Admin
         card3.Controls.Add(card3Footer)
         card3.Controls.Add(card3Title)
         card3.Dock = DockStyle.Fill
-        card3.Location = New Point(823, 13)
-        card3.Margin = New Padding(11, 13, 11, 13)
+        card3.Location = New Point(722, 10)
+        card3.Margin = New Padding(10, 10, 10, 10)
         card3.Name = "card3"
-        card3.Padding = New Padding(23, 27, 23, 27)
-        card3.Size = New Size(384, 408)
+        card3.Padding = New Padding(20, 20, 20, 20)
+        card3.Size = New Size(336, 305)
         card3.TabIndex = 2
         ' 
         ' card3Value
@@ -516,9 +518,9 @@ Partial Class Admin
         card3Value.Dock = DockStyle.Fill
         card3Value.Font = New Font("Segoe UI", 24F)
         card3Value.ForeColor = Color.Black
-        card3Value.Location = New Point(23, 58)
+        card3Value.Location = New Point(20, 43)
         card3Value.Name = "card3Value"
-        card3Value.Size = New Size(338, 292)
+        card3Value.Size = New Size(296, 219)
         card3Value.TabIndex = 2
         card3Value.Text = "0.00"
         card3Value.TextAlign = ContentAlignment.MiddleLeft
@@ -528,9 +530,9 @@ Partial Class Admin
         card3Footer.Dock = DockStyle.Bottom
         card3Footer.Font = New Font("Segoe UI", 9F)
         card3Footer.ForeColor = Color.Gray
-        card3Footer.Location = New Point(23, 350)
+        card3Footer.Location = New Point(20, 262)
         card3Footer.Name = "card3Footer"
-        card3Footer.Size = New Size(338, 31)
+        card3Footer.Size = New Size(296, 23)
         card3Footer.TabIndex = 1
         card3Footer.Text = "0 Transactions"
         ' 
@@ -539,9 +541,9 @@ Partial Class Admin
         card3Title.Dock = DockStyle.Top
         card3Title.Font = New Font("Segoe UI", 11F, FontStyle.Bold)
         card3Title.ForeColor = Color.Black
-        card3Title.Location = New Point(23, 27)
+        card3Title.Location = New Point(20, 20)
         card3Title.Name = "card3Title"
-        card3Title.Size = New Size(338, 31)
+        card3Title.Size = New Size(296, 23)
         card3Title.TabIndex = 0
         card3Title.Text = "Wholesale Sales"
         ' 
@@ -552,11 +554,11 @@ Partial Class Admin
         card4.Controls.Add(card4Footer)
         card4.Controls.Add(card4Title)
         card4.Dock = DockStyle.Fill
-        card4.Location = New Point(1229, 13)
-        card4.Margin = New Padding(11, 13, 11, 13)
+        card4.Location = New Point(1078, 10)
+        card4.Margin = New Padding(10, 10, 10, 10)
         card4.Name = "card4"
-        card4.Padding = New Padding(23, 27, 23, 27)
-        card4.Size = New Size(387, 408)
+        card4.Padding = New Padding(20, 20, 20, 20)
+        card4.Size = New Size(336, 305)
         card4.TabIndex = 3
         ' 
         ' card4Value
@@ -564,9 +566,9 @@ Partial Class Admin
         card4Value.Dock = DockStyle.Fill
         card4Value.Font = New Font("Segoe UI", 24F)
         card4Value.ForeColor = Color.Black
-        card4Value.Location = New Point(23, 58)
+        card4Value.Location = New Point(20, 43)
         card4Value.Name = "card4Value"
-        card4Value.Size = New Size(341, 292)
+        card4Value.Size = New Size(296, 219)
         card4Value.TabIndex = 2
         card4Value.Text = "0"
         card4Value.TextAlign = ContentAlignment.MiddleLeft
@@ -576,9 +578,9 @@ Partial Class Admin
         card4Footer.Dock = DockStyle.Bottom
         card4Footer.Font = New Font("Segoe UI", 9F)
         card4Footer.ForeColor = Color.Gray
-        card4Footer.Location = New Point(23, 350)
+        card4Footer.Location = New Point(20, 262)
         card4Footer.Name = "card4Footer"
-        card4Footer.Size = New Size(341, 31)
+        card4Footer.Size = New Size(296, 23)
         card4Footer.TabIndex = 1
         card4Footer.Text = "All Categories"
         ' 
@@ -587,9 +589,9 @@ Partial Class Admin
         card4Title.Dock = DockStyle.Top
         card4Title.Font = New Font("Segoe UI", 11F, FontStyle.Bold)
         card4Title.ForeColor = Color.Black
-        card4Title.Location = New Point(23, 27)
+        card4Title.Location = New Point(20, 20)
         card4Title.Name = "card4Title"
-        card4Title.Size = New Size(341, 31)
+        card4Title.Size = New Size(296, 23)
         card4Title.TabIndex = 0
         card4Title.Text = "Total Products"
         ' 
@@ -600,11 +602,11 @@ Partial Class Admin
         card5.Controls.Add(card5Footer)
         card5.Controls.Add(card5Title)
         card5.Dock = DockStyle.Fill
-        card5.Location = New Point(11, 447)
-        card5.Margin = New Padding(11, 13, 11, 13)
+        card5.Location = New Point(10, 335)
+        card5.Margin = New Padding(10, 10, 10, 10)
         card5.Name = "card5"
-        card5.Padding = New Padding(23, 27, 23, 27)
-        card5.Size = New Size(384, 408)
+        card5.Padding = New Padding(20, 20, 20, 20)
+        card5.Size = New Size(336, 306)
         card5.TabIndex = 4
         ' 
         ' card5Value
@@ -612,9 +614,9 @@ Partial Class Admin
         card5Value.Dock = DockStyle.Fill
         card5Value.Font = New Font("Segoe UI", 24F)
         card5Value.ForeColor = Color.Black
-        card5Value.Location = New Point(23, 58)
+        card5Value.Location = New Point(20, 43)
         card5Value.Name = "card5Value"
-        card5Value.Size = New Size(338, 292)
+        card5Value.Size = New Size(296, 220)
         card5Value.TabIndex = 2
         card5Value.Text = "0"
         card5Value.TextAlign = ContentAlignment.MiddleLeft
@@ -624,9 +626,9 @@ Partial Class Admin
         card5Footer.Dock = DockStyle.Bottom
         card5Footer.Font = New Font("Segoe UI", 9F)
         card5Footer.ForeColor = Color.Gray
-        card5Footer.Location = New Point(23, 350)
+        card5Footer.Location = New Point(20, 263)
         card5Footer.Name = "card5Footer"
-        card5Footer.Size = New Size(338, 31)
+        card5Footer.Size = New Size(296, 23)
         card5Footer.TabIndex = 1
         card5Footer.Text = "Need reordering"
         ' 
@@ -635,9 +637,9 @@ Partial Class Admin
         card5Title.Dock = DockStyle.Top
         card5Title.Font = New Font("Segoe UI", 11F, FontStyle.Bold)
         card5Title.ForeColor = Color.Black
-        card5Title.Location = New Point(23, 27)
+        card5Title.Location = New Point(20, 20)
         card5Title.Name = "card5Title"
-        card5Title.Size = New Size(338, 31)
+        card5Title.Size = New Size(296, 23)
         card5Title.TabIndex = 0
         card5Title.Text = "Low Stock"
         ' 
@@ -648,11 +650,11 @@ Partial Class Admin
         card6.Controls.Add(card6Footer)
         card6.Controls.Add(card6Title)
         card6.Dock = DockStyle.Fill
-        card6.Location = New Point(417, 447)
-        card6.Margin = New Padding(11, 13, 11, 13)
+        card6.Location = New Point(366, 335)
+        card6.Margin = New Padding(10, 10, 10, 10)
         card6.Name = "card6"
-        card6.Padding = New Padding(23, 27, 23, 27)
-        card6.Size = New Size(384, 408)
+        card6.Padding = New Padding(20, 20, 20, 20)
+        card6.Size = New Size(336, 306)
         card6.TabIndex = 5
         ' 
         ' card6Value
@@ -660,9 +662,9 @@ Partial Class Admin
         card6Value.Dock = DockStyle.Fill
         card6Value.Font = New Font("Segoe UI", 24F)
         card6Value.ForeColor = Color.Black
-        card6Value.Location = New Point(23, 58)
+        card6Value.Location = New Point(20, 43)
         card6Value.Name = "card6Value"
-        card6Value.Size = New Size(338, 292)
+        card6Value.Size = New Size(296, 220)
         card6Value.TabIndex = 2
         card6Value.Text = "0"
         card6Value.TextAlign = ContentAlignment.MiddleLeft
@@ -672,9 +674,9 @@ Partial Class Admin
         card6Footer.Dock = DockStyle.Bottom
         card6Footer.Font = New Font("Segoe UI", 9F)
         card6Footer.ForeColor = Color.Gray
-        card6Footer.Location = New Point(23, 350)
+        card6Footer.Location = New Point(20, 263)
         card6Footer.Name = "card6Footer"
-        card6Footer.Size = New Size(338, 31)
+        card6Footer.Size = New Size(296, 23)
         card6Footer.TabIndex = 1
         card6Footer.Text = "Within 0 days"
         ' 
@@ -683,9 +685,9 @@ Partial Class Admin
         card6Title.Dock = DockStyle.Top
         card6Title.Font = New Font("Segoe UI", 11F, FontStyle.Bold)
         card6Title.ForeColor = Color.Black
-        card6Title.Location = New Point(23, 27)
+        card6Title.Location = New Point(20, 20)
         card6Title.Name = "card6Title"
-        card6Title.Size = New Size(338, 31)
+        card6Title.Size = New Size(296, 23)
         card6Title.TabIndex = 0
         card6Title.Text = "Expired"
         ' 
@@ -696,11 +698,11 @@ Partial Class Admin
         card7.Controls.Add(card7Footer)
         card7.Controls.Add(card7Title)
         card7.Dock = DockStyle.Fill
-        card7.Location = New Point(823, 447)
-        card7.Margin = New Padding(11, 13, 11, 13)
+        card7.Location = New Point(722, 335)
+        card7.Margin = New Padding(10, 10, 10, 10)
         card7.Name = "card7"
-        card7.Padding = New Padding(23, 27, 23, 27)
-        card7.Size = New Size(384, 408)
+        card7.Padding = New Padding(20, 20, 20, 20)
+        card7.Size = New Size(336, 306)
         card7.TabIndex = 6
         ' 
         ' card7Value
@@ -708,9 +710,9 @@ Partial Class Admin
         card7Value.Dock = DockStyle.Fill
         card7Value.Font = New Font("Segoe UI", 24F)
         card7Value.ForeColor = Color.Black
-        card7Value.Location = New Point(23, 58)
+        card7Value.Location = New Point(20, 43)
         card7Value.Name = "card7Value"
-        card7Value.Size = New Size(338, 292)
+        card7Value.Size = New Size(296, 220)
         card7Value.TabIndex = 2
         card7Value.Text = "0"
         card7Value.TextAlign = ContentAlignment.MiddleLeft
@@ -720,9 +722,9 @@ Partial Class Admin
         card7Footer.Dock = DockStyle.Bottom
         card7Footer.Font = New Font("Segoe UI", 9F)
         card7Footer.ForeColor = Color.Gray
-        card7Footer.Location = New Point(23, 350)
+        card7Footer.Location = New Point(20, 263)
         card7Footer.Name = "card7Footer"
-        card7Footer.Size = New Size(338, 31)
+        card7Footer.Size = New Size(296, 23)
         card7Footer.TabIndex = 1
         card7Footer.Text = "Requires disposal"
         ' 
@@ -731,9 +733,9 @@ Partial Class Admin
         card7Title.Dock = DockStyle.Top
         card7Title.Font = New Font("Segoe UI", 11F, FontStyle.Bold)
         card7Title.ForeColor = Color.Black
-        card7Title.Location = New Point(23, 27)
+        card7Title.Location = New Point(20, 20)
         card7Title.Name = "card7Title"
-        card7Title.Size = New Size(338, 31)
+        card7Title.Size = New Size(296, 23)
         card7Title.TabIndex = 0
         card7Title.Text = "Near Expiry"
         ' 
@@ -744,11 +746,11 @@ Partial Class Admin
         card8.Controls.Add(card8Footer)
         card8.Controls.Add(card8Title)
         card8.Dock = DockStyle.Fill
-        card8.Location = New Point(1229, 447)
-        card8.Margin = New Padding(11, 13, 11, 13)
+        card8.Location = New Point(1078, 335)
+        card8.Margin = New Padding(10, 10, 10, 10)
         card8.Name = "card8"
-        card8.Padding = New Padding(23, 27, 23, 27)
-        card8.Size = New Size(387, 408)
+        card8.Padding = New Padding(20, 20, 20, 20)
+        card8.Size = New Size(336, 306)
         card8.TabIndex = 7
         ' 
         ' card8Value
@@ -756,9 +758,9 @@ Partial Class Admin
         card8Value.Dock = DockStyle.Fill
         card8Value.Font = New Font("Segoe UI", 24F)
         card8Value.ForeColor = Color.Black
-        card8Value.Location = New Point(23, 58)
+        card8Value.Location = New Point(20, 43)
         card8Value.Name = "card8Value"
-        card8Value.Size = New Size(341, 292)
+        card8Value.Size = New Size(296, 220)
         card8Value.TabIndex = 2
         card8Value.Text = "0.00"
         card8Value.TextAlign = ContentAlignment.MiddleLeft
@@ -768,9 +770,9 @@ Partial Class Admin
         card8Footer.Dock = DockStyle.Bottom
         card8Footer.Font = New Font("Segoe UI", 9F)
         card8Footer.ForeColor = Color.Gray
-        card8Footer.Location = New Point(23, 350)
+        card8Footer.Location = New Point(20, 263)
         card8Footer.Name = "card8Footer"
-        card8Footer.Size = New Size(341, 31)
+        card8Footer.Size = New Size(296, 23)
         card8Footer.TabIndex = 1
         card8Footer.Text = "No expenses recorded today"
         ' 
@@ -779,9 +781,9 @@ Partial Class Admin
         card8Title.Dock = DockStyle.Top
         card8Title.Font = New Font("Segoe UI", 11F, FontStyle.Bold)
         card8Title.ForeColor = Color.Black
-        card8Title.Location = New Point(23, 27)
+        card8Title.Location = New Point(20, 20)
         card8Title.Name = "card8Title"
-        card8Title.Size = New Size(341, 31)
+        card8Title.Size = New Size(296, 23)
         card8Title.TabIndex = 0
         card8Title.Text = "Today's Expenses"
         ' 
@@ -790,10 +792,9 @@ Partial Class Admin
         priceManagerView.BackColor = Color.FromArgb(CByte(245), CByte(245), CByte(245))
         priceManagerView.Controls.Add(priceManagerCard)
         priceManagerView.Dock = DockStyle.Fill
-        priceManagerView.Location = New Point(23, 27)
-        priceManagerView.Margin = New Padding(3, 4, 3, 4)
+        priceManagerView.Location = New Point(20, 20)
         priceManagerView.Name = "priceManagerView"
-        priceManagerView.Size = New Size(1627, 868)
+        priceManagerView.Size = New Size(1424, 651)
         priceManagerView.TabIndex = 1
         priceManagerView.Visible = False
         ' 
@@ -804,10 +805,9 @@ Partial Class Admin
         priceManagerCard.Controls.Add(priceManagerHead)
         priceManagerCard.Dock = DockStyle.Top
         priceManagerCard.Location = New Point(0, 0)
-        priceManagerCard.Margin = New Padding(3, 4, 3, 4)
         priceManagerCard.Name = "priceManagerCard"
-        priceManagerCard.Padding = New Padding(23, 27, 23, 27)
-        priceManagerCard.Size = New Size(1627, 213)
+        priceManagerCard.Padding = New Padding(20, 20, 20, 20)
+        priceManagerCard.Size = New Size(1424, 160)
         priceManagerCard.TabIndex = 0
         ' 
         ' priceManagerDesc
@@ -815,9 +815,9 @@ Partial Class Admin
         priceManagerDesc.Dock = DockStyle.Bottom
         priceManagerDesc.Font = New Font("Segoe UI", 10F)
         priceManagerDesc.ForeColor = Color.Gray
-        priceManagerDesc.Location = New Point(23, 133)
+        priceManagerDesc.Location = New Point(20, 100)
         priceManagerDesc.Name = "priceManagerDesc"
-        priceManagerDesc.Size = New Size(1581, 53)
+        priceManagerDesc.Size = New Size(1384, 40)
         priceManagerDesc.TabIndex = 1
         priceManagerDesc.Text = "Manage retail and wholesale pricing for all products."
         ' 
@@ -826,9 +826,9 @@ Partial Class Admin
         priceManagerHead.Dock = DockStyle.Top
         priceManagerHead.Font = New Font("Segoe UI", 16F, FontStyle.Bold)
         priceManagerHead.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        priceManagerHead.Location = New Point(23, 27)
+        priceManagerHead.Location = New Point(20, 20)
         priceManagerHead.Name = "priceManagerHead"
-        priceManagerHead.Size = New Size(1581, 67)
+        priceManagerHead.Size = New Size(1384, 50)
         priceManagerHead.TabIndex = 0
         priceManagerHead.Text = "Price Manager"
         ' 
@@ -838,10 +838,9 @@ Partial Class Admin
         inventoryView.Controls.Add(dgvInventory)
         inventoryView.Controls.Add(inventoryCard)
         inventoryView.Dock = DockStyle.Fill
-        inventoryView.Location = New Point(23, 27)
-        inventoryView.Margin = New Padding(3, 4, 3, 4)
+        inventoryView.Location = New Point(20, 20)
         inventoryView.Name = "inventoryView"
-        inventoryView.Size = New Size(1627, 868)
+        inventoryView.Size = New Size(1424, 651)
         inventoryView.TabIndex = 2
         inventoryView.Visible = False
         ' 
@@ -849,10 +848,9 @@ Partial Class Admin
         ' 
         dgvInventory.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize
         dgvInventory.Location = New Point(0, 0)
-        dgvInventory.Margin = New Padding(3, 4, 3, 4)
         dgvInventory.Name = "dgvInventory"
         dgvInventory.RowHeadersWidth = 51
-        dgvInventory.Size = New Size(1879, 1201)
+        dgvInventory.Size = New Size(1644, 901)
         dgvInventory.TabIndex = 1
         ' 
         ' inventoryCard
@@ -862,10 +860,9 @@ Partial Class Admin
         inventoryCard.Controls.Add(inventoryHead)
         inventoryCard.Dock = DockStyle.Top
         inventoryCard.Location = New Point(0, 0)
-        inventoryCard.Margin = New Padding(3, 4, 3, 4)
         inventoryCard.Name = "inventoryCard"
-        inventoryCard.Padding = New Padding(23, 27, 23, 27)
-        inventoryCard.Size = New Size(1627, 213)
+        inventoryCard.Padding = New Padding(20, 20, 20, 20)
+        inventoryCard.Size = New Size(1424, 160)
         inventoryCard.TabIndex = 0
         ' 
         ' inventoryDesc
@@ -873,9 +870,9 @@ Partial Class Admin
         inventoryDesc.Dock = DockStyle.Bottom
         inventoryDesc.Font = New Font("Segoe UI", 10F)
         inventoryDesc.ForeColor = Color.Gray
-        inventoryDesc.Location = New Point(23, 133)
+        inventoryDesc.Location = New Point(20, 100)
         inventoryDesc.Name = "inventoryDesc"
-        inventoryDesc.Size = New Size(1581, 53)
+        inventoryDesc.Size = New Size(1384, 40)
         inventoryDesc.TabIndex = 1
         inventoryDesc.Text = "Track stock levels, expiring items, and product categories."
         ' 
@@ -884,9 +881,9 @@ Partial Class Admin
         inventoryHead.Dock = DockStyle.Top
         inventoryHead.Font = New Font("Segoe UI", 16F, FontStyle.Bold)
         inventoryHead.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        inventoryHead.Location = New Point(23, 27)
+        inventoryHead.Location = New Point(20, 20)
         inventoryHead.Name = "inventoryHead"
-        inventoryHead.Size = New Size(1581, 67)
+        inventoryHead.Size = New Size(1384, 50)
         inventoryHead.TabIndex = 0
         inventoryHead.Text = "Inventory"
         ' 
@@ -895,10 +892,9 @@ Partial Class Admin
         reportsView.BackColor = Color.FromArgb(CByte(245), CByte(245), CByte(245))
         reportsView.Controls.Add(reportsCard)
         reportsView.Dock = DockStyle.Fill
-        reportsView.Location = New Point(23, 27)
-        reportsView.Margin = New Padding(3, 4, 3, 4)
+        reportsView.Location = New Point(20, 20)
         reportsView.Name = "reportsView"
-        reportsView.Size = New Size(1627, 868)
+        reportsView.Size = New Size(1424, 651)
         reportsView.TabIndex = 3
         reportsView.Visible = False
         ' 
@@ -909,10 +905,9 @@ Partial Class Admin
         reportsCard.Controls.Add(reportsHead)
         reportsCard.Dock = DockStyle.Top
         reportsCard.Location = New Point(0, 0)
-        reportsCard.Margin = New Padding(3, 4, 3, 4)
         reportsCard.Name = "reportsCard"
-        reportsCard.Padding = New Padding(23, 27, 23, 27)
-        reportsCard.Size = New Size(1627, 213)
+        reportsCard.Padding = New Padding(20, 20, 20, 20)
+        reportsCard.Size = New Size(1424, 160)
         reportsCard.TabIndex = 0
         ' 
         ' reportsDesc
@@ -920,9 +915,9 @@ Partial Class Admin
         reportsDesc.Dock = DockStyle.Bottom
         reportsDesc.Font = New Font("Segoe UI", 10F)
         reportsDesc.ForeColor = Color.Gray
-        reportsDesc.Location = New Point(23, 133)
+        reportsDesc.Location = New Point(20, 100)
         reportsDesc.Name = "reportsDesc"
-        reportsDesc.Size = New Size(1581, 53)
+        reportsDesc.Size = New Size(1384, 40)
         reportsDesc.TabIndex = 1
         reportsDesc.Text = "Generate sales, inventory, and expense reports."
         ' 
@@ -931,37 +926,27 @@ Partial Class Admin
         reportsHead.Dock = DockStyle.Top
         reportsHead.Font = New Font("Segoe UI", 16F, FontStyle.Bold)
         reportsHead.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        reportsHead.Location = New Point(23, 27)
+        reportsHead.Location = New Point(20, 20)
         reportsHead.Name = "reportsHead"
-        reportsHead.Size = New Size(1581, 67)
+        reportsHead.Size = New Size(1384, 50)
         reportsHead.TabIndex = 0
         reportsHead.Text = "Reports"
         ' 
-        ' logoBox
-        ' 
-        logoBox.BackColor = Color.FromArgb(CByte(255), CByte(215), CByte(0))
-        logoBox.Image = My.Resources.Resources._769082459_1379172074148575_7892593615181140804_n
-        logoBox.Location = New Point(23, 31)
-        logoBox.Margin = New Padding(3, 4, 3, 4)
-        logoBox.Name = "logoBox"
-        logoBox.Size = New Size(57, 67)
-        logoBox.SizeMode = PictureBoxSizeMode.Zoom
-        logoBox.TabIndex = 7
-        logoBox.TabStop = False
-        ' 
         ' Admin
         ' 
-        AutoScaleDimensions = New SizeF(8F, 20F)
+        AutoScaleDimensions = New SizeF(7F, 15F)
         AutoScaleMode = AutoScaleMode.Font
         BackColor = Color.White
-        ClientSize = New Size(1924, 1055)
+        ClientSize = New Size(1684, 791)
         Controls.Add(mainLayout)
+        Margin = New Padding(3, 2, 3, 2)
         Name = "Admin"
         Text = "Cabrera's Drugstore - Dashboard"
         WindowState = FormWindowState.Maximized
         mainLayout.ResumeLayout(False)
         sidebar.ResumeLayout(False)
         sidebar.PerformLayout()
+        CType(logoBox, ComponentModel.ISupportInitialize).EndInit()
         rightLayout.ResumeLayout(False)
         headerPanel.ResumeLayout(False)
         headerPanel.PerformLayout()
@@ -986,7 +971,6 @@ Partial Class Admin
         inventoryCard.ResumeLayout(False)
         reportsView.ResumeLayout(False)
         reportsCard.ResumeLayout(False)
-        CType(logoBox, ComponentModel.ISupportInitialize).EndInit()
         ResumeLayout(False)
     End Sub
 

@@ -1686,4 +1686,8 @@ Public Class Admin
             End Using
         End Sub
     End Class
+
+    Private Sub PharName_Click(sender As Object, e As EventArgs) Handles PharName.Click
+
+    End Sub
 End Class
