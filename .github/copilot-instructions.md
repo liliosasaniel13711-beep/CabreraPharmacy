@@ -1,5 +1,5 @@
 # Copilot Instructions
 
 ## Project Guidelines
-- For WinForms dashboard work, prefer Designer-serializable native controls/layout, preserve existing control names, event handlers, authentication, data bindings, and real data sources; keep database logic out of InitializeComponent and avoid adding UI packages.
+- For WinForms dashboard work, prefer Designer-serializable native controls/layout, preserve existing control names, event handlers, authentication, data bindings, and real data sources; keep database logic out of InitializeComponent and avoid adding UI packages. Ensure the dashboard layout and controls are serialized in Admin.Designer.vb so opening Admin.vb [Design] displays the actual dashboard; avoid constructing the visual UI entirely at runtime in Admin.vb.
 - For the Super Admin dashboard, treat the project's existing Admin form and its Designer implementation as the primary visual reference. Keep changes limited to Super Admin files unless a shared-control fix is essential, and preserve Super Admin-specific navigation, permissions, live data, and logout/session behavior.

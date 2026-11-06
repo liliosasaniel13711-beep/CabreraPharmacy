@@ -43,13 +43,22 @@ Public Class Admin
     Private salesReportGrid As DataGridView
     Private salesReportTotalLabel As Label
     Private salesReportDetailsLabel As Label
+    Private trendButtons As New Dictionary(Of String, Button)(StringComparer.OrdinalIgnoreCase)
+    Private trendLabels As New List(Of String)
+    Private trendValues As New List(Of Decimal)
+    Private dashboardLowStock As Integer
+    Private dashboardExpired As Integer
+    Private dashboardNearExpiry As Integer
+    Private dashboardTodayTransactions As Integer
 
     Private Sub Admin_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         Me.WindowState = FormWindowState.Maximized
         Me.FormBorderStyle = FormBorderStyle.None
         ' Welcome logic
         ' Make sure CurrentFullName is declared globally in a module (like SessionModule)
-        welcomeadmin_label.Text = "Welcome, " & CurrentFullName & " (Admin)"
+        welcomeadmin_label.Text = CurrentFullName
+        userRoleLabel.Text = If(String.IsNullOrWhiteSpace(CurrentRole), "Admin", CurrentRole)
+        ApplyRoundedRegion(userAvatar, userAvatar.Width \ 2)
 
         ' Map nav buttons and views
         navButtons = {navDashboard, navPriceManager, navInventory, navReports}
@@ -63,15 +72,12 @@ Public Class Admin
         ' Dynamic values that the Designer can't serialize
         card1Footer.Text = DateTime.Now.ToString("MMMM dd, yyyy")
 
+        InitializeDashboardUi()
         InitializeInventoryUi()
         InitializePriceManagerUi()
         InitializeReportsUi()
         ShowView("Dashboard")
-    End Sub
-
-    ' Keep the yellow logo vertically centered against the brand text
-    Private Sub Sidebar_Layout(sender As Object, e As LayoutEventArgs) Handles sidebar.Layout
-        logoBox.Location = New Point(20, PharName.Top + (PharName.Height - logoBox.Height) \ 2)
+        LoadSalesTrend("7 Days")
     End Sub
 
     ' Keep the user info panel pinned to the top-right corner
@@ -84,6 +90,32 @@ Public Class Admin
         If btn IsNot Nothing Then
             ShowView(CStr(btn.Tag))
         End If
+    End Sub
+
+    Private Sub UpdateDashboardCounts()
+        If dashboardLayout Is Nothing Then Return
+        Dim bottomRow = dashboardLayout.Controls.OfType(Of TableLayoutPanel)().LastOrDefault()
+        Dim alertPanel = bottomRow?.Controls.OfType(Of Panel)().FirstOrDefault()
+        If alertPanel IsNot Nothing Then
+            Dim counts = {dashboardLowStock, dashboardNearExpiry, dashboardExpired}
+            For index = 0 To counts.Length - 1
+                Dim countLabel = TryCast(alertPanel.Controls.Find("alertCount" & index.ToString(CultureInfo.InvariantCulture), True).FirstOrDefault(), Label)
+                If countLabel IsNot Nothing Then countLabel.Text = counts(index).ToString(CultureInfo.InvariantCulture)
+            Next
+        End If
+
+        Dim overviewPanel = bottomRow?.Controls.OfType(Of Panel)().Skip(1).FirstOrDefault()
+        If overviewPanel IsNot Nothing Then
+            Dim values = {dashboardLowStock.ToString(CultureInfo.InvariantCulture) & " products",
+                          dashboardNearExpiry.ToString(CultureInfo.InvariantCulture) & " products",
+                          card2Footer.Text & " today"}
+            For index = 0 To values.Length - 1
+                Dim valueLabel = TryCast(overviewPanel.Controls.Find("overviewValue" & index.ToString(CultureInfo.InvariantCulture), True).FirstOrDefault(), Label)
+                If valueLabel IsNot Nothing Then valueLabel.Text = values(index)
+            Next
+        End If
+        salesTrendPanel?.Invalidate()
+        revenuePanel?.Invalidate()
     End Sub
 
     Private Sub logoutadmin_button_Click(sender As Object, e As EventArgs) Handles logoutadmin_button.Click
@@ -99,8 +131,9 @@ Public Class Admin
 
         For Each btn In navButtons
             Dim isActive As Boolean = (CStr(btn.Tag) = viewName)
-            btn.BackColor = If(isActive, darkGreen, Color.White)
-            btn.ForeColor = If(isActive, Color.White, darkGreen)
+            btn.BackColor = If(isActive, Color.White, darkGreen)
+            btn.ForeColor = If(isActive, darkGreen, Color.White)
+            btn.UseVisualStyleBackColor = False
         Next
 
         ' Trigger backend data retrieval based on the active view
@@ -120,7 +153,7 @@ Public Class Admin
     Private Function GetSubtitle(viewName As String) As String
         Select Case viewName
             Case "Dashboard"
-                Return Date.Today.ToString("MMMM yyyy", CultureInfo.CurrentCulture) & " · Overview of Cabrera’s Drugstore and Medical Supplies"
+                Return "Overview of Cabrera's Drugstore and Medical Supplies"
             Case "Price Manager"
                 Return "Manage retail and wholesale product prices"
             Case "Inventory"
@@ -131,6 +164,217 @@ Public Class Admin
                 Return String.Empty
         End Select
     End Function
+
+    Private Sub InitializeDashboardUi()
+        trendButtons.Clear()
+        trendButtons.Add("7 Days", trend7DaysButton)
+        trendButtons.Add("This Month", trendThisMonthButton)
+        trendButtons.Add("This Year", trendThisYearButton)
+        AddHandler trend7DaysButton.Click, AddressOf SalesTrendFilter_Click
+        AddHandler trendThisMonthButton.Click, AddressOf SalesTrendFilter_Click
+        AddHandler trendThisYearButton.Click, AddressOf SalesTrendFilter_Click
+        AddHandler inventoryViewAllLink.Click, AddressOf InventoryViewAllLink_Click
+        AddHandler salesTrendPlot.Paint, AddressOf SalesTrendPlot_Paint
+        AddHandler revenuePanel.Paint, AddressOf RevenuePanel_Paint
+        AddHandler dashboardView.Resize, AddressOf DashboardView_Resize
+        AddHandler inventoryAlertsPanel.Resize, AddressOf DashboardPanels_Resize
+        AddHandler quickOverviewPanel.Resize, AddressOf DashboardPanels_Resize
+        dashboardDateLabel.Text = Date.Today.ToString("dddd, MMMM d, yyyy", CultureInfo.CurrentCulture)
+        ResizeDashboardPanels()
+    End Sub
+
+    Private Sub InventoryViewAllLink_Click(sender As Object, e As EventArgs)
+        ShowView("Inventory")
+    End Sub
+
+    Private Sub ApplyRoundedRegion(control As Control, radius As Integer)
+        If control.Width <= 0 OrElse control.Height <= 0 Then Return
+        Using path As New GraphicsPath()
+            Dim diameter = Math.Min(radius * 2, Math.Min(control.Width, control.Height))
+            Dim bounds = New Rectangle(0, 0, control.Width, control.Height)
+            path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90)
+            path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90)
+            path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90)
+            path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90)
+            path.CloseFigure()
+            Dim newRegion As New Region(path)
+            Dim oldRegion = control.Region
+            control.Region = newRegion
+            oldRegion?.Dispose()
+        End Using
+    End Sub
+
+    Private Sub FormatSummaryCard(card As Panel)
+        Dim title = TryCast(card.Controls.OfType(Of Label)().FirstOrDefault(Function(control) control.Name.EndsWith("Title", StringComparison.Ordinal)), Label)
+        Dim value = TryCast(card.Controls.OfType(Of Label)().FirstOrDefault(Function(control) control.Name.EndsWith("Value", StringComparison.Ordinal)), Label)
+        Dim footer = TryCast(card.Controls.OfType(Of Label)().FirstOrDefault(Function(control) control.Name.EndsWith("Footer", StringComparison.Ordinal)), Label)
+        If title Is Nothing OrElse value Is Nothing OrElse footer Is Nothing Then Return
+
+        Dim width = Math.Max(1, card.ClientSize.Width - 32)
+        title.SetBounds(16, 12, width, 22)
+        value.SetBounds(16, 40, width, 32)
+        footer.SetBounds(16, 74, width, 18)
+    End Sub
+
+    Private Sub UpdateQuickOverviewRows()
+        Dim overviewRows = {quickOverviewRestock, quickOverviewExpiry, quickOverviewTransactions}
+        Dim values = {quickOverviewRestockValue, quickOverviewExpiryValue, quickOverviewTransactionsValue}
+        For index = 0 To overviewRows.Length - 1
+            Dim availableWidth = Math.Max(1, quickOverviewPanel.ClientSize.Width - 32)
+            overviewRows(index).SetBounds(16, 38 + index * 28, Math.Max(1, availableWidth - 116), 24)
+            values(index).SetBounds(quickOverviewPanel.ClientSize.Width - 126, 38 + index * 28, 110, 24)
+        Next
+    End Sub
+
+
+    Private Sub DashboardView_Resize(sender As Object, e As EventArgs)
+        For Each card As Panel In {card1, card2, card3, card4, card5, card6, card7, card8}
+            FormatSummaryCard(card)
+        Next
+        ResizeDashboardPanels()
+    End Sub
+
+    Private Sub DashboardPanels_Resize(sender As Object, e As EventArgs)
+        ResizeDashboardPanels()
+    End Sub
+
+    Private Sub SalesTrendFilter_Click(sender As Object, e As EventArgs)
+        Dim button = TryCast(sender, Button)
+        If button Is Nothing Then Return
+        LoadSalesTrend(Convert.ToString(button.Tag, CultureInfo.InvariantCulture))
+    End Sub
+
+    Private Sub LoadSalesTrend(period As String)
+        Dim today = Date.Today
+        Dim startDate As DateTime
+        Dim endDate = today.AddDays(1)
+        Select Case period
+            Case "This Month"
+                startDate = New DateTime(today.Year, today.Month, 1)
+            Case "This Year"
+                startDate = New DateTime(today.Year, 1, 1)
+            Case Else
+                period = "7 Days"
+                startDate = today.AddDays(-6)
+        End Select
+
+        trendLabels.Clear()
+        trendValues.Clear()
+        Try
+            Dim transactions = New SalesRepository().GetTransactionReport(Nothing, Nothing, startDate, endDate)
+            dashboardTodayTransactions = transactions.AsEnumerable().Count(Function(row) Not row.IsNull("SaleDate") AndAlso CDate(row("SaleDate")).Date = today)
+            UpdateDashboardCounts()
+            If period = "This Year" Then
+                For monthOffset = 0 To 11
+                    Dim monthStart = New DateTime(today.Year, 1, 1).AddMonths(monthOffset)
+                    Dim monthEnd = monthStart.AddMonths(1)
+                    trendLabels.Add(monthStart.ToString("MMM", CultureInfo.CurrentCulture))
+                    trendValues.Add(transactions.AsEnumerable().Where(Function(row) Not row.IsNull("SaleDate") AndAlso CDate(row("SaleDate")) >= monthStart AndAlso CDate(row("SaleDate")) < monthEnd).Sum(Function(row) Convert.ToDecimal(row("Total"), CultureInfo.InvariantCulture)))
+                Next
+            Else
+                Dim dayCount = If(period = "This Month", Date.DaysInMonth(today.Year, today.Month), 7)
+                startDate = If(period = "This Month", New DateTime(today.Year, today.Month, 1), today.AddDays(-6))
+                For dayOffset = 0 To dayCount - 1
+                    Dim day = startDate.AddDays(dayOffset)
+                    trendLabels.Add(If(period = "This Month", day.Day.ToString(CultureInfo.InvariantCulture), day.ToString("ddd", CultureInfo.CurrentCulture)))
+                    trendValues.Add(transactions.AsEnumerable().Where(Function(row) Not row.IsNull("SaleDate") AndAlso CDate(row("SaleDate")).Date = day.Date).Sum(Function(row) Convert.ToDecimal(row("Total"), CultureInfo.InvariantCulture)))
+                Next
+            End If
+        Catch ex As Exception
+            trendLabels.Clear()
+            trendValues.Clear()
+        End Try
+
+        For Each item In trendButtons
+            Dim active = String.Equals(item.Key, period, StringComparison.OrdinalIgnoreCase)
+            item.Value.BackColor = If(active, darkGreen, Color.White)
+            item.Value.ForeColor = If(active, Color.White, Color.Black)
+            item.Value.FlatAppearance.BorderSize = If(active, 0, 1)
+        Next
+        salesTrendPanel?.Controls("salesTrendPlot")?.Invalidate()
+        revenuePanel?.Invalidate()
+    End Sub
+
+    Private Sub SalesTrendPlot_Paint(sender As Object, e As PaintEventArgs)
+        Dim plot = TryCast(sender, Panel)
+        If plot Is Nothing Then Return
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+        Dim bounds = plot.ClientRectangle
+        Dim chart = New Rectangle(bounds.Left + 32, bounds.Top + 8, Math.Max(1, bounds.Width - 48), Math.Max(1, bounds.Height - 34))
+        Using gridPen As New Pen(Color.FromArgb(235, 235, 235)), axisFont As New Font("Segoe UI", 7.0F), textBrush As New SolidBrush(Color.Gray)
+            For index = 0 To 3
+                Dim y = chart.Top + CInt(chart.Height * index / 3.0F)
+                e.Graphics.DrawLine(gridPen, chart.Left, y, chart.Right, y)
+            Next
+            If trendValues.Count > 0 Then
+                Dim maximum = Math.Max(1D, CDbl(trendValues.Max()))
+                Dim points As New List(Of PointF)
+                For index = 0 To trendValues.Count - 1
+                    Dim x = chart.Left + If(trendValues.Count = 1, chart.Width \ 2, CInt(index * chart.Width / (trendValues.Count - 1.0F)))
+                    Dim y = chart.Bottom - CInt(CDbl(trendValues(index)) / maximum * chart.Height)
+                    points.Add(New PointF(x, y))
+                Next
+                If points.Count > 1 Then
+                    Using salesPen As New Pen(darkGreen, 2.5F)
+                        e.Graphics.DrawLines(salesPen, points.ToArray())
+                    End Using
+                End If
+                For index = 0 To points.Count - 1
+                    e.Graphics.FillEllipse(Brushes.SeaGreen, points(index).X - 3, points(index).Y - 3, 6, 6)
+                    If index Mod Math.Max(1, points.Count \ 7) = 0 OrElse index = points.Count - 1 Then
+                        Dim label = trendLabels(index)
+                        e.Graphics.DrawString(label, axisFont, textBrush, points(index).X - 12, chart.Bottom + 5)
+                    End If
+                Next
+            End If
+        End Using
+    End Sub
+
+    Private Sub RevenuePanel_Paint(sender As Object, e As PaintEventArgs)
+        Dim panel = TryCast(sender, Panel)
+        If panel Is Nothing Then Return
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+        Dim center = New Point(74, 105)
+        Using ringPen As New Pen(Color.FromArgb(20, 100, 60), 16.0F), headingFont As New Font("Segoe UI", 10.0F, FontStyle.Bold), textFont As New Font("Segoe UI", 8.0F), boldFont As New Font("Segoe UI", 9.0F, FontStyle.Bold), brush As New SolidBrush(Color.FromArgb(25, 25, 25)), grayBrush As New SolidBrush(Color.DimGray)
+            e.Graphics.DrawArc(ringPen, center.X - 38, center.Y - 38, 76, 76, -90, 359)
+            Dim sales = If(trendValues.Count > 0, trendValues.Sum(), 0D)
+            e.Graphics.DrawString("Sales", textFont, grayBrush, center.X - 20, center.Y - 9)
+            e.Graphics.DrawString(sales.ToString("C2", CultureInfo.CurrentCulture), boldFont, brush, center.X - 35, center.Y + 4)
+            e.Graphics.DrawString("Revenue", textFont, grayBrush, 132, 70)
+            e.Graphics.DrawString(sales.ToString("C2", CultureInfo.CurrentCulture), boldFont, brush, 132, 84)
+            e.Graphics.DrawString("Expenses", textFont, grayBrush, 132, 110)
+            e.Graphics.DrawString("Unavailable", boldFont, brush, 132, 124)
+            Using summaryBrush As New SolidBrush(Color.FromArgb(226, 238, 231))
+                e.Graphics.FillRectangle(summaryBrush, 16, Math.Max(156, panel.ClientSize.Height - 48), Math.Max(1, panel.ClientSize.Width - 32), 36)
+            End Using
+            e.Graphics.DrawString("Net income cannot be calculated without expense records.", textFont, brush, 26, Math.Max(166, panel.ClientSize.Height - 43))
+        End Using
+    End Sub
+
+    Private Sub ResizeDashboardPanels()
+        If dashboardLayout Is Nothing Then Return
+        Dim alerts = dashboardLayout.Controls.OfType(Of TableLayoutPanel)().LastOrDefault()
+        Dim alertPanel = alerts?.Controls.OfType(Of Panel)().FirstOrDefault()
+        If alertPanel IsNot Nothing Then
+            For index = 0 To 2
+                Dim alert = TryCast(alertPanel.Controls("inventoryAlert" & index.ToString(CultureInfo.InvariantCulture)), Panel)
+                If alert IsNot Nothing Then
+                    Dim gap = 8
+                    Dim width = Math.Max(1, (alertPanel.ClientSize.Width - 32 - gap * 2) \ 3)
+                    alert.SetBounds(16 + index * (width + gap), 42, width, Math.Max(54, alertPanel.ClientSize.Height - 54))
+                End If
+            Next
+        End If
+
+        Dim overviewPanel = alerts?.Controls.OfType(Of Panel)().Skip(1).FirstOrDefault()
+        If overviewPanel IsNot Nothing Then
+            For Each row As Control In overviewPanel.Controls.OfType(Of Panel)()
+                row.Width = Math.Max(1, overviewPanel.ClientSize.Width - 32)
+                row.Height = Math.Max(24, (overviewPanel.ClientSize.Height - 46) \ 3)
+                row.Top = 38 + CInt(row.Tag) * row.Height
+            Next
+        End If
+    End Sub
 
     Private Sub InitializeReportsUi()
         For Each existing As Control In reportsView.Controls.Cast(Of Control)().ToArray()
@@ -849,17 +1093,22 @@ Public Class Admin
             card5Value.Text = lowStockCount.ToString()
             card5Footer.Text = "Need reordering"
             card6Value.Text = expiredCount.ToString()
-            card6Footer.Text = "Within 0 days"
+            card6Footer.Text = "Requires disposal"
             card7Value.Text = nearExpiryCount.ToString()
             card7Footer.Text = "Expires within 6 months"
+            dashboardLowStock = lowStockCount
+            dashboardExpired = expiredCount
+            dashboardNearExpiry = nearExpiryCount
+            UpdateDashboardCounts()
         Catch ex As Exception
             MessageBox.Show("Could not load inventory totals. " & ex.Message, "Inventory dashboard", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
 
         ' The connected cabreradb schema currently has no expense records/table or purchase cost field.
         ' Keep the card explicit instead of presenting an unsupported expense total as a real figure.
-        card8Value.Text = "P 0.00"
-        card8Footer.Text = "Expense data is not stored yet"
+        card8Value.Text = "Unavailable"
+        card8Footer.Text = "Expense data is not stored"
+        UpdateDashboardCounts()
     End Sub
 
     Private Sub LoadInventoryData()
@@ -1961,7 +2210,11 @@ Public Class Admin
         End Sub
     End Class
 
-    Private Sub PharName_Click(sender As Object, e As EventArgs) Handles PharName.Click
+    Private Sub PharName_Click(sender As Object, e As EventArgs)
+
+    End Sub
+
+    Private Sub card2Value_Click(sender As Object, e As EventArgs) Handles card2Value.Click
 
     End Sub
 End Class
