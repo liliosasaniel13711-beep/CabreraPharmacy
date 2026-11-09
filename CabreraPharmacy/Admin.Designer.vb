@@ -88,25 +88,34 @@ Partial Class Admin
         salesTrendPlot = New Panel()
         revenuePanel = New Panel()
         revenueTitle = New Label()
+        revenueNetIncomeLabel = New Label()
         bottomRow = New TableLayoutPanel()
         inventoryAlertsPanel = New Panel()
         inventoryAlertsTitle = New Label()
         inventoryViewAllLink = New LinkLabel()
         inventoryAlertLowStock = New Panel()
+        inventoryAlertLowStockIcon = New Label()
         inventoryAlertLowStockCaption = New Label()
         inventoryAlertLowStockCount = New Label()
         inventoryAlertNearExpiry = New Panel()
+        inventoryAlertNearExpiryIcon = New Label()
         inventoryAlertNearExpiryCaption = New Label()
         inventoryAlertNearExpiryCount = New Label()
         inventoryAlertExpired = New Panel()
+        inventoryAlertExpiredIcon = New Label()
         inventoryAlertExpiredCaption = New Label()
         inventoryAlertExpiredCount = New Label()
         quickOverviewPanel = New Panel()
         quickOverviewTitle = New Label()
+        quickOverviewRestockIcon = New Label()
         quickOverviewRestock = New Label()
         quickOverviewRestockValue = New Label()
+        quickOverviewSeparator1 = New Panel()
+        quickOverviewExpiryIcon = New Label()
         quickOverviewExpiry = New Label()
         quickOverviewExpiryValue = New Label()
+        quickOverviewSeparator2 = New Panel()
+        quickOverviewTransactionsIcon = New Label()
         quickOverviewTransactions = New Label()
         quickOverviewTransactionsValue = New Label()
         priceManagerView = New Panel()
@@ -438,9 +447,9 @@ Partial Class Admin
         dashboardLayout.Margin = New Padding(0)
         dashboardLayout.Name = "dashboardLayout"
         dashboardLayout.RowCount = 3
-        dashboardLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 38.0F))
-        dashboardLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 38.0F))
-        dashboardLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 24.0F))
+        dashboardLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 36.0F))
+        dashboardLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 36.0F))
+        dashboardLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 28.0F))
         dashboardLayout.Size = New Size(1448, 679)
         dashboardLayout.TabIndex = 1
         ' 
@@ -883,8 +892,8 @@ Partial Class Admin
         ' middleRow
         ' 
         middleRow.ColumnCount = 2
-        middleRow.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 64.0F))
-        middleRow.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 36.0F))
+        middleRow.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 60.0F))
+        middleRow.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 40.0F))
         middleRow.Controls.Add(salesTrendPanel, 0, 0)
         middleRow.Controls.Add(revenuePanel, 1, 0)
         middleRow.Dock = DockStyle.Fill
@@ -929,7 +938,7 @@ Partial Class Admin
         salesTrendLegend.Name = "salesTrendLegend"
         salesTrendLegend.Size = New Size(260, 18)
         salesTrendLegend.TabIndex = 1
-        salesTrendLegend.Text = "● Sales     ● Expenses (unavailable)"
+        salesTrendLegend.Text = "● Sales     Expenses unavailable"
         ' 
         ' trendFiltersPanel
         ' 
@@ -938,7 +947,7 @@ Partial Class Admin
         trendFiltersPanel.Controls.Add(trendThisMonthButton)
         trendFiltersPanel.Controls.Add(trend7DaysButton)
         trendFiltersPanel.FlowDirection = FlowDirection.RightToLeft
-        trendFiltersPanel.Location = New Point(1234, 8)
+        trendFiltersPanel.Location = New Point(610, 8)
         trendFiltersPanel.Name = "trendFiltersPanel"
         trendFiltersPanel.Size = New Size(290, 28)
         trendFiltersPanel.TabIndex = 2
@@ -999,13 +1008,14 @@ Partial Class Admin
         salesTrendPlot.BackColor = Color.White
         salesTrendPlot.Location = New Point(16, 58)
         salesTrendPlot.Name = "salesTrendPlot"
-        salesTrendPlot.Size = New Size(1514, 316)
+        salesTrendPlot.Size = New Size(884, 170)
         salesTrendPlot.TabIndex = 3
         ' 
         ' revenuePanel
         ' 
         revenuePanel.BackColor = Color.White
         revenuePanel.BorderStyle = BorderStyle.FixedSingle
+        revenuePanel.Controls.Add(revenueNetIncomeLabel)
         revenuePanel.Controls.Add(revenueTitle)
         revenuePanel.Dock = DockStyle.Fill
         revenuePanel.Location = New Point(926, 0)
@@ -1024,11 +1034,24 @@ Partial Class Admin
         revenueTitle.TabIndex = 0
         revenueTitle.Text = "Revenue vs. Expenses"
         ' 
+        ' revenueNetIncomeLabel
+        ' 
+        revenueNetIncomeLabel.Anchor = AnchorStyles.Bottom Or AnchorStyles.Left Or AnchorStyles.Right
+        revenueNetIncomeLabel.BackColor = Color.FromArgb(CByte(226), CByte(238), CByte(231))
+        revenueNetIncomeLabel.Font = New Font("Segoe UI", 8.0F, FontStyle.Bold)
+        revenueNetIncomeLabel.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
+        revenueNetIncomeLabel.Location = New Point(16, 189)
+        revenueNetIncomeLabel.Name = "revenueNetIncomeLabel"
+        revenueNetIncomeLabel.Size = New Size(490, 36)
+        revenueNetIncomeLabel.TabIndex = 1
+        revenueNetIncomeLabel.Text = "Net Income (Today): unavailable without expense records"
+        revenueNetIncomeLabel.TextAlign = ContentAlignment.MiddleCenter
+        ' 
         ' bottomRow
         ' 
         bottomRow.ColumnCount = 2
-        bottomRow.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 56.0F))
-        bottomRow.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 44.0F))
+        bottomRow.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 60.0F))
+        bottomRow.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 40.0F))
         bottomRow.Controls.Add(inventoryAlertsPanel, 0, 0)
         bottomRow.Controls.Add(quickOverviewPanel, 1, 0)
         bottomRow.Dock = DockStyle.Fill
@@ -1071,7 +1094,7 @@ Partial Class Admin
         inventoryViewAllLink.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         inventoryViewAllLink.AutoSize = True
         inventoryViewAllLink.LinkColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        inventoryViewAllLink.Location = New Point(1343, 12)
+        inventoryViewAllLink.Location = New Point(700, 12)
         inventoryViewAllLink.Name = "inventoryViewAllLink"
         inventoryViewAllLink.Size = New Size(62, 15)
         inventoryViewAllLink.TabIndex = 1
@@ -1084,6 +1107,7 @@ Partial Class Admin
         inventoryAlertLowStock.BorderStyle = BorderStyle.FixedSingle
         inventoryAlertLowStock.Controls.Add(inventoryAlertLowStockCaption)
         inventoryAlertLowStock.Controls.Add(inventoryAlertLowStockCount)
+        inventoryAlertLowStock.Controls.Add(inventoryAlertLowStockIcon)
         inventoryAlertLowStock.Location = New Point(16, 42)
         inventoryAlertLowStock.Name = "inventoryAlertLowStock"
         inventoryAlertLowStock.Size = New Size(245, 96)
@@ -1100,6 +1124,7 @@ Partial Class Admin
         inventoryAlertLowStockCaption.TabIndex = 0
         inventoryAlertLowStockCaption.Text = "Low Stock" & vbCrLf & "Need reordering"
         inventoryAlertLowStockCaption.TextAlign = ContentAlignment.MiddleCenter
+        inventoryAlertLowStockCaption.Text = "Low Stock" & vbCrLf & "Restock soon"
         ' 
         ' inventoryAlertLowStockCount
         ' 
@@ -1113,12 +1138,24 @@ Partial Class Admin
         inventoryAlertLowStockCount.Text = "0"
         inventoryAlertLowStockCount.TextAlign = ContentAlignment.MiddleCenter
         ' 
+        ' inventoryAlertLowStockIcon
+        ' 
+        inventoryAlertLowStockIcon.Font = New Font("Segoe UI Symbol", 12.0F, FontStyle.Bold)
+        inventoryAlertLowStockIcon.ForeColor = Color.FromArgb(CByte(95), CByte(75), CByte(0))
+        inventoryAlertLowStockIcon.Location = New Point(8, 3)
+        inventoryAlertLowStockIcon.Name = "inventoryAlertLowStockIcon"
+        inventoryAlertLowStockIcon.Size = New Size(28, 25)
+        inventoryAlertLowStockIcon.TabIndex = 2
+        inventoryAlertLowStockIcon.Text = "⚠"
+        inventoryAlertLowStockIcon.TextAlign = ContentAlignment.MiddleCenter
+        ' 
         ' inventoryAlertNearExpiry
         ' 
         inventoryAlertNearExpiry.BackColor = Color.FromArgb(CByte(255), CByte(249), CByte(218))
         inventoryAlertNearExpiry.BorderStyle = BorderStyle.FixedSingle
         inventoryAlertNearExpiry.Controls.Add(inventoryAlertNearExpiryCaption)
         inventoryAlertNearExpiry.Controls.Add(inventoryAlertNearExpiryCount)
+        inventoryAlertNearExpiry.Controls.Add(inventoryAlertNearExpiryIcon)
         inventoryAlertNearExpiry.Location = New Point(273, 42)
         inventoryAlertNearExpiry.Name = "inventoryAlertNearExpiry"
         inventoryAlertNearExpiry.Size = New Size(245, 96)
@@ -1148,12 +1185,24 @@ Partial Class Admin
         inventoryAlertNearExpiryCount.Text = "0"
         inventoryAlertNearExpiryCount.TextAlign = ContentAlignment.MiddleCenter
         ' 
+        ' inventoryAlertNearExpiryIcon
+        ' 
+        inventoryAlertNearExpiryIcon.Font = New Font("Segoe UI Symbol", 12.0F, FontStyle.Bold)
+        inventoryAlertNearExpiryIcon.ForeColor = Color.FromArgb(CByte(140), CByte(85), CByte(20))
+        inventoryAlertNearExpiryIcon.Location = New Point(8, 3)
+        inventoryAlertNearExpiryIcon.Name = "inventoryAlertNearExpiryIcon"
+        inventoryAlertNearExpiryIcon.Size = New Size(28, 25)
+        inventoryAlertNearExpiryIcon.TabIndex = 2
+        inventoryAlertNearExpiryIcon.Text = "◷"
+        inventoryAlertNearExpiryIcon.TextAlign = ContentAlignment.MiddleCenter
+        ' 
         ' inventoryAlertExpired
         ' 
-        inventoryAlertExpired.BackColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
+        inventoryAlertExpired.BackColor = Color.FromArgb(CByte(255), CByte(232), CByte(232))
         inventoryAlertExpired.BorderStyle = BorderStyle.FixedSingle
         inventoryAlertExpired.Controls.Add(inventoryAlertExpiredCaption)
         inventoryAlertExpired.Controls.Add(inventoryAlertExpiredCount)
+        inventoryAlertExpired.Controls.Add(inventoryAlertExpiredIcon)
         inventoryAlertExpired.Location = New Point(530, 42)
         inventoryAlertExpired.Name = "inventoryAlertExpired"
         inventoryAlertExpired.Size = New Size(245, 96)
@@ -1163,7 +1212,7 @@ Partial Class Admin
         ' 
         inventoryAlertExpiredCaption.Dock = DockStyle.Fill
         inventoryAlertExpiredCaption.Font = New Font("Segoe UI", 7.0F)
-        inventoryAlertExpiredCaption.ForeColor = Color.White
+        inventoryAlertExpiredCaption.ForeColor = Color.FromArgb(CByte(145), CByte(45), CByte(45))
         inventoryAlertExpiredCaption.Location = New Point(0, 28)
         inventoryAlertExpiredCaption.Name = "inventoryAlertExpiredCaption"
         inventoryAlertExpiredCaption.Size = New Size(243, 66)
@@ -1175,7 +1224,7 @@ Partial Class Admin
         ' 
         inventoryAlertExpiredCount.Dock = DockStyle.Top
         inventoryAlertExpiredCount.Font = New Font("Segoe UI", 16.0F, FontStyle.Bold)
-        inventoryAlertExpiredCount.ForeColor = Color.White
+        inventoryAlertExpiredCount.ForeColor = Color.FromArgb(CByte(145), CByte(45), CByte(45))
         inventoryAlertExpiredCount.Location = New Point(0, 0)
         inventoryAlertExpiredCount.Name = "inventoryAlertExpiredCount"
         inventoryAlertExpiredCount.Size = New Size(243, 28)
@@ -1183,15 +1232,31 @@ Partial Class Admin
         inventoryAlertExpiredCount.Text = "0"
         inventoryAlertExpiredCount.TextAlign = ContentAlignment.MiddleCenter
         ' 
+        ' inventoryAlertExpiredIcon
+        ' 
+        inventoryAlertExpiredIcon.Font = New Font("Segoe UI Symbol", 12.0F, FontStyle.Bold)
+        inventoryAlertExpiredIcon.ForeColor = Color.FromArgb(CByte(145), CByte(45), CByte(45))
+        inventoryAlertExpiredIcon.Location = New Point(8, 3)
+        inventoryAlertExpiredIcon.Name = "inventoryAlertExpiredIcon"
+        inventoryAlertExpiredIcon.Size = New Size(28, 25)
+        inventoryAlertExpiredIcon.TabIndex = 2
+        inventoryAlertExpiredIcon.Text = "!"
+        inventoryAlertExpiredIcon.TextAlign = ContentAlignment.MiddleCenter
+        ' 
         ' quickOverviewPanel
         ' 
         quickOverviewPanel.BackColor = Color.White
         quickOverviewPanel.BorderStyle = BorderStyle.FixedSingle
         quickOverviewPanel.Controls.Add(quickOverviewTitle)
+        quickOverviewPanel.Controls.Add(quickOverviewRestockIcon)
         quickOverviewPanel.Controls.Add(quickOverviewRestock)
         quickOverviewPanel.Controls.Add(quickOverviewRestockValue)
+        quickOverviewPanel.Controls.Add(quickOverviewSeparator1)
+        quickOverviewPanel.Controls.Add(quickOverviewExpiryIcon)
         quickOverviewPanel.Controls.Add(quickOverviewExpiry)
         quickOverviewPanel.Controls.Add(quickOverviewExpiryValue)
+        quickOverviewPanel.Controls.Add(quickOverviewSeparator2)
+        quickOverviewPanel.Controls.Add(quickOverviewTransactionsIcon)
         quickOverviewPanel.Controls.Add(quickOverviewTransactions)
         quickOverviewPanel.Controls.Add(quickOverviewTransactionsValue)
         quickOverviewPanel.Dock = DockStyle.Fill
@@ -1211,9 +1276,20 @@ Partial Class Admin
         quickOverviewTitle.TabIndex = 0
         quickOverviewTitle.Text = "Quick Overview"
         ' 
+        ' quickOverviewRestockIcon
+        ' 
+        quickOverviewRestockIcon.Font = New Font("Segoe UI Symbol", 10.0F)
+        quickOverviewRestockIcon.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
+        quickOverviewRestockIcon.Location = New Point(16, 38)
+        quickOverviewRestockIcon.Name = "quickOverviewRestockIcon"
+        quickOverviewRestockIcon.Size = New Size(24, 24)
+        quickOverviewRestockIcon.TabIndex = 7
+        quickOverviewRestockIcon.Text = "▣"
+        quickOverviewRestockIcon.TextAlign = ContentAlignment.MiddleCenter
+        ' 
         ' quickOverviewRestock
         ' 
-        quickOverviewRestock.Location = New Point(16, 40)
+        quickOverviewRestock.Location = New Point(44, 38)
         quickOverviewRestock.Name = "quickOverviewRestock"
         quickOverviewRestock.Size = New Size(360, 24)
         quickOverviewRestock.TabIndex = 1
@@ -1222,7 +1298,7 @@ Partial Class Admin
         ' quickOverviewRestockValue
         ' 
         quickOverviewRestockValue.Anchor = AnchorStyles.Top Or AnchorStyles.Right
-        quickOverviewRestockValue.Location = New Point(936, 40)
+        quickOverviewRestockValue.Location = New Point(452, 38)
         quickOverviewRestockValue.Name = "quickOverviewRestockValue"
         quickOverviewRestockValue.Size = New Size(150, 24)
         quickOverviewRestockValue.TabIndex = 2
@@ -1231,7 +1307,7 @@ Partial Class Admin
         ' 
         ' quickOverviewExpiry
         ' 
-        quickOverviewExpiry.Location = New Point(16, 68)
+        quickOverviewExpiry.Location = New Point(44, 66)
         quickOverviewExpiry.Name = "quickOverviewExpiry"
         quickOverviewExpiry.Size = New Size(360, 24)
         quickOverviewExpiry.TabIndex = 3
@@ -1240,7 +1316,7 @@ Partial Class Admin
         ' quickOverviewExpiryValue
         ' 
         quickOverviewExpiryValue.Anchor = AnchorStyles.Top Or AnchorStyles.Right
-        quickOverviewExpiryValue.Location = New Point(936, 68)
+        quickOverviewExpiryValue.Location = New Point(452, 66)
         quickOverviewExpiryValue.Name = "quickOverviewExpiryValue"
         quickOverviewExpiryValue.Size = New Size(150, 24)
         quickOverviewExpiryValue.TabIndex = 4
@@ -1249,7 +1325,7 @@ Partial Class Admin
         ' 
         ' quickOverviewTransactions
         ' 
-        quickOverviewTransactions.Location = New Point(16, 96)
+        quickOverviewTransactions.Location = New Point(44, 94)
         quickOverviewTransactions.Name = "quickOverviewTransactions"
         quickOverviewTransactions.Size = New Size(360, 24)
         quickOverviewTransactions.TabIndex = 5
@@ -1258,12 +1334,50 @@ Partial Class Admin
         ' quickOverviewTransactionsValue
         ' 
         quickOverviewTransactionsValue.Anchor = AnchorStyles.Top Or AnchorStyles.Right
-        quickOverviewTransactionsValue.Location = New Point(936, 96)
+        quickOverviewTransactionsValue.Location = New Point(452, 94)
         quickOverviewTransactionsValue.Name = "quickOverviewTransactionsValue"
         quickOverviewTransactionsValue.Size = New Size(150, 24)
         quickOverviewTransactionsValue.TabIndex = 6
-        quickOverviewTransactionsValue.Text = "0 transactions"
+        quickOverviewTransactionsValue.Text = "0"
         quickOverviewTransactionsValue.TextAlign = ContentAlignment.MiddleRight
+        ' 
+        ' quickOverviewExpiryIcon
+        ' 
+        quickOverviewExpiryIcon.Font = New Font("Segoe UI Symbol", 10.0F)
+        quickOverviewExpiryIcon.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
+        quickOverviewExpiryIcon.Location = New Point(16, 66)
+        quickOverviewExpiryIcon.Name = "quickOverviewExpiryIcon"
+        quickOverviewExpiryIcon.Size = New Size(24, 24)
+        quickOverviewExpiryIcon.TabIndex = 8
+        quickOverviewExpiryIcon.Text = "◷"
+        quickOverviewExpiryIcon.TextAlign = ContentAlignment.MiddleCenter
+        ' 
+        ' quickOverviewTransactionsIcon
+        ' 
+        quickOverviewTransactionsIcon.Font = New Font("Segoe UI Symbol", 10.0F)
+        quickOverviewTransactionsIcon.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
+        quickOverviewTransactionsIcon.Location = New Point(16, 94)
+        quickOverviewTransactionsIcon.Name = "quickOverviewTransactionsIcon"
+        quickOverviewTransactionsIcon.Size = New Size(24, 24)
+        quickOverviewTransactionsIcon.TabIndex = 9
+        quickOverviewTransactionsIcon.Text = "↻"
+        quickOverviewTransactionsIcon.TextAlign = ContentAlignment.MiddleCenter
+        ' 
+        ' quickOverviewSeparator1
+        ' 
+        quickOverviewSeparator1.BackColor = Color.FromArgb(CByte(235), CByte(235), CByte(235))
+        quickOverviewSeparator1.Location = New Point(16, 64)
+        quickOverviewSeparator1.Name = "quickOverviewSeparator1"
+        quickOverviewSeparator1.Size = New Size(570, 1)
+        quickOverviewSeparator1.TabIndex = 10
+        ' 
+        ' quickOverviewSeparator2
+        ' 
+        quickOverviewSeparator2.BackColor = Color.FromArgb(CByte(235), CByte(235), CByte(235))
+        quickOverviewSeparator2.Location = New Point(16, 92)
+        quickOverviewSeparator2.Name = "quickOverviewSeparator2"
+        quickOverviewSeparator2.Size = New Size(570, 1)
+        quickOverviewSeparator2.TabIndex = 11
         ' 
         ' priceManagerView
         ' 
@@ -1528,13 +1642,17 @@ Partial Class Admin
     Friend WithEvents salesTrendPlot As Panel
     Friend WithEvents revenuePanel As Panel
     Friend WithEvents revenueTitle As Label
+    Friend WithEvents revenueNetIncomeLabel As Label
     Friend WithEvents bottomRow As TableLayoutPanel
     Friend WithEvents inventoryAlertsPanel As Panel
     Friend WithEvents inventoryAlertsTitle As Label
     Friend WithEvents inventoryViewAllLink As LinkLabel
     Friend WithEvents inventoryAlertLowStock As Panel
+    Friend WithEvents inventoryAlertLowStockIcon As Label
     Friend WithEvents inventoryAlertNearExpiry As Panel
+    Friend WithEvents inventoryAlertNearExpiryIcon As Label
     Friend WithEvents inventoryAlertExpired As Panel
+    Friend WithEvents inventoryAlertExpiredIcon As Label
     Friend WithEvents inventoryAlertLowStockCount As Label
     Friend WithEvents inventoryAlertNearExpiryCount As Label
     Friend WithEvents inventoryAlertExpiredCount As Label
@@ -1543,10 +1661,15 @@ Partial Class Admin
     Friend WithEvents inventoryAlertExpiredCaption As Label
     Friend WithEvents quickOverviewPanel As Panel
     Friend WithEvents quickOverviewTitle As Label
+    Friend WithEvents quickOverviewRestockIcon As Label
     Friend WithEvents quickOverviewRestock As Label
     Friend WithEvents quickOverviewRestockValue As Label
+    Friend WithEvents quickOverviewSeparator1 As Panel
+    Friend WithEvents quickOverviewExpiryIcon As Label
     Friend WithEvents quickOverviewExpiry As Label
     Friend WithEvents quickOverviewExpiryValue As Label
+    Friend WithEvents quickOverviewSeparator2 As Panel
+    Friend WithEvents quickOverviewTransactionsIcon As Label
     Friend WithEvents quickOverviewTransactions As Label
     Friend WithEvents quickOverviewTransactionsValue As Label
     Friend WithEvents card8Value As Label

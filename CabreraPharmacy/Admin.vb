@@ -46,6 +46,7 @@ Public Class Admin
     Private trendButtons As New Dictionary(Of String, Button)(StringComparer.OrdinalIgnoreCase)
     Private trendLabels As New List(Of String)
     Private trendValues As New List(Of Decimal)
+    Private dashboardRevenue As Decimal
     Private dashboardLowStock As Integer
     Private dashboardExpired As Integer
     Private dashboardNearExpiry As Integer
@@ -93,28 +94,14 @@ Public Class Admin
     End Sub
 
     Private Sub UpdateDashboardCounts()
-        If dashboardLayout Is Nothing Then Return
-        Dim bottomRow = dashboardLayout.Controls.OfType(Of TableLayoutPanel)().LastOrDefault()
-        Dim alertPanel = bottomRow?.Controls.OfType(Of Panel)().FirstOrDefault()
-        If alertPanel IsNot Nothing Then
-            Dim counts = {dashboardLowStock, dashboardNearExpiry, dashboardExpired}
-            For index = 0 To counts.Length - 1
-                Dim countLabel = TryCast(alertPanel.Controls.Find("alertCount" & index.ToString(CultureInfo.InvariantCulture), True).FirstOrDefault(), Label)
-                If countLabel IsNot Nothing Then countLabel.Text = counts(index).ToString(CultureInfo.InvariantCulture)
-            Next
-        End If
-
-        Dim overviewPanel = bottomRow?.Controls.OfType(Of Panel)().Skip(1).FirstOrDefault()
-        If overviewPanel IsNot Nothing Then
-            Dim values = {dashboardLowStock.ToString(CultureInfo.InvariantCulture) & " products",
-                          dashboardNearExpiry.ToString(CultureInfo.InvariantCulture) & " products",
-                          card2Footer.Text & " today"}
-            For index = 0 To values.Length - 1
-                Dim valueLabel = TryCast(overviewPanel.Controls.Find("overviewValue" & index.ToString(CultureInfo.InvariantCulture), True).FirstOrDefault(), Label)
-                If valueLabel IsNot Nothing Then valueLabel.Text = values(index)
-            Next
-        End If
+        inventoryAlertLowStockCount.Text = dashboardLowStock.ToString(CultureInfo.InvariantCulture)
+        inventoryAlertNearExpiryCount.Text = dashboardNearExpiry.ToString(CultureInfo.InvariantCulture)
+        inventoryAlertExpiredCount.Text = dashboardExpired.ToString(CultureInfo.InvariantCulture)
+        quickOverviewRestockValue.Text = dashboardLowStock.ToString(CultureInfo.InvariantCulture) & " products"
+        quickOverviewExpiryValue.Text = dashboardNearExpiry.ToString(CultureInfo.InvariantCulture) & " products"
+        quickOverviewTransactionsValue.Text = dashboardTodayTransactions.ToString(CultureInfo.InvariantCulture)
         salesTrendPanel?.Invalidate()
+        salesTrendPlot?.Invalidate()
         revenuePanel?.Invalidate()
     End Sub
 
@@ -179,8 +166,16 @@ Public Class Admin
         AddHandler dashboardView.Resize, AddressOf DashboardView_Resize
         AddHandler inventoryAlertsPanel.Resize, AddressOf DashboardPanels_Resize
         AddHandler quickOverviewPanel.Resize, AddressOf DashboardPanels_Resize
+        AddHandler revenuePanel.Resize, AddressOf RevenuePanel_Resize
         dashboardDateLabel.Text = Date.Today.ToString("dddd, MMMM d, yyyy", CultureInfo.CurrentCulture)
+        quickOverviewRestock.Text = "Products to Restock"
+        quickOverviewExpiry.Text = "Expiring Products"
+        quickOverviewTransactions.Text = "Today's Transactions"
         ResizeDashboardPanels()
+    End Sub
+
+    Private Sub RevenuePanel_Resize(sender As Object, e As EventArgs)
+        revenueNetIncomeLabel.SetBounds(16, Math.Max(146, revenuePanel.ClientSize.Height - 52), Math.Max(1, revenuePanel.ClientSize.Width - 32), 36)
     End Sub
 
     Private Sub InventoryViewAllLink_Click(sender As Object, e As EventArgs)
@@ -219,11 +214,15 @@ Public Class Admin
     Private Sub UpdateQuickOverviewRows()
         Dim overviewRows = {quickOverviewRestock, quickOverviewExpiry, quickOverviewTransactions}
         Dim values = {quickOverviewRestockValue, quickOverviewExpiryValue, quickOverviewTransactionsValue}
+        Dim icons = {quickOverviewRestockIcon, quickOverviewExpiryIcon, quickOverviewTransactionsIcon}
         For index = 0 To overviewRows.Length - 1
-            Dim availableWidth = Math.Max(1, quickOverviewPanel.ClientSize.Width - 32)
-            overviewRows(index).SetBounds(16, 38 + index * 28, Math.Max(1, availableWidth - 116), 24)
+            Dim availableWidth = Math.Max(1, quickOverviewPanel.ClientSize.Width - 44)
+            overviewRows(index).SetBounds(44, 38 + index * 28, Math.Max(1, availableWidth - 126), 24)
             values(index).SetBounds(quickOverviewPanel.ClientSize.Width - 126, 38 + index * 28, 110, 24)
+            icons(index).SetBounds(16, 38 + index * 28, 24, 24)
         Next
+        quickOverviewSeparator1.SetBounds(16, 64, Math.Max(1, quickOverviewPanel.ClientSize.Width - 32), 1)
+        quickOverviewSeparator2.SetBounds(16, 92, Math.Max(1, quickOverviewPanel.ClientSize.Width - 32), 1)
     End Sub
 
 
@@ -260,6 +259,7 @@ Public Class Admin
 
         trendLabels.Clear()
         trendValues.Clear()
+        dashboardTodayTransactions = 0
         Try
             Dim transactions = New SalesRepository().GetTransactionReport(Nothing, Nothing, startDate, endDate)
             dashboardTodayTransactions = transactions.AsEnumerable().Count(Function(row) Not row.IsNull("SaleDate") AndAlso CDate(row("SaleDate")).Date = today)
@@ -283,12 +283,14 @@ Public Class Admin
         Catch ex As Exception
             trendLabels.Clear()
             trendValues.Clear()
+            dashboardTodayTransactions = 0
+            UpdateDashboardCounts()
         End Try
 
         For Each item In trendButtons
             Dim active = String.Equals(item.Key, period, StringComparison.OrdinalIgnoreCase)
             item.Value.BackColor = If(active, darkGreen, Color.White)
-            item.Value.ForeColor = If(active, Color.White, Color.Black)
+            item.Value.ForeColor = If(active, Color.White, darkGreen)
             item.Value.FlatAppearance.BorderSize = If(active, 0, 1)
         Next
         salesTrendPanel?.Controls("salesTrendPlot")?.Invalidate()
@@ -300,30 +302,30 @@ Public Class Admin
         If plot Is Nothing Then Return
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
         Dim bounds = plot.ClientRectangle
-        Dim chart = New Rectangle(bounds.Left + 32, bounds.Top + 8, Math.Max(1, bounds.Width - 48), Math.Max(1, bounds.Height - 34))
-        Using gridPen As New Pen(Color.FromArgb(235, 235, 235)), axisFont As New Font("Segoe UI", 7.0F), textBrush As New SolidBrush(Color.Gray)
+        Dim chart = New Rectangle(bounds.Left + 56, bounds.Top + 10, Math.Max(1, bounds.Width - 72), Math.Max(1, bounds.Height - 38))
+        Using gridPen As New Pen(Color.FromArgb(235, 235, 235)), axisFont As New Font("Segoe UI", 7.0F), valueFont As New Font("Segoe UI", 6.5F), textBrush As New SolidBrush(Color.Gray), salesBrush As New SolidBrush(darkGreen)
             For index = 0 To 3
                 Dim y = chart.Top + CInt(chart.Height * index / 3.0F)
                 e.Graphics.DrawLine(gridPen, chart.Left, y, chart.Right, y)
+                Dim scaleValue = If(trendValues.Count = 0, 0D, CDec(trendValues.Max()) * (3 - index) / 3D)
+                e.Graphics.DrawString("₱" & scaleValue.ToString("N0", CultureInfo.CurrentCulture), axisFont, textBrush, bounds.Left, y - 7)
             Next
             If trendValues.Count > 0 Then
                 Dim maximum = Math.Max(1D, CDbl(trendValues.Max()))
-                Dim points As New List(Of PointF)
+                Dim groupWidth = CSng(chart.Width) / trendValues.Count
+                Dim barWidth = Math.Max(2.0F, Math.Min(18.0F, groupWidth * 0.28F))
                 For index = 0 To trendValues.Count - 1
-                    Dim x = chart.Left + If(trendValues.Count = 1, chart.Width \ 2, CInt(index * chart.Width / (trendValues.Count - 1.0F)))
-                    Dim y = chart.Bottom - CInt(CDbl(trendValues(index)) / maximum * chart.Height)
-                    points.Add(New PointF(x, y))
-                Next
-                If points.Count > 1 Then
-                    Using salesPen As New Pen(darkGreen, 2.5F)
-                        e.Graphics.DrawLines(salesPen, points.ToArray())
-                    End Using
-                End If
-                For index = 0 To points.Count - 1
-                    e.Graphics.FillEllipse(Brushes.SeaGreen, points(index).X - 3, points(index).Y - 3, 6, 6)
-                    If index Mod Math.Max(1, points.Count \ 7) = 0 OrElse index = points.Count - 1 Then
+                    Dim groupCenter = chart.Left + CSng(index + 0.5F) * groupWidth
+                    Dim salesHeight = CInt(CDbl(trendValues(index)) / maximum * chart.Height)
+                    Dim salesRect As New RectangleF(groupCenter - barWidth - 1, chart.Bottom - salesHeight, barWidth, Math.Max(0, salesHeight))
+                    e.Graphics.FillRectangle(salesBrush, salesRect)
+                    If salesHeight > 18 AndAlso (trendValues.Count <= 14 OrElse index Mod 5 = 0) Then
+                        e.Graphics.DrawString("₱" & trendValues(index).ToString("N0", CultureInfo.CurrentCulture), valueFont, textBrush, salesRect.X - 8, salesRect.Y - 12)
+                    End If
+                    If index Mod Math.Max(1, trendValues.Count \ 10) = 0 OrElse index = trendValues.Count - 1 Then
                         Dim label = trendLabels(index)
-                        e.Graphics.DrawString(label, axisFont, textBrush, points(index).X - 12, chart.Bottom + 5)
+                        Dim labelSize = e.Graphics.MeasureString(label, axisFont)
+                        e.Graphics.DrawString(label, axisFont, textBrush, groupCenter - labelSize.Width / 2.0F, chart.Bottom + 5)
                     End If
                 Next
             End If
@@ -334,46 +336,30 @@ Public Class Admin
         Dim panel = TryCast(sender, Panel)
         If panel Is Nothing Then Return
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
-        Dim center = New Point(74, 105)
-        Using ringPen As New Pen(Color.FromArgb(20, 100, 60), 16.0F), headingFont As New Font("Segoe UI", 10.0F, FontStyle.Bold), textFont As New Font("Segoe UI", 8.0F), boldFont As New Font("Segoe UI", 9.0F, FontStyle.Bold), brush As New SolidBrush(Color.FromArgb(25, 25, 25)), grayBrush As New SolidBrush(Color.DimGray)
-            e.Graphics.DrawArc(ringPen, center.X - 38, center.Y - 38, 76, 76, -90, 359)
-            Dim sales = If(trendValues.Count > 0, trendValues.Sum(), 0D)
-            e.Graphics.DrawString("Sales", textFont, grayBrush, center.X - 20, center.Y - 9)
-            e.Graphics.DrawString(sales.ToString("C2", CultureInfo.CurrentCulture), boldFont, brush, center.X - 35, center.Y + 4)
-            e.Graphics.DrawString("Revenue", textFont, grayBrush, 132, 70)
-            e.Graphics.DrawString(sales.ToString("C2", CultureInfo.CurrentCulture), boldFont, brush, 132, 84)
-            e.Graphics.DrawString("Expenses", textFont, grayBrush, 132, 110)
-            e.Graphics.DrawString("Unavailable", boldFont, brush, 132, 124)
-            Using summaryBrush As New SolidBrush(Color.FromArgb(226, 238, 231))
-                e.Graphics.FillRectangle(summaryBrush, 16, Math.Max(156, panel.ClientSize.Height - 48), Math.Max(1, panel.ClientSize.Width - 32), 36)
-            End Using
-            e.Graphics.DrawString("Net income cannot be calculated without expense records.", textFont, brush, 26, Math.Max(166, panel.ClientSize.Height - 43))
+        Dim center = New Point(86, Math.Min(111, panel.ClientSize.Height \ 2 - 9))
+        Using unavailablePen As New Pen(Color.FromArgb(225, 230, 226), 15.0F), textFont As New Font("Segoe UI", 7.5F), boldFont As New Font("Segoe UI", 8.0F, FontStyle.Bold), brush As New SolidBrush(Color.FromArgb(25, 25, 25)), grayBrush As New SolidBrush(Color.DimGray)
+            Dim ringBounds As New Rectangle(center.X - 34, center.Y - 34, 68, 68)
+            Dim sales = dashboardRevenue
+            e.Graphics.DrawArc(unavailablePen, ringBounds, -90, 359)
+            Dim centerLabel = "N/A"
+            Dim centerSize = e.Graphics.MeasureString(centerLabel, boldFont)
+            e.Graphics.DrawString(centerLabel, boldFont, grayBrush, center.X - centerSize.Width / 2.0F, center.Y - 6)
+            e.Graphics.DrawString("Revenue", textFont, grayBrush, 140, 62)
+            e.Graphics.DrawString("₱" & sales.ToString("N2", CultureInfo.CurrentCulture) & " today", boldFont, brush, 140, 77)
+            e.Graphics.DrawString("Expenses", textFont, grayBrush, 140, 103)
+            e.Graphics.DrawString("Unavailable — no expense records", textFont, grayBrush, 140, 118)
         End Using
     End Sub
 
     Private Sub ResizeDashboardPanels()
-        If dashboardLayout Is Nothing Then Return
-        Dim alerts = dashboardLayout.Controls.OfType(Of TableLayoutPanel)().LastOrDefault()
-        Dim alertPanel = alerts?.Controls.OfType(Of Panel)().FirstOrDefault()
-        If alertPanel IsNot Nothing Then
-            For index = 0 To 2
-                Dim alert = TryCast(alertPanel.Controls("inventoryAlert" & index.ToString(CultureInfo.InvariantCulture)), Panel)
-                If alert IsNot Nothing Then
-                    Dim gap = 8
-                    Dim width = Math.Max(1, (alertPanel.ClientSize.Width - 32 - gap * 2) \ 3)
-                    alert.SetBounds(16 + index * (width + gap), 42, width, Math.Max(54, alertPanel.ClientSize.Height - 54))
-                End If
-            Next
-        End If
-
-        Dim overviewPanel = alerts?.Controls.OfType(Of Panel)().Skip(1).FirstOrDefault()
-        If overviewPanel IsNot Nothing Then
-            For Each row As Control In overviewPanel.Controls.OfType(Of Panel)()
-                row.Width = Math.Max(1, overviewPanel.ClientSize.Width - 32)
-                row.Height = Math.Max(24, (overviewPanel.ClientSize.Height - 46) \ 3)
-                row.Top = 38 + CInt(row.Tag) * row.Height
-            Next
-        End If
+        If dashboardLayout Is Nothing OrElse inventoryAlertsPanel Is Nothing OrElse quickOverviewPanel Is Nothing Then Return
+        Dim alertWidth = Math.Max(1, (inventoryAlertsPanel.ClientSize.Width - 32 - 16) \ 3)
+        Dim alertHeight = Math.Max(54, inventoryAlertsPanel.ClientSize.Height - 54)
+        inventoryAlertLowStock.SetBounds(16, 42, alertWidth, alertHeight)
+        inventoryAlertNearExpiry.SetBounds(24 + alertWidth, 42, alertWidth, alertHeight)
+        inventoryAlertExpired.SetBounds(32 + alertWidth * 2, 42, alertWidth, alertHeight)
+        inventoryViewAllLink.Left = inventoryAlertsPanel.ClientSize.Width - inventoryViewAllLink.Width - 16
+        UpdateQuickOverviewRows()
     End Sub
 
     Private Sub InitializeReportsUi()
@@ -1063,6 +1049,8 @@ Public Class Admin
     Private Sub LoadDashboardStats()
         Try
             Dim summary = New SalesRepository().GetSummary()
+            dashboardRevenue = summary.TodaySales
+            dashboardTodayTransactions = summary.RetailTransactions + summary.WholesaleTransactions
             card1Value.Text = "P " & summary.TodaySales.ToString("N2")
             card1Footer.Text = DateTime.Today.ToString("MMMM dd, yyyy")
             card2Value.Text = "P " & summary.RetailSales.ToString("N2")
@@ -1099,7 +1087,6 @@ Public Class Admin
             dashboardLowStock = lowStockCount
             dashboardExpired = expiredCount
             dashboardNearExpiry = nearExpiryCount
-            UpdateDashboardCounts()
         Catch ex As Exception
             MessageBox.Show("Could not load inventory totals. " & ex.Message, "Inventory dashboard", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try

@@ -31,6 +31,14 @@ Public Class SuperAdmin
     Private salesReportBody As TableLayoutPanel
     Private salesReportPeriodButtons As New Dictionary(Of String, Button)(StringComparer.OrdinalIgnoreCase)
     Private salesReportModeButtons As New Dictionary(Of String, Button)(StringComparer.OrdinalIgnoreCase)
+    Private dashboardTrendLabels As New List(Of String)
+    Private dashboardTrendValues As New List(Of Decimal)
+    Private dashboardTodaySales As Decimal
+    Private dashboardTodayTransactions As Integer
+    Private dashboardLowStock As Integer
+    Private dashboardNearExpiry As Integer
+    Private dashboardExpired As Integer
+    Private dashboardTrendPeriod As String = "7 Days"
 
     ' --- 1. INITIALIZATION & NAVIGATION ---
     Private Sub SuperAdmin_Load(sender As Object, e As EventArgs) Handles MyBase.Load
@@ -61,6 +69,17 @@ Public Class SuperAdmin
         ' Set initial screen
         AddHandler pnlDashboard.Resize, AddressOf LayoutDashboardCards
         AddHandler pnlReports.Resize, AddressOf LayoutReports
+        AddHandler trend7DaysButton.Click, AddressOf DashboardTrendFilter_Click
+        AddHandler trendThisMonthButton.Click, AddressOf DashboardTrendFilter_Click
+        AddHandler trendThisYearButton.Click, AddressOf DashboardTrendFilter_Click
+        AddHandler salesTrendPlot.Paint, AddressOf DashboardSalesTrend_Paint
+        AddHandler Panel12.Paint, AddressOf DashboardRevenue_Paint
+        AddHandler inventoryViewAllLink.LinkClicked,
+            Sub(linkSender, linkEvent) inventoryViewReport_Click(linkSender, EventArgs.Empty)
+        AddHandler Panel9.Resize, AddressOf DashboardLowerPanels_Resize
+        AddHandler Panel10.Resize, AddressOf DashboardLowerPanels_Resize
+        dashboardDateLabel.Text = Date.Today.ToString("dddd, MMMM d, yyyy", CultureInfo.CurrentCulture)
+        LoadDashboardTrend("7 Days")
         LayoutRootContent()
         ShowPrimaryView(pnlDashboard, "Dashboard")
         LayoutDashboardCards(pnlDashboard, EventArgs.Empty)
@@ -107,20 +126,20 @@ Public Class SuperAdmin
         If motherPanel.ClientSize.Width <= 0 Then Return
 
         Dim headerWidth = motherPanel.ClientSize.Width
-        Dim headerHeight = 100
+        Dim headerHeight = 72
         pnlHeaderDashboard.SetBounds(0, 0, headerWidth, headerHeight)
         pnlHeaderAccounts.SetBounds(0, 0, headerWidth, headerHeight)
         pnlHeaderReports.SetBounds(0, 0, headerWidth, headerHeight)
 
-        titleLabel.SetBounds(20, 10, Math.Max(1, headerWidth - 280), 45)
+        titleLabel.SetBounds(20, 6, Math.Max(1, headerWidth - 280), 32)
         titleLabel.Text = hdrDashboard.Text
-        subtitleLabel.SetBounds(20, 58, Math.Max(1, headerWidth - 280), 20)
+        subtitleLabel.SetBounds(20, 43, Math.Max(1, headerWidth - 280), 16)
         hdrDashboard.Visible = False
 
-        hdrAccounts.SetBounds(20, 10, Math.Max(1, headerWidth - 280), 45)
-        Label3.SetBounds(20, 58, Math.Max(1, headerWidth - 280), 20)
-        Label6.SetBounds(20, 10, Math.Max(1, headerWidth - 280), 45)
-        Label5.SetBounds(20, 58, Math.Max(1, headerWidth - 280), 20)
+        hdrAccounts.SetBounds(20, 6, Math.Max(1, headerWidth - 280), 32)
+        Label3.SetBounds(20, 43, Math.Max(1, headerWidth - 280), 16)
+        Label6.SetBounds(20, 6, Math.Max(1, headerWidth - 280), 32)
+        Label5.SetBounds(20, 43, Math.Max(1, headerWidth - 280), 16)
 
         LayoutHeaderUser(usrName, usrSuperAdmin, headerWidth)
         LayoutHeaderUser(TextBox23, Label2, headerWidth)
@@ -129,9 +148,9 @@ Public Class SuperAdmin
 
     Private Sub LayoutHeaderUser(userName As TextBox, role As Label, headerWidth As Integer)
         Dim userWidth = Math.Min(300, Math.Max(180, headerWidth - 40))
-        userName.SetBounds(headerWidth - userWidth - 20, 24, userWidth, 20)
+        userName.SetBounds(headerWidth - userWidth - 64, 12, userWidth, 20)
         userName.TextAlign = HorizontalAlignment.Right
-        role.Location = New Point(headerWidth - userWidth - 20, 50)
+        role.Location = New Point(headerWidth - userWidth - 64, 35)
         role.AutoSize = False
         role.Size = New Size(userWidth, 16)
         role.TextAlign = ContentAlignment.MiddleRight
@@ -424,8 +443,9 @@ Public Class SuperAdmin
     Private Sub LayoutDashboardCards(sender As Object, e As EventArgs)
         If pnlDashboard.ClientSize.Width <= 0 OrElse pnlDashboard.ClientSize.Height <= 0 Then Return
 
-        TableLayoutPanel3.Visible = False
-        TableLayoutPanel4.Visible = False
+        TableLayoutPanel2.Visible = True
+        TableLayoutPanel3.Visible = True
+        TableLayoutPanel4.Visible = True
         For Each cardLayout As TableLayoutPanel In {TableLayoutPanel1, TableLayoutPanel2}
             cardLayout.ColumnCount = 4
             cardLayout.ColumnStyles.Clear()
@@ -444,28 +464,33 @@ Public Class SuperAdmin
             card.Margin = New Padding(8)
         Next
 
-        Dim left = 14
-        Dim top = pnlHeaderDashboard.Height + 14
-        Dim rightMargin = 14
-        Dim rowGap = 16
+        Dim left = 20
+        Dim dateTop = pnlHeaderDashboard.Height + 4
+        Dim firstCardsTop = dateTop + 26
+        Dim rightMargin = 20
+        Dim summaryHeight = 104
+        Dim rowGap = 8
+        Dim chartHeight = Math.Max(220, CInt(pnlDashboard.ClientSize.Height * 0.3))
+        Dim bottomHeight = Math.Max(155, CInt(pnlDashboard.ClientSize.Height * 0.18))
         Dim availableWidth = Math.Max(1, pnlDashboard.ClientSize.Width - left - rightMargin)
-        Dim availableHeight = pnlDashboard.ClientSize.Height - top - 14 - rowGap
-        If availableHeight < 220 Then
-            TableLayoutPanel1.Visible = False
-            TableLayoutPanel2.Visible = False
-            pnlDashboard.AutoScroll = True
-            pnlDashboard.AutoScrollMinSize = New Size(availableWidth, top + 220)
-            Return
-        End If
-
-        pnlDashboard.AutoScroll = False
+        Dim secondCardsTop = firstCardsTop + summaryHeight + rowGap
+        Dim chartTop = secondCardsTop + summaryHeight + 12
+        Dim bottomTop = chartTop + chartHeight + rowGap
+        Dim requiredHeight = bottomTop + bottomHeight + 20
+        pnlDashboard.AutoScroll = pnlDashboard.ClientSize.Height < requiredHeight
         TableLayoutPanel1.Visible = True
         TableLayoutPanel2.Visible = True
-        pnlDashboard.AutoScrollMinSize = Size.Empty
-
-        Dim firstRowHeight = availableHeight \ 2
-        TableLayoutPanel1.SetBounds(left, top, availableWidth, firstRowHeight)
-        TableLayoutPanel2.SetBounds(left, top + firstRowHeight + rowGap, availableWidth, availableHeight - firstRowHeight)
+        pnlDashboard.AutoScrollMinSize = If(pnlDashboard.AutoScroll, New Size(availableWidth, requiredHeight), Size.Empty)
+        dashboardDateLabel.SetBounds(left + availableWidth - dashboardDateLabel.Width, dateTop, dashboardDateLabel.Width, 24)
+        TableLayoutPanel1.SetBounds(left, firstCardsTop, availableWidth, summaryHeight)
+        TableLayoutPanel2.SetBounds(left, secondCardsTop, availableWidth, summaryHeight)
+        TableLayoutPanel4.SetBounds(left, chartTop, availableWidth, chartHeight)
+        TableLayoutPanel3.SetBounds(left, bottomTop, availableWidth, bottomHeight)
+        salesTrendPlot.SetBounds(16, 62, Math.Max(1, Panel11.ClientSize.Width - 32), Math.Max(1, Panel11.ClientSize.Height - 78))
+        trendFiltersPanel.Left = Panel11.ClientSize.Width - trendFiltersPanel.Width - 16
+        revenueNetIncomeLabel.SetBounds(16, Math.Max(120, Panel12.ClientSize.Height - 52), Math.Max(1, Panel12.ClientSize.Width - 32), 36)
+        LayoutDashboardAlertCards()
+        LayoutDashboardQuickOverview()
 
         FormatDashboardCard(Panel1, todaysSale, userIDText, monthDateYear)
         FormatDashboardCard(Panel2, TextBox2, TextBox3, transactionRetail)
@@ -477,6 +502,146 @@ Public Class SuperAdmin
         FormatDashboardCard(Panel8, TextBox18, TextBox20, expensesRecorded)
     End Sub
 
+    Private Sub LayoutDashboardAlertCards()
+        Dim gap = 8
+        Dim width = Math.Max(1, (Panel9.ClientSize.Width - 32 - gap * 2) \ 3)
+        Dim height = Math.Max(60, Panel9.ClientSize.Height - 54)
+        inventoryAlertLowStock.SetBounds(16, 42, width, height)
+        inventoryAlertNearExpiry.SetBounds(24 + width, 42, width, height)
+        inventoryAlertExpired.SetBounds(32 + width * 2, 42, width, height)
+        inventoryViewAllLink.Left = Panel9.ClientSize.Width - inventoryViewAllLink.Width - 16
+    End Sub
+
+    Private Sub LayoutDashboardQuickOverview()
+        Dim labels = {quickOverviewRestockLabel, quickOverviewExpiryLabel, quickOverviewTransactionsLabel}
+        Dim values = {quickOverviewRestockValue, quickOverviewExpiryValue, quickOverviewTransactionsValue}
+        For index = 0 To labels.Length - 1
+            Dim y = 42 + index * 32
+            labels(index).SetBounds(20, y, Math.Max(1, Panel10.ClientSize.Width - 224), 24)
+            values(index).SetBounds(Panel10.ClientSize.Width - 196, y, 176, 24)
+        Next
+        quickOverviewSeparator1.SetBounds(16, 70, Math.Max(1, Panel10.ClientSize.Width - 32), 1)
+        quickOverviewSeparator2.SetBounds(16, 102, Math.Max(1, Panel10.ClientSize.Width - 32), 1)
+    End Sub
+
+    Private Sub DashboardChartPanel_Resize(sender As Object, e As EventArgs)
+        salesTrendPlot.SetBounds(16, 62, Math.Max(1, Panel11.ClientSize.Width - 32), Math.Max(1, Panel11.ClientSize.Height - 78))
+        trendFiltersPanel.Left = Panel11.ClientSize.Width - trendFiltersPanel.Width - 16
+        revenueNetIncomeLabel.SetBounds(16, Math.Max(120, Panel12.ClientSize.Height - 52), Math.Max(1, Panel12.ClientSize.Width - 32), 36)
+    End Sub
+
+    Private Sub DashboardLowerPanels_Resize(sender As Object, e As EventArgs)
+        LayoutDashboardAlertCards()
+        LayoutDashboardQuickOverview()
+    End Sub
+
+    Private Sub DashboardTrendFilter_Click(sender As Object, e As EventArgs)
+        Dim button = TryCast(sender, Button)
+        If button Is Nothing Then Return
+        LoadDashboardTrend(Convert.ToString(button.Tag, CultureInfo.InvariantCulture))
+    End Sub
+
+    Private Sub LoadDashboardTrend(period As String)
+        Dim today = Date.Today
+        Dim startDate = today.AddDays(-6)
+        Dim endDate = today.AddDays(1)
+        Select Case period
+            Case "This Month"
+                startDate = New DateTime(today.Year, today.Month, 1)
+            Case "This Year"
+                startDate = New DateTime(today.Year, 1, 1)
+            Case Else
+                period = "7 Days"
+        End Select
+
+        dashboardTrendPeriod = period
+        dashboardTrendLabels.Clear()
+        dashboardTrendValues.Clear()
+        Try
+            Dim transactions = New SalesRepository().GetTransactionReport(Nothing, Nothing, startDate, endDate)
+            dashboardTodayTransactions = transactions.AsEnumerable().Count(Function(row) Not row.IsNull("SaleDate") AndAlso CDate(row("SaleDate")).Date = today)
+            If period = "This Year" Then
+                For monthOffset = 0 To 11
+                    Dim monthStart = New DateTime(today.Year, 1, 1).AddMonths(monthOffset)
+                    Dim monthEnd = monthStart.AddMonths(1)
+                    dashboardTrendLabels.Add(monthStart.ToString("MMM", CultureInfo.CurrentCulture))
+                    dashboardTrendValues.Add(transactions.AsEnumerable().Where(Function(row) Not row.IsNull("SaleDate") AndAlso CDate(row("SaleDate")) >= monthStart AndAlso CDate(row("SaleDate")) < monthEnd).Sum(Function(row) Convert.ToDecimal(row("Total"), CultureInfo.InvariantCulture)))
+                Next
+            Else
+                Dim dayCount = If(period = "This Month", Date.DaysInMonth(today.Year, today.Month), 7)
+                For dayOffset = 0 To dayCount - 1
+                    Dim currentDay = startDate.AddDays(dayOffset)
+                    dashboardTrendLabels.Add(If(period = "This Month", currentDay.Day.ToString(CultureInfo.InvariantCulture), currentDay.ToString("ddd", CultureInfo.CurrentCulture)))
+                    dashboardTrendValues.Add(transactions.AsEnumerable().Where(Function(row) Not row.IsNull("SaleDate") AndAlso CDate(row("SaleDate")).Date = currentDay.Date).Sum(Function(row) Convert.ToDecimal(row("Total"), CultureInfo.InvariantCulture)))
+                Next
+            End If
+        Catch ex As Exception
+            dashboardTrendLabels.Clear()
+            dashboardTrendValues.Clear()
+            dashboardTodayTransactions = 0
+        End Try
+
+        For Each filterButton In {trend7DaysButton, trendThisMonthButton, trendThisYearButton}
+            Dim active = String.Equals(Convert.ToString(filterButton.Tag), dashboardTrendPeriod, StringComparison.OrdinalIgnoreCase)
+            filterButton.BackColor = If(active, Color.FromArgb(20, 100, 60), Color.White)
+            filterButton.ForeColor = If(active, Color.White, Color.FromArgb(20, 100, 60))
+            filterButton.FlatAppearance.BorderSize = If(active, 0, 1)
+        Next
+        quickOverviewTransactionsValue.Text = dashboardTodayTransactions.ToString(CultureInfo.CurrentCulture)
+        salesTrendPlot.Invalidate()
+        Panel12.Invalidate()
+    End Sub
+
+    Private Sub DashboardSalesTrend_Paint(sender As Object, e As PaintEventArgs)
+        Dim plot = TryCast(sender, Panel)
+        If plot Is Nothing Then Return
+        e.Graphics.SmoothingMode = Drawing.Drawing2D.SmoothingMode.AntiAlias
+        Dim bounds = plot.ClientRectangle
+        Dim chart = New Rectangle(bounds.Left + 58, bounds.Top + 8, Math.Max(1, bounds.Width - 70), Math.Max(1, bounds.Height - 36))
+        Using gridPen As New Pen(Color.FromArgb(235, 235, 235)), axisFont As New Font("Segoe UI", 7.0F), labelFont As New Font("Segoe UI", 7.0F), textBrush As New SolidBrush(Color.Gray), salesBrush As New SolidBrush(Color.FromArgb(20, 145, 95))
+            Dim maxValue = If(dashboardTrendValues.Count = 0, 0D, dashboardTrendValues.Max())
+            For index = 0 To 3
+                Dim y = chart.Top + CInt(chart.Height * index / 3.0F)
+                e.Graphics.DrawLine(gridPen, chart.Left, y, chart.Right, y)
+                Dim tick = maxValue * (3 - index) / 3D
+                e.Graphics.DrawString("₱" & tick.ToString("N0", CultureInfo.CurrentCulture), axisFont, textBrush, bounds.Left, y - 7)
+            Next
+            If dashboardTrendValues.Count = 0 Then Return
+            Dim maximum = Math.Max(1D, CDbl(maxValue))
+            Dim groupWidth = CSng(chart.Width) / dashboardTrendValues.Count
+            Dim barWidth = Math.Max(2.0F, Math.Min(18.0F, groupWidth * 0.55F))
+            For index = 0 To dashboardTrendValues.Count - 1
+                Dim center = chart.Left + CSng(index + 0.5F) * groupWidth
+                Dim barHeight = CInt(CDbl(dashboardTrendValues(index)) / maximum * chart.Height)
+                Dim bar As New RectangleF(center - barWidth / 2.0F, chart.Bottom - barHeight, barWidth, Math.Max(0, barHeight))
+                e.Graphics.FillRectangle(salesBrush, bar)
+                If index Mod Math.Max(1, dashboardTrendValues.Count \ 10) = 0 OrElse index = dashboardTrendValues.Count - 1 Then
+                    Dim label = dashboardTrendLabels(index)
+                    Dim size = e.Graphics.MeasureString(label, labelFont)
+                    e.Graphics.DrawString(label, labelFont, textBrush, center - size.Width / 2.0F, chart.Bottom + 4)
+                End If
+            Next
+        End Using
+    End Sub
+
+    Private Sub DashboardRevenue_Paint(sender As Object, e As PaintEventArgs)
+        Dim panel = TryCast(sender, Panel)
+        If panel Is Nothing Then Return
+        e.Graphics.SmoothingMode = Drawing.Drawing2D.SmoothingMode.AntiAlias
+        Dim center = New Point(90, Math.Min(132, panel.ClientSize.Height \ 2 - 12))
+        Using ringPen As New Pen(Color.FromArgb(225, 230, 226), 18.0F), font As New Font("Segoe UI", 9.0F, FontStyle.Bold), smallFont As New Font("Segoe UI", 8.0F), textBrush As New SolidBrush(Color.FromArgb(35, 45, 40)), grayBrush As New SolidBrush(Color.DimGray)
+            Dim ring As New Rectangle(center.X - 46, center.Y - 46, 92, 92)
+            e.Graphics.DrawArc(ringPen, ring, -90, 359)
+            Dim centerLabel = "N/A"
+            Dim size = e.Graphics.MeasureString(centerLabel, font)
+            e.Graphics.DrawString(centerLabel, font, grayBrush, center.X - size.Width / 2.0F, center.Y - 7)
+            e.Graphics.DrawString("Revenue", smallFont, grayBrush, 160, 74)
+            e.Graphics.DrawString("₱" & dashboardTodaySales.ToString("N2", CultureInfo.CurrentCulture) & " today", font, textBrush, 160, 92)
+            e.Graphics.DrawString("Expenses", smallFont, grayBrush, 160, 126)
+            e.Graphics.DrawString("Unavailable — no expense records", smallFont, grayBrush, 160, 144)
+        End Using
+    End Sub
+
     Private Sub FormatDashboardCard(card As Panel, title As TextBox, value As TextBox, footer As TextBox)
         If card.ClientSize.Width <= 0 OrElse card.ClientSize.Height <= 0 Then Return
 
@@ -486,16 +651,16 @@ Public Class SuperAdmin
         title.BorderStyle = BorderStyle.None
         title.BackColor = Color.White
         If title.Font.Size <> 11.0F OrElse title.Font.Style <> FontStyle.Bold Then title.Font = New Font("Segoe UI", 11.0F, FontStyle.Bold)
-        title.Location = New Point(20, 20)
-        title.Size = New Size(Math.Max(80, card.ClientSize.Width - 40), 24)
+        title.Location = New Point(16, 10)
+        title.Size = New Size(Math.Max(80, card.ClientSize.Width - 32), 22)
 
         value.ReadOnly = True
         value.TabStop = False
         value.BorderStyle = BorderStyle.None
         value.BackColor = Color.White
         If value.Font.Size <> 24.0F OrElse value.Font.Style <> FontStyle.Regular Then value.Font = New Font("Segoe UI", 24.0F)
-        value.Location = New Point(20, Math.Max(55, card.ClientSize.Height \ 2 - 16))
-        value.Size = New Size(Math.Max(80, card.ClientSize.Width - 40), 42)
+        value.Location = New Point(16, 36)
+        value.Size = New Size(Math.Max(80, card.ClientSize.Width - 32), 32)
 
         footer.ReadOnly = True
         footer.TabStop = False
@@ -503,8 +668,8 @@ Public Class SuperAdmin
         footer.BackColor = Color.White
         If footer.Font.Size <> 9.0F OrElse footer.Font.Style <> FontStyle.Regular Then footer.Font = New Font("Segoe UI", 9.0F)
         footer.ForeColor = Color.Gray
-        footer.Location = New Point(20, card.ClientSize.Height - 40)
-        footer.Size = New Size(Math.Max(80, card.ClientSize.Width - 40), 22)
+        footer.Location = New Point(16, 72)
+        footer.Size = New Size(Math.Max(80, card.ClientSize.Width - 32), 18)
     End Sub
 
     Private Sub btnAccounts_Click(sender As Object, e As EventArgs) Handles btnAccounts.Click
@@ -685,7 +850,7 @@ Public Class SuperAdmin
             Return
         End If
 
-        Dim headerHeight = 100
+        Dim headerHeight = 72
         Dim toolbarTop = headerHeight + 14
         Dim toolbarHeight = 100
         Dim gridTop = toolbarTop + toolbarHeight + 14
@@ -720,15 +885,15 @@ Public Class SuperAdmin
                                    headerRole As Label)
         Dim width = pageHeader.ClientSize.Width
         headerTitle.AutoSize = False
-        headerTitle.SetBounds(20, 8, Math.Max(1, width - 340), 42)
-        If headerTitle.Font.Size <> 22.0F OrElse headerTitle.Font.Style <> FontStyle.Bold Then
-            headerTitle.Font = New Font("Segoe UI", 22.0F, FontStyle.Bold)
+        headerTitle.SetBounds(20, 6, Math.Max(1, width - 340), 32)
+        If headerTitle.Font.Size <> 18.0F OrElse headerTitle.Font.Style <> FontStyle.Bold Then
+            headerTitle.Font = New Font("Segoe UI", 18.0F, FontStyle.Bold)
         End If
         headerTitle.ForeColor = Color.FromArgb(20, 100, 60)
         headerStore.AutoSize = False
-        headerStore.SetBounds(20, 54, Math.Max(1, width - 340), 22)
-        If headerStore.Font.Size <> 10.0F OrElse headerStore.Font.Style <> FontStyle.Regular Then
-            headerStore.Font = New Font("Segoe UI", 10.0F)
+        headerStore.SetBounds(20, 43, Math.Max(1, width - 340), 16)
+        If headerStore.Font.Size <> 8.0F OrElse headerStore.Font.Style <> FontStyle.Regular Then
+            headerStore.Font = New Font("Segoe UI", 8.0F)
         End If
         headerStore.ForeColor = Color.Gray
 
@@ -1568,14 +1733,17 @@ Public Class SuperAdmin
     Private Sub SetActiveNavigation(activePage As String)
         For Each button As Button In {btnDashboard, btnAccounts, btnReports}
             Dim isActive = String.Equals(Convert.ToString(button.Tag), activePage, StringComparison.OrdinalIgnoreCase)
-            button.BackColor = If(isActive, Color.FromArgb(20, 100, 60), Color.White)
-            button.ForeColor = If(isActive, Color.White, Color.FromArgb(20, 100, 60))
+            button.BackColor = If(isActive, Color.White, Color.FromArgb(18, 101, 54))
+            button.ForeColor = If(isActive, Color.FromArgb(20, 100, 60), Color.White)
+            button.UseVisualStyleBackColor = False
         Next
     End Sub
 
     Private Sub LoadSalesDashboardStats()
         Try
             Dim summary = New SalesRepository().GetSummary()
+            dashboardTodaySales = summary.TodaySales
+            dashboardTodayTransactions = summary.RetailTransactions + summary.WholesaleTransactions
             userIDText.Text = "P " & summary.TodaySales.ToString("N2")
             monthDateYear.Text = DateTime.Today.ToString("MMMM dd, yyyy")
             TextBox3.Text = "P " & summary.RetailSales.ToString("N2")
@@ -1617,11 +1785,23 @@ Public Class SuperAdmin
             days.Text = "Currently expired"
             TextBox19.Text = nearExpiryCount.ToString()
             requiresDisposal.Text = "Expires within 6 months"
-            TextBox20.Text = "P 0.00"
-            expensesRecorded.Text = "Expense data is not stored yet"
+            dashboardLowStock = lowStockCount
+            dashboardNearExpiry = nearExpiryCount
+            dashboardExpired = expiredCount
+            TextBox20.Text = "Unavailable"
+            expensesRecorded.Text = "Expense data is not stored"
+            inventoryAlertLowStockCount.Text = lowStockCount.ToString(CultureInfo.CurrentCulture)
+            inventoryAlertNearExpiryCount.Text = nearExpiryCount.ToString(CultureInfo.CurrentCulture)
+            inventoryAlertExpiredCount.Text = expiredCount.ToString(CultureInfo.CurrentCulture)
+            quickOverviewRestockValue.Text = lowStockCount.ToString(CultureInfo.CurrentCulture) & " products"
+            quickOverviewExpiryValue.Text = nearExpiryCount.ToString(CultureInfo.CurrentCulture) & " products"
+            quickOverviewTransactionsValue.Text = dashboardTodayTransactions.ToString(CultureInfo.CurrentCulture)
+            revenueNetIncomeLabel.Text = "Net income unavailable without expense records"
         Catch ex As Exception
             MessageBox.Show("Could not load inventory totals. " & ex.Message, "Inventory dashboard", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
+
+        Panel12.Invalidate()
     End Sub
 
     Private Sub LogoutBtn_Click(sender As Object, e As EventArgs) Handles btnLogin.Click

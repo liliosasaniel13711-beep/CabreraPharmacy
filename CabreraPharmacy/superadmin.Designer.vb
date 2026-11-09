@@ -78,6 +78,36 @@ Partial Class SuperAdmin
         TableLayoutPanel3 = New TableLayoutPanel()
         Panel9 = New Panel()
         Panel10 = New Panel()
+        dashboardDateLabel = New Label()
+        salesTrendTitleLabel = New Label()
+        salesTrendLegendLabel = New Label()
+        trendFiltersPanel = New FlowLayoutPanel()
+        trend7DaysButton = New Button()
+        trendThisMonthButton = New Button()
+        trendThisYearButton = New Button()
+        salesTrendPlot = New Panel()
+        revenueTitleLabel = New Label()
+        revenueNetIncomeLabel = New Label()
+        inventoryAlertsTitleLabel = New Label()
+        inventoryViewAllLink = New LinkLabel()
+        inventoryAlertLowStock = New Panel()
+        inventoryAlertLowStockCount = New Label()
+        inventoryAlertLowStockCaption = New Label()
+        inventoryAlertNearExpiry = New Panel()
+        inventoryAlertNearExpiryCount = New Label()
+        inventoryAlertNearExpiryCaption = New Label()
+        inventoryAlertExpired = New Panel()
+        inventoryAlertExpiredCount = New Label()
+        inventoryAlertExpiredCaption = New Label()
+        quickOverviewTitleLabel = New Label()
+        quickOverviewRestockLabel = New Label()
+        quickOverviewRestockValue = New Label()
+        quickOverviewExpiryLabel = New Label()
+        quickOverviewExpiryValue = New Label()
+        quickOverviewTransactionsLabel = New Label()
+        quickOverviewTransactionsValue = New Label()
+        quickOverviewSeparator1 = New Panel()
+        quickOverviewSeparator2 = New Panel()
         pnlReports = New Panel()
         TableLayoutPanel9 = New TableLayoutPanel()
         Panel23 = New Panel()
@@ -313,6 +343,8 @@ Partial Class SuperAdmin
         pnlDashboard.SuspendLayout()
         pnlHeaderDashboard.SuspendLayout()
         TableLayoutPanel4.SuspendLayout()
+        Panel11.SuspendLayout()
+        Panel12.SuspendLayout()
         TableLayoutPanel1.SuspendLayout()
         Panel1.SuspendLayout()
         Panel2.SuspendLayout()
@@ -324,6 +356,8 @@ Partial Class SuperAdmin
         Panel7.SuspendLayout()
         Panel8.SuspendLayout()
         TableLayoutPanel3.SuspendLayout()
+        Panel9.SuspendLayout()
+        Panel10.SuspendLayout()
         pnlReports.SuspendLayout()
         TableLayoutPanel9.SuspendLayout()
         Panel23.SuspendLayout()
@@ -384,7 +418,7 @@ Partial Class SuperAdmin
         ' 
         ' sideBarSuperAdmin
         ' 
-        sideBarSuperAdmin.BackColor = Color.White
+        sideBarSuperAdmin.BackColor = Color.FromArgb(CByte(18), CByte(101), CByte(54))
         sideBarSuperAdmin.Controls.Add(logoBox)
         sideBarSuperAdmin.Controls.Add(PharName)
         sideBarSuperAdmin.Controls.Add(btnDashboard)
@@ -394,16 +428,16 @@ Partial Class SuperAdmin
         sideBarSuperAdmin.Dock = DockStyle.Left
         sideBarSuperAdmin.Location = New Point(0, 0)
         sideBarSuperAdmin.Name = "sideBarSuperAdmin"
-        sideBarSuperAdmin.Size = New Size(226, 1055)
+        sideBarSuperAdmin.Size = New Size(168, 1055)
         sideBarSuperAdmin.TabIndex = 1
         ' 
         ' logoBox
         ' 
         logoBox.BackColor = Color.FromArgb(CByte(255), CByte(215), CByte(0))
         logoBox.Image = My.Resources.Resources._769082459_1379172074148575_7892593615181140804_n
-        logoBox.Location = New Point(20, 26)
+        logoBox.Location = New Point(12, 23)
         logoBox.Name = "logoBox"
-        logoBox.Size = New Size(50, 50)
+        logoBox.Size = New Size(62, 50)
         logoBox.SizeMode = PictureBoxSizeMode.Zoom
         logoBox.TabIndex = 8
         logoBox.TabStop = False
@@ -412,27 +446,28 @@ Partial Class SuperAdmin
         ' 
         PharName.AutoSize = True
         PharName.BackColor = Color.Transparent
-        PharName.Font = New Font("Segoe UI", 10.0F, FontStyle.Bold)
-        PharName.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        PharName.Location = New Point(87, 24)
-        PharName.MaximumSize = New Size(130, 0)
+        PharName.AutoSize = False
+        PharName.Font = New Font("Segoe UI", 8.0F, FontStyle.Bold)
+        PharName.ForeColor = Color.White
+        PharName.Location = New Point(80, 16)
+        PharName.MaximumSize = New Size(80, 0)
         PharName.Name = "PharName"
-        PharName.Size = New Size(122, 57)
+        PharName.Size = New Size(80, 68)
         PharName.TabIndex = 19
         PharName.Text = "Cabrera's" & vbCrLf & "Drugstore and Medical Supplies"
         ' 
         ' btnDashboard
         ' 
-        btnDashboard.BackColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
+        btnDashboard.BackColor = Color.White
         btnDashboard.Cursor = Cursors.Hand
         btnDashboard.FlatAppearance.BorderSize = 0
         btnDashboard.FlatStyle = FlatStyle.Flat
-        btnDashboard.Font = New Font("Segoe UI", 11.0F, FontStyle.Bold)
-        btnDashboard.ForeColor = Color.White
-        btnDashboard.Location = New Point(20, 125)
+        btnDashboard.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
+        btnDashboard.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
+        btnDashboard.Location = New Point(19, 92)
         btnDashboard.Name = "btnDashboard"
-        btnDashboard.Padding = New Padding(11, 0, 0, 0)
-        btnDashboard.Size = New Size(181, 44)
+        btnDashboard.Padding = New Padding(10, 0, 0, 0)
+        btnDashboard.Size = New Size(130, 38)
         btnDashboard.TabIndex = 11
         btnDashboard.Text = "Dashboard"
         btnDashboard.TextAlign = ContentAlignment.MiddleLeft
@@ -440,16 +475,16 @@ Partial Class SuperAdmin
         ' 
         ' btnAccounts
         ' 
-        btnAccounts.BackColor = Color.White
+        btnAccounts.BackColor = Color.FromArgb(CByte(18), CByte(101), CByte(54))
         btnAccounts.Cursor = Cursors.Hand
         btnAccounts.FlatAppearance.BorderSize = 0
         btnAccounts.FlatStyle = FlatStyle.Flat
-        btnAccounts.Font = New Font("Segoe UI", 11.0F, FontStyle.Bold)
-        btnAccounts.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        btnAccounts.Location = New Point(20, 182)
+        btnAccounts.Font = New Font("Segoe UI", 9.0F, FontStyle.Regular)
+        btnAccounts.ForeColor = Color.White
+        btnAccounts.Location = New Point(19, 138)
         btnAccounts.Name = "btnAccounts"
-        btnAccounts.Padding = New Padding(11, 0, 0, 0)
-        btnAccounts.Size = New Size(181, 41)
+        btnAccounts.Padding = New Padding(10, 0, 0, 0)
+        btnAccounts.Size = New Size(130, 38)
         btnAccounts.TabIndex = 12
         btnAccounts.Text = "Accounts"
         btnAccounts.TextAlign = ContentAlignment.MiddleLeft
@@ -457,17 +492,18 @@ Partial Class SuperAdmin
         ' 
         ' btnReports
         ' 
-        btnReports.BackColor = Color.White
+        btnReports.BackColor = Color.FromArgb(CByte(18), CByte(101), CByte(54))
         btnReports.Cursor = Cursors.Hand
         btnReports.FlatAppearance.BorderSize = 0
         btnReports.FlatStyle = FlatStyle.Flat
-        btnReports.Font = New Font("Segoe UI", 11.0F, FontStyle.Bold)
-        btnReports.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        btnReports.Location = New Point(20, 235)
+        btnReports.Font = New Font("Segoe UI", 9.0F, FontStyle.Regular)
+        btnReports.ForeColor = Color.White
+        btnReports.Location = New Point(19, 184)
         btnReports.Name = "btnReports"
-        btnReports.Padding = New Padding(11, 0, 0, 0)
-        btnReports.Size = New Size(181, 45)
+        btnReports.Padding = New Padding(10, 0, 0, 0)
+        btnReports.Size = New Size(130, 38)
         btnReports.TabIndex = 13
+        btnReports.Tag = "Reports"
         btnReports.Text = "Reports"
         btnReports.TextAlign = ContentAlignment.MiddleLeft
         btnReports.UseVisualStyleBackColor = False
@@ -475,15 +511,15 @@ Partial Class SuperAdmin
         ' btnLogin
         ' 
         btnLogin.Anchor = AnchorStyles.Bottom Or AnchorStyles.Left Or AnchorStyles.Right
-        btnLogin.BackColor = Color.White
+        btnLogin.BackColor = Color.FromArgb(CByte(18), CByte(101), CByte(54))
         btnLogin.Cursor = Cursors.Hand
-        btnLogin.FlatAppearance.BorderColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
+        btnLogin.FlatAppearance.BorderColor = Color.White
         btnLogin.FlatStyle = FlatStyle.Flat
-        btnLogin.Font = New Font("Segoe UI", 10.0F, FontStyle.Bold)
-        btnLogin.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        btnLogin.Location = New Point(20, 995)
+        btnLogin.Font = New Font("Segoe UI", 9.0F, FontStyle.Regular)
+        btnLogin.ForeColor = Color.White
+        btnLogin.Location = New Point(19, 1005)
         btnLogin.Name = "btnLogin"
-        btnLogin.Size = New Size(181, 45)
+        btnLogin.Size = New Size(130, 34)
         btnLogin.TabIndex = 17
         btnLogin.Text = "Log Out"
         btnLogin.UseVisualStyleBackColor = False
@@ -517,15 +553,17 @@ Partial Class SuperAdmin
         motherPanel.Controls.Add(pnlWholesaleSalesReport)
         motherPanel.Controls.Add(pnlEmployeesalesReport)
         motherPanel.Controls.Add(pnlAccounts)
-        motherPanel.Location = New Point(226, 0)
+        motherPanel.Location = New Point(168, 0)
         motherPanel.Name = "motherPanel"
-        motherPanel.Size = New Size(1698, 1055)
+        motherPanel.Size = New Size(1756, 1055)
         motherPanel.TabIndex = 2
         ' 
         ' pnlDashboard
         ' 
         pnlDashboard.BackColor = Color.FromArgb(CByte(245), CByte(245), CByte(245))
+        pnlDashboard.AutoScroll = True
         pnlDashboard.Controls.Add(pnlHeaderDashboard)
+        pnlDashboard.Controls.Add(dashboardDateLabel)
         pnlDashboard.Controls.Add(TableLayoutPanel4)
         pnlDashboard.Controls.Add(TableLayoutPanel1)
         pnlDashboard.Controls.Add(TableLayoutPanel2)
@@ -547,15 +585,28 @@ Partial Class SuperAdmin
         pnlHeaderDashboard.Controls.Add(hdrDashboard)
         pnlHeaderDashboard.Location = New Point(0, 0)
         pnlHeaderDashboard.Name = "pnlHeaderDashboard"
-        pnlHeaderDashboard.Size = New Size(1645, 102)
+        pnlHeaderDashboard.Size = New Size(1756, 72)
         pnlHeaderDashboard.TabIndex = 2
+        ' 
+        ' dashboardDateLabel
+        ' 
+        dashboardDateLabel.Anchor = AnchorStyles.Top Or AnchorStyles.Right
+        dashboardDateLabel.BackColor = Color.FromArgb(CByte(226), CByte(238), CByte(231))
+        dashboardDateLabel.Font = New Font("Segoe UI", 8.0F, FontStyle.Bold)
+        dashboardDateLabel.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
+        dashboardDateLabel.Location = New Point(1380, 20)
+        dashboardDateLabel.Name = "dashboardDateLabel"
+        dashboardDateLabel.Size = New Size(300, 32)
+        dashboardDateLabel.TabIndex = 9
+        dashboardDateLabel.Text = "Today"
+        dashboardDateLabel.TextAlign = ContentAlignment.MiddleCenter
         ' 
         ' subtitleLabel
         ' 
         subtitleLabel.AutoSize = True
-        subtitleLabel.Font = New Font("Segoe UI", 11.0F)
+        subtitleLabel.Font = New Font("Segoe UI", 8.0F)
         subtitleLabel.ForeColor = Color.Gray
-        subtitleLabel.Location = New Point(270, 55)
+        subtitleLabel.Location = New Point(20, 43)
         subtitleLabel.Name = "subtitleLabel"
         subtitleLabel.Size = New Size(369, 20)
         subtitleLabel.TabIndex = 9
@@ -564,9 +615,9 @@ Partial Class SuperAdmin
         ' titleLabel
         ' 
         titleLabel.AutoSize = True
-        titleLabel.Font = New Font("Segoe UI", 24.0F, FontStyle.Bold)
+        titleLabel.Font = New Font("Segoe UI", 18.0F, FontStyle.Bold)
         titleLabel.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        titleLabel.Location = New Point(270, 10)
+        titleLabel.Location = New Point(20, 6)
         titleLabel.Name = "titleLabel"
         titleLabel.Size = New Size(184, 45)
         titleLabel.TabIndex = 8
@@ -580,7 +631,7 @@ Partial Class SuperAdmin
         usrName.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         usrName.Location = New Point(1454, 35)
         usrName.Name = "usrName"
-        usrName.Size = New Size(166, 16)
+        usrName.Size = New Size(220, 16)
         usrName.TabIndex = 7
         usrName.Text = "Super Admin Name"
         usrName.TextAlign = HorizontalAlignment.Center
@@ -589,9 +640,9 @@ Partial Class SuperAdmin
         ' 
         usrSuperAdmin.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         usrSuperAdmin.AutoSize = True
-        usrSuperAdmin.Font = New Font("Segoe UI", 6.75F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        usrSuperAdmin.Font = New Font("Segoe UI", 9.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         usrSuperAdmin.ForeColor = Color.SeaGreen
-        usrSuperAdmin.Location = New Point(1474, 60)
+        usrSuperAdmin.Location = New Point(1454, 50)
         usrSuperAdmin.Name = "usrSuperAdmin"
         usrSuperAdmin.Size = New Size(91, 12)
         usrSuperAdmin.TabIndex = 5
@@ -602,7 +653,7 @@ Partial Class SuperAdmin
         hdrDashboard.AutoSize = True
         hdrDashboard.Font = New Font("Segoe UI", 24.0F, FontStyle.Bold)
         hdrDashboard.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        hdrDashboard.Location = New Point(20, 10)
+        hdrDashboard.Location = New Point(20, 6)
         hdrDashboard.Name = "hdrDashboard"
         hdrDashboard.Size = New Size(184, 45)
         hdrDashboard.TabIndex = 0
@@ -612,36 +663,145 @@ Partial Class SuperAdmin
         ' 
         TableLayoutPanel4.Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right
         TableLayoutPanel4.ColumnCount = 2
-        TableLayoutPanel4.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 49.99999F))
-        TableLayoutPanel4.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 50.0000076F))
-        TableLayoutPanel4.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 20.0F))
-        TableLayoutPanel4.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 20.0F))
+        TableLayoutPanel4.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 60.0F))
+        TableLayoutPanel4.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 40.0F))
         TableLayoutPanel4.Controls.Add(Panel11, 0, 0)
         TableLayoutPanel4.Controls.Add(Panel12, 1, 0)
-        TableLayoutPanel4.Location = New Point(270, 698)
+        TableLayoutPanel4.Location = New Point(14, 330)
+        TableLayoutPanel4.Margin = New Padding(0)
         TableLayoutPanel4.Name = "TableLayoutPanel4"
         TableLayoutPanel4.RowCount = 1
         TableLayoutPanel4.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
-        TableLayoutPanel4.Size = New Size(1374, 333)
+        TableLayoutPanel4.Size = New Size(1728, 245)
         TableLayoutPanel4.TabIndex = 8
         ' 
         ' Panel11
         ' 
-        Panel11.BackColor = SystemColors.ControlLightLight
+        Panel11.BackColor = Color.White
+        Panel11.BorderStyle = BorderStyle.FixedSingle
+        Panel11.Controls.Add(salesTrendPlot)
+        Panel11.Controls.Add(trendFiltersPanel)
+        Panel11.Controls.Add(salesTrendLegendLabel)
+        Panel11.Controls.Add(salesTrendTitleLabel)
         Panel11.Dock = DockStyle.Fill
         Panel11.Location = New Point(3, 3)
         Panel11.Name = "Panel11"
-        Panel11.Size = New Size(680, 327)
+        Panel11.Margin = New Padding(0, 0, 10, 0)
+        Panel11.Size = New Size(680, 300)
         Panel11.TabIndex = 0
         ' 
         ' Panel12
         ' 
-        Panel12.BackColor = SystemColors.ControlLightLight
+        Panel12.BackColor = Color.White
+        Panel12.BorderStyle = BorderStyle.FixedSingle
+        Panel12.Controls.Add(revenueNetIncomeLabel)
+        Panel12.Controls.Add(revenueTitleLabel)
         Panel12.Dock = DockStyle.Fill
         Panel12.Location = New Point(689, 3)
         Panel12.Name = "Panel12"
-        Panel12.Size = New Size(682, 327)
+        Panel12.Margin = New Padding(0)
+        Panel12.Size = New Size(682, 300)
         Panel12.TabIndex = 1
+        ' 
+        ' salesTrendTitleLabel
+        ' 
+        salesTrendTitleLabel.Font = New Font("Segoe UI", 11.0F, FontStyle.Bold)
+        salesTrendTitleLabel.Location = New Point(16, 10)
+        salesTrendTitleLabel.Name = "salesTrendTitleLabel"
+        salesTrendTitleLabel.Size = New Size(160, 24)
+        salesTrendTitleLabel.TabIndex = 0
+        salesTrendTitleLabel.Text = "Sales Trend"
+        ' 
+        ' salesTrendLegendLabel
+        ' 
+        salesTrendLegendLabel.Font = New Font("Segoe UI", 8.0F)
+        salesTrendLegendLabel.ForeColor = Color.DimGray
+        salesTrendLegendLabel.Location = New Point(16, 38)
+        salesTrendLegendLabel.Name = "salesTrendLegendLabel"
+        salesTrendLegendLabel.Size = New Size(260, 18)
+        salesTrendLegendLabel.TabIndex = 1
+        salesTrendLegendLabel.Text = "Sales    Expenses unavailable"
+        ' 
+        ' trendFiltersPanel
+        ' 
+        trendFiltersPanel.Anchor = AnchorStyles.Top Or AnchorStyles.Right
+        trendFiltersPanel.FlowDirection = FlowDirection.RightToLeft
+        trendFiltersPanel.Location = New Point(610, 8)
+        trendFiltersPanel.Name = "trendFiltersPanel"
+        trendFiltersPanel.Size = New Size(290, 28)
+        trendFiltersPanel.TabIndex = 2
+        trendFiltersPanel.WrapContents = False
+        trendFiltersPanel.Controls.Add(trendThisYearButton)
+        trendFiltersPanel.Controls.Add(trendThisMonthButton)
+        trendFiltersPanel.Controls.Add(trend7DaysButton)
+        ' 
+        ' trendThisYearButton
+        ' 
+        trendThisYearButton.BackColor = Color.White
+        trendThisYearButton.FlatStyle = FlatStyle.Flat
+        trendThisYearButton.Font = New Font("Segoe UI", 7.0F)
+        trendThisYearButton.Name = "trendThisYearButton"
+        trendThisYearButton.Size = New Size(76, 24)
+        trendThisYearButton.TabIndex = 2
+        trendThisYearButton.Tag = "This Year"
+        trendThisYearButton.Text = "This Year"
+        trendThisYearButton.UseVisualStyleBackColor = False
+        ' 
+        ' trendThisMonthButton
+        ' 
+        trendThisMonthButton.BackColor = Color.White
+        trendThisMonthButton.FlatStyle = FlatStyle.Flat
+        trendThisMonthButton.Font = New Font("Segoe UI", 7.0F)
+        trendThisMonthButton.Name = "trendThisMonthButton"
+        trendThisMonthButton.Size = New Size(76, 24)
+        trendThisMonthButton.TabIndex = 1
+        trendThisMonthButton.Tag = "This Month"
+        trendThisMonthButton.Text = "This Month"
+        trendThisMonthButton.UseVisualStyleBackColor = False
+        ' 
+        ' trend7DaysButton
+        ' 
+        trend7DaysButton.BackColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
+        trend7DaysButton.FlatStyle = FlatStyle.Flat
+        trend7DaysButton.Font = New Font("Segoe UI", 7.0F)
+        trend7DaysButton.ForeColor = Color.White
+        trend7DaysButton.Name = "trend7DaysButton"
+        trend7DaysButton.Size = New Size(64, 24)
+        trend7DaysButton.TabIndex = 0
+        trend7DaysButton.Tag = "7 Days"
+        trend7DaysButton.Text = "7 Days"
+        trend7DaysButton.UseVisualStyleBackColor = False
+        ' 
+        ' salesTrendPlot
+        ' 
+        salesTrendPlot.Anchor = AnchorStyles.Top Or AnchorStyles.Bottom Or AnchorStyles.Left Or AnchorStyles.Right
+        salesTrendPlot.BackColor = Color.White
+        salesTrendPlot.Location = New Point(16, 62)
+        salesTrendPlot.Name = "salesTrendPlot"
+        salesTrendPlot.Size = New Size(984, 165)
+        salesTrendPlot.TabIndex = 3
+        ' 
+        ' revenueTitleLabel
+        ' 
+        revenueTitleLabel.Font = New Font("Segoe UI", 11.0F, FontStyle.Bold)
+        revenueTitleLabel.Location = New Point(16, 10)
+        revenueTitleLabel.Name = "revenueTitleLabel"
+        revenueTitleLabel.Size = New Size(250, 24)
+        revenueTitleLabel.TabIndex = 0
+        revenueTitleLabel.Text = "Revenue vs. Expenses"
+        ' 
+        ' revenueNetIncomeLabel
+        ' 
+        revenueNetIncomeLabel.Anchor = AnchorStyles.Bottom Or AnchorStyles.Left Or AnchorStyles.Right
+        revenueNetIncomeLabel.BackColor = Color.FromArgb(CByte(226), CByte(238), CByte(231))
+        revenueNetIncomeLabel.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
+        revenueNetIncomeLabel.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
+        revenueNetIncomeLabel.Location = New Point(16, 197)
+        revenueNetIncomeLabel.Name = "revenueNetIncomeLabel"
+        revenueNetIncomeLabel.Size = New Size(648, 36)
+        revenueNetIncomeLabel.TabIndex = 1
+        revenueNetIncomeLabel.Text = "Net income unavailable without expense records"
+        revenueNetIncomeLabel.TextAlign = ContentAlignment.MiddleCenter
         ' 
         ' TableLayoutPanel1
         ' 
@@ -655,11 +815,11 @@ Partial Class SuperAdmin
         TableLayoutPanel1.Controls.Add(Panel2, 1, 0)
         TableLayoutPanel1.Controls.Add(Panel3, 2, 0)
         TableLayoutPanel1.Controls.Add(Panel4, 3, 0)
-        TableLayoutPanel1.Location = New Point(270, 122)
+        TableLayoutPanel1.Location = New Point(14, 102)
         TableLayoutPanel1.Name = "TableLayoutPanel1"
         TableLayoutPanel1.RowCount = 1
         TableLayoutPanel1.RowStyles.Add(New RowStyle(SizeType.Percent, 50.0F))
-        TableLayoutPanel1.Size = New Size(1374, 117)
+        TableLayoutPanel1.Size = New Size(1728, 104)
         TableLayoutPanel1.TabIndex = 3
         ' 
         ' Panel1
@@ -854,12 +1014,12 @@ Partial Class SuperAdmin
         TableLayoutPanel2.Controls.Add(Panel6, 1, 0)
         TableLayoutPanel2.Controls.Add(Panel7, 2, 0)
         TableLayoutPanel2.Controls.Add(Panel8, 3, 0)
-        TableLayoutPanel2.Location = New Point(270, 242)
+        TableLayoutPanel2.Location = New Point(14, 214)
         TableLayoutPanel2.Name = "TableLayoutPanel2"
         TableLayoutPanel2.RowCount = 1
         TableLayoutPanel2.RowStyles.Add(New RowStyle(SizeType.Percent, 50.0F))
         TableLayoutPanel2.RowStyles.Add(New RowStyle(SizeType.Absolute, 117.0F))
-        TableLayoutPanel2.Size = New Size(1374, 117)
+        TableLayoutPanel2.Size = New Size(1728, 104)
         TableLayoutPanel2.TabIndex = 7
         ' 
         ' Panel5
@@ -1046,36 +1206,258 @@ Partial Class SuperAdmin
         ' 
         TableLayoutPanel3.Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right
         TableLayoutPanel3.ColumnCount = 2
-        TableLayoutPanel3.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 49.99999F))
-        TableLayoutPanel3.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 50.0000076F))
-        TableLayoutPanel3.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 20.0F))
-        TableLayoutPanel3.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 20.0F))
+        TableLayoutPanel3.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 60.0F))
+        TableLayoutPanel3.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 40.0F))
         TableLayoutPanel3.Controls.Add(Panel9, 0, 0)
         TableLayoutPanel3.Controls.Add(Panel10, 1, 0)
-        TableLayoutPanel3.Location = New Point(270, 362)
+        TableLayoutPanel3.Location = New Point(14, 585)
+        TableLayoutPanel3.Margin = New Padding(0)
         TableLayoutPanel3.Name = "TableLayoutPanel3"
         TableLayoutPanel3.RowCount = 1
         TableLayoutPanel3.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
-        TableLayoutPanel3.Size = New Size(1374, 333)
+        TableLayoutPanel3.Size = New Size(1728, 190)
         TableLayoutPanel3.TabIndex = 5
         ' 
         ' Panel9
         ' 
-        Panel9.BackColor = SystemColors.ControlLightLight
+        Panel9.BackColor = Color.White
+        Panel9.BorderStyle = BorderStyle.FixedSingle
+        Panel9.Controls.Add(inventoryAlertsTitleLabel)
+        Panel9.Controls.Add(inventoryViewAllLink)
+        Panel9.Controls.Add(inventoryAlertLowStock)
+        Panel9.Controls.Add(inventoryAlertNearExpiry)
+        Panel9.Controls.Add(inventoryAlertExpired)
         Panel9.Dock = DockStyle.Fill
         Panel9.Location = New Point(3, 3)
         Panel9.Name = "Panel9"
-        Panel9.Size = New Size(680, 327)
+        Panel9.Margin = New Padding(0, 0, 10, 0)
+        Panel9.Size = New Size(1020, 190)
         Panel9.TabIndex = 0
         ' 
         ' Panel10
         ' 
-        Panel10.BackColor = SystemColors.ControlLightLight
+        Panel10.BackColor = Color.White
+        Panel10.BorderStyle = BorderStyle.FixedSingle
+        Panel10.Controls.Add(quickOverviewTitleLabel)
+        Panel10.Controls.Add(quickOverviewRestockLabel)
+        Panel10.Controls.Add(quickOverviewRestockValue)
+        Panel10.Controls.Add(quickOverviewExpiryLabel)
+        Panel10.Controls.Add(quickOverviewExpiryValue)
+        Panel10.Controls.Add(quickOverviewTransactionsLabel)
+        Panel10.Controls.Add(quickOverviewTransactionsValue)
+        Panel10.Controls.Add(quickOverviewSeparator1)
+        Panel10.Controls.Add(quickOverviewSeparator2)
         Panel10.Dock = DockStyle.Fill
         Panel10.Location = New Point(689, 3)
         Panel10.Name = "Panel10"
-        Panel10.Size = New Size(682, 327)
+        Panel10.Margin = New Padding(0)
+        Panel10.Size = New Size(680, 190)
         Panel10.TabIndex = 1
+        ' 
+        ' inventoryAlertsTitleLabel
+        ' 
+        inventoryAlertsTitleLabel.Font = New Font("Segoe UI", 11.0F, FontStyle.Bold)
+        inventoryAlertsTitleLabel.Location = New Point(16, 10)
+        inventoryAlertsTitleLabel.Name = "inventoryAlertsTitleLabel"
+        inventoryAlertsTitleLabel.Size = New Size(220, 24)
+        inventoryAlertsTitleLabel.TabIndex = 0
+        inventoryAlertsTitleLabel.Text = "Inventory Alerts"
+        ' 
+        ' inventoryViewAllLink
+        ' 
+        inventoryViewAllLink.Anchor = AnchorStyles.Top Or AnchorStyles.Right
+        inventoryViewAllLink.AutoSize = True
+        inventoryViewAllLink.LinkColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
+        inventoryViewAllLink.Location = New Point(700, 14)
+        inventoryViewAllLink.Name = "inventoryViewAllLink"
+        inventoryViewAllLink.Size = New Size(62, 15)
+        inventoryViewAllLink.TabIndex = 1
+        inventoryViewAllLink.TabStop = True
+        inventoryViewAllLink.Text = "View All →"
+        ' 
+        ' inventoryAlertLowStock
+        ' 
+        inventoryAlertLowStock.BackColor = Color.FromArgb(CByte(255), CByte(249), CByte(218))
+        inventoryAlertLowStock.BorderStyle = BorderStyle.FixedSingle
+        inventoryAlertLowStock.Controls.Add(inventoryAlertLowStockCount)
+        inventoryAlertLowStock.Controls.Add(inventoryAlertLowStockCaption)
+        inventoryAlertLowStock.Location = New Point(16, 42)
+        inventoryAlertLowStock.Name = "inventoryAlertLowStock"
+        inventoryAlertLowStock.Size = New Size(160, 126)
+        inventoryAlertLowStock.TabIndex = 2
+        ' 
+        ' inventoryAlertLowStockCount
+        ' 
+        inventoryAlertLowStockCount.Dock = DockStyle.Top
+        inventoryAlertLowStockCount.Font = New Font("Segoe UI", 18.0F, FontStyle.Bold)
+        inventoryAlertLowStockCount.ForeColor = Color.FromArgb(CByte(95), CByte(75), CByte(0))
+        inventoryAlertLowStockCount.Location = New Point(0, 0)
+        inventoryAlertLowStockCount.Name = "inventoryAlertLowStockCount"
+        inventoryAlertLowStockCount.Size = New Size(158, 34)
+        inventoryAlertLowStockCount.TabIndex = 0
+        inventoryAlertLowStockCount.Text = "0"
+        inventoryAlertLowStockCount.TextAlign = ContentAlignment.MiddleCenter
+        ' 
+        ' inventoryAlertLowStockCaption
+        ' 
+        inventoryAlertLowStockCaption.Dock = DockStyle.Fill
+        inventoryAlertLowStockCaption.Font = New Font("Segoe UI", 8.0F)
+        inventoryAlertLowStockCaption.ForeColor = Color.FromArgb(CByte(95), CByte(75), CByte(0))
+        inventoryAlertLowStockCaption.Name = "inventoryAlertLowStockCaption"
+        inventoryAlertLowStockCaption.Size = New Size(158, 90)
+        inventoryAlertLowStockCaption.TabIndex = 1
+        inventoryAlertLowStockCaption.Text = "Low Stock" & vbCrLf & "Restock soon"
+        inventoryAlertLowStockCaption.TextAlign = ContentAlignment.MiddleCenter
+        ' 
+        ' inventoryAlertNearExpiry
+        ' 
+        inventoryAlertNearExpiry.BackColor = Color.FromArgb(CByte(255), CByte(249), CByte(218))
+        inventoryAlertNearExpiry.BorderStyle = BorderStyle.FixedSingle
+        inventoryAlertNearExpiry.Controls.Add(inventoryAlertNearExpiryCount)
+        inventoryAlertNearExpiry.Controls.Add(inventoryAlertNearExpiryCaption)
+        inventoryAlertNearExpiry.Location = New Point(184, 42)
+        inventoryAlertNearExpiry.Name = "inventoryAlertNearExpiry"
+        inventoryAlertNearExpiry.Size = New Size(160, 126)
+        inventoryAlertNearExpiry.TabIndex = 3
+        ' 
+        ' inventoryAlertNearExpiryCount
+        ' 
+        inventoryAlertNearExpiryCount.Dock = DockStyle.Top
+        inventoryAlertNearExpiryCount.Font = New Font("Segoe UI", 18.0F, FontStyle.Bold)
+        inventoryAlertNearExpiryCount.ForeColor = Color.FromArgb(CByte(95), CByte(75), CByte(0))
+        inventoryAlertNearExpiryCount.Location = New Point(0, 0)
+        inventoryAlertNearExpiryCount.Name = "inventoryAlertNearExpiryCount"
+        inventoryAlertNearExpiryCount.Size = New Size(158, 34)
+        inventoryAlertNearExpiryCount.TabIndex = 0
+        inventoryAlertNearExpiryCount.Text = "0"
+        inventoryAlertNearExpiryCount.TextAlign = ContentAlignment.MiddleCenter
+        ' 
+        ' inventoryAlertNearExpiryCaption
+        ' 
+        inventoryAlertNearExpiryCaption.Dock = DockStyle.Fill
+        inventoryAlertNearExpiryCaption.Font = New Font("Segoe UI", 8.0F)
+        inventoryAlertNearExpiryCaption.ForeColor = Color.FromArgb(CByte(95), CByte(75), CByte(0))
+        inventoryAlertNearExpiryCaption.Name = "inventoryAlertNearExpiryCaption"
+        inventoryAlertNearExpiryCaption.Size = New Size(158, 90)
+        inventoryAlertNearExpiryCaption.TabIndex = 1
+        inventoryAlertNearExpiryCaption.Text = "Near Expiry" & vbCrLf & "Check expiry dates"
+        inventoryAlertNearExpiryCaption.TextAlign = ContentAlignment.MiddleCenter
+        ' 
+        ' inventoryAlertExpired
+        ' 
+        inventoryAlertExpired.BackColor = Color.FromArgb(CByte(255), CByte(232), CByte(232))
+        inventoryAlertExpired.BorderStyle = BorderStyle.FixedSingle
+        inventoryAlertExpired.Controls.Add(inventoryAlertExpiredCount)
+        inventoryAlertExpired.Controls.Add(inventoryAlertExpiredCaption)
+        inventoryAlertExpired.Location = New Point(352, 42)
+        inventoryAlertExpired.Name = "inventoryAlertExpired"
+        inventoryAlertExpired.Size = New Size(160, 126)
+        inventoryAlertExpired.TabIndex = 4
+        ' 
+        ' inventoryAlertExpiredCount
+        ' 
+        inventoryAlertExpiredCount.Dock = DockStyle.Top
+        inventoryAlertExpiredCount.Font = New Font("Segoe UI", 18.0F, FontStyle.Bold)
+        inventoryAlertExpiredCount.ForeColor = Color.FromArgb(CByte(145), CByte(45), CByte(45))
+        inventoryAlertExpiredCount.Location = New Point(0, 0)
+        inventoryAlertExpiredCount.Name = "inventoryAlertExpiredCount"
+        inventoryAlertExpiredCount.Size = New Size(158, 34)
+        inventoryAlertExpiredCount.TabIndex = 0
+        inventoryAlertExpiredCount.Text = "0"
+        inventoryAlertExpiredCount.TextAlign = ContentAlignment.MiddleCenter
+        ' 
+        ' inventoryAlertExpiredCaption
+        ' 
+        inventoryAlertExpiredCaption.Dock = DockStyle.Fill
+        inventoryAlertExpiredCaption.Font = New Font("Segoe UI", 8.0F)
+        inventoryAlertExpiredCaption.ForeColor = Color.FromArgb(CByte(145), CByte(45), CByte(45))
+        inventoryAlertExpiredCaption.Name = "inventoryAlertExpiredCaption"
+        inventoryAlertExpiredCaption.Size = New Size(158, 90)
+        inventoryAlertExpiredCaption.TabIndex = 1
+        inventoryAlertExpiredCaption.Text = "Expired" & vbCrLf & "Remove from stock"
+        inventoryAlertExpiredCaption.TextAlign = ContentAlignment.MiddleCenter
+        ' 
+        ' quickOverviewTitleLabel
+        ' 
+        quickOverviewTitleLabel.Font = New Font("Segoe UI", 11.0F, FontStyle.Bold)
+        quickOverviewTitleLabel.Location = New Point(16, 10)
+        quickOverviewTitleLabel.Name = "quickOverviewTitleLabel"
+        quickOverviewTitleLabel.Size = New Size(220, 24)
+        quickOverviewTitleLabel.TabIndex = 0
+        quickOverviewTitleLabel.Text = "Quick Overview"
+        ' 
+        ' quickOverviewRestockLabel
+        ' 
+        quickOverviewRestockLabel.Location = New Point(20, 44)
+        quickOverviewRestockLabel.Name = "quickOverviewRestockLabel"
+        quickOverviewRestockLabel.Size = New Size(260, 24)
+        quickOverviewRestockLabel.TabIndex = 1
+        quickOverviewRestockLabel.Text = "Products to Restock"
+        quickOverviewRestockLabel.TextAlign = ContentAlignment.MiddleLeft
+        ' 
+        ' quickOverviewRestockValue
+        ' 
+        quickOverviewRestockValue.Anchor = AnchorStyles.Top Or AnchorStyles.Right
+        quickOverviewRestockValue.Location = New Point(370, 44)
+        quickOverviewRestockValue.Name = "quickOverviewRestockValue"
+        quickOverviewRestockValue.Size = New Size(180, 24)
+        quickOverviewRestockValue.TabIndex = 2
+        quickOverviewRestockValue.Text = "0 products"
+        quickOverviewRestockValue.TextAlign = ContentAlignment.MiddleRight
+        ' 
+        ' quickOverviewExpiryLabel
+        ' 
+        quickOverviewExpiryLabel.Location = New Point(20, 76)
+        quickOverviewExpiryLabel.Name = "quickOverviewExpiryLabel"
+        quickOverviewExpiryLabel.Size = New Size(260, 24)
+        quickOverviewExpiryLabel.TabIndex = 3
+        quickOverviewExpiryLabel.Text = "Expiring Products"
+        quickOverviewExpiryLabel.TextAlign = ContentAlignment.MiddleLeft
+        ' 
+        ' quickOverviewExpiryValue
+        ' 
+        quickOverviewExpiryValue.Anchor = AnchorStyles.Top Or AnchorStyles.Right
+        quickOverviewExpiryValue.Location = New Point(370, 76)
+        quickOverviewExpiryValue.Name = "quickOverviewExpiryValue"
+        quickOverviewExpiryValue.Size = New Size(180, 24)
+        quickOverviewExpiryValue.TabIndex = 4
+        quickOverviewExpiryValue.Text = "0 products"
+        quickOverviewExpiryValue.TextAlign = ContentAlignment.MiddleRight
+        ' 
+        ' quickOverviewTransactionsLabel
+        ' 
+        quickOverviewTransactionsLabel.Location = New Point(20, 108)
+        quickOverviewTransactionsLabel.Name = "quickOverviewTransactionsLabel"
+        quickOverviewTransactionsLabel.Size = New Size(260, 24)
+        quickOverviewTransactionsLabel.TabIndex = 5
+        quickOverviewTransactionsLabel.Text = "Today's Transactions"
+        quickOverviewTransactionsLabel.TextAlign = ContentAlignment.MiddleLeft
+        ' 
+        ' quickOverviewTransactionsValue
+        ' 
+        quickOverviewTransactionsValue.Anchor = AnchorStyles.Top Or AnchorStyles.Right
+        quickOverviewTransactionsValue.Location = New Point(370, 108)
+        quickOverviewTransactionsValue.Name = "quickOverviewTransactionsValue"
+        quickOverviewTransactionsValue.Size = New Size(180, 24)
+        quickOverviewTransactionsValue.TabIndex = 6
+        quickOverviewTransactionsValue.Text = "0"
+        quickOverviewTransactionsValue.TextAlign = ContentAlignment.MiddleRight
+        ' 
+        ' quickOverviewSeparator1
+        ' 
+        quickOverviewSeparator1.BackColor = Color.FromArgb(CByte(235), CByte(235), CByte(235))
+        quickOverviewSeparator1.Location = New Point(16, 72)
+        quickOverviewSeparator1.Name = "quickOverviewSeparator1"
+        quickOverviewSeparator1.Size = New Size(534, 1)
+        quickOverviewSeparator1.TabIndex = 7
+        ' 
+        ' quickOverviewSeparator2
+        ' 
+        quickOverviewSeparator2.BackColor = Color.FromArgb(CByte(235), CByte(235), CByte(235))
+        quickOverviewSeparator2.Location = New Point(16, 104)
+        quickOverviewSeparator2.Name = "quickOverviewSeparator2"
+        quickOverviewSeparator2.Size = New Size(534, 1)
+        quickOverviewSeparator2.TabIndex = 8
         ' 
         ' pnlReports
         ' 
@@ -1287,7 +1669,7 @@ Partial Class SuperAdmin
         pnlHeaderReports.Controls.Add(Label6)
         pnlHeaderReports.Location = New Point(0, 0)
         pnlHeaderReports.Name = "pnlHeaderReports"
-        pnlHeaderReports.Size = New Size(1479, 133)
+        pnlHeaderReports.Size = New Size(1756, 72)
         pnlHeaderReports.TabIndex = 4
         ' 
         ' TextBox24
@@ -1298,7 +1680,7 @@ Partial Class SuperAdmin
         TextBox24.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         TextBox24.Location = New Point(1308, 26)
         TextBox24.Name = "TextBox24"
-        TextBox24.Size = New Size(145, 16)
+        TextBox24.Size = New Size(220, 16)
         TextBox24.TabIndex = 8
         TextBox24.Text = "Super Admin Name"
         TextBox24.TextAlign = HorizontalAlignment.Center
@@ -1307,7 +1689,7 @@ Partial Class SuperAdmin
         ' 
         Label4.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         Label4.AutoSize = True
-        Label4.Font = New Font("Segoe UI", 6.75F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        Label4.Font = New Font("Segoe UI", 9.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         Label4.ForeColor = Color.SeaGreen
         Label4.Location = New Point(1335, 45)
         Label4.Name = "Label4"
@@ -1319,8 +1701,9 @@ Partial Class SuperAdmin
         ' 
         Label5.AutoSize = True
         Label5.BackColor = Color.Transparent
-        Label5.Font = New Font("Segoe UI Semilight", 9.75F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
-        Label5.Location = New Point(51, 45)
+        Label5.Font = New Font("Segoe UI", 8.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        Label5.ForeColor = Color.Gray
+        Label5.Location = New Point(20, 43)
         Label5.Name = "Label5"
         Label5.Size = New Size(241, 17)
         Label5.TabIndex = 1
@@ -1329,9 +1712,9 @@ Partial Class SuperAdmin
         ' Label6
         ' 
         Label6.AutoSize = True
-        Label6.Font = New Font("Segoe UI", 24.0F, FontStyle.Bold)
+        Label6.Font = New Font("Segoe UI", 18.0F, FontStyle.Bold)
         Label6.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        Label6.Location = New Point(23, 13)
+        Label6.Location = New Point(20, 6)
         Label6.Name = "Label6"
         Label6.Size = New Size(157, 45)
         Label6.TabIndex = 0
@@ -3410,7 +3793,7 @@ Partial Class SuperAdmin
         pnlHeaderAccounts.Controls.Add(hdrAccounts)
         pnlHeaderAccounts.Location = New Point(0, 0)
         pnlHeaderAccounts.Name = "pnlHeaderAccounts"
-        pnlHeaderAccounts.Size = New Size(1479, 133)
+        pnlHeaderAccounts.Size = New Size(1756, 72)
         pnlHeaderAccounts.TabIndex = 3
         ' 
         ' TextBox23
@@ -3421,7 +3804,7 @@ Partial Class SuperAdmin
         TextBox23.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         TextBox23.Location = New Point(1308, 26)
         TextBox23.Name = "TextBox23"
-        TextBox23.Size = New Size(145, 16)
+        TextBox23.Size = New Size(220, 16)
         TextBox23.TabIndex = 7
         TextBox23.Text = "Super Admin Name"
         TextBox23.TextAlign = HorizontalAlignment.Center
@@ -3430,7 +3813,7 @@ Partial Class SuperAdmin
         ' 
         Label2.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         Label2.AutoSize = True
-        Label2.Font = New Font("Segoe UI", 6.75F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        Label2.Font = New Font("Segoe UI", 9.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         Label2.ForeColor = Color.SeaGreen
         Label2.Location = New Point(1335, 45)
         Label2.Name = "Label2"
@@ -3442,8 +3825,9 @@ Partial Class SuperAdmin
         ' 
         Label3.AutoSize = True
         Label3.BackColor = Color.Transparent
-        Label3.Font = New Font("Segoe UI Semilight", 9.75F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
-        Label3.Location = New Point(51, 45)
+        Label3.Font = New Font("Segoe UI", 8.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        Label3.ForeColor = Color.Gray
+        Label3.Location = New Point(20, 43)
         Label3.Name = "Label3"
         Label3.Size = New Size(241, 17)
         Label3.TabIndex = 1
@@ -3452,9 +3836,9 @@ Partial Class SuperAdmin
         ' hdrAccounts
         ' 
         hdrAccounts.AutoSize = True
-        hdrAccounts.Font = New Font("Segoe UI", 24.0F, FontStyle.Bold)
+        hdrAccounts.Font = New Font("Segoe UI", 18.0F, FontStyle.Bold)
         hdrAccounts.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        hdrAccounts.Location = New Point(20, 10)
+        hdrAccounts.Location = New Point(20, 6)
         hdrAccounts.Name = "hdrAccounts"
         hdrAccounts.Size = New Size(157, 45)
         hdrAccounts.TabIndex = 0
@@ -3634,6 +4018,8 @@ Partial Class SuperAdmin
         pnlHeaderDashboard.ResumeLayout(False)
         pnlHeaderDashboard.PerformLayout()
         TableLayoutPanel4.ResumeLayout(False)
+        Panel11.ResumeLayout(False)
+        Panel12.ResumeLayout(False)
         TableLayoutPanel1.ResumeLayout(False)
         Panel1.ResumeLayout(False)
         Panel1.PerformLayout()
@@ -3653,6 +4039,8 @@ Partial Class SuperAdmin
         Panel8.ResumeLayout(False)
         Panel8.PerformLayout()
         TableLayoutPanel3.ResumeLayout(False)
+        Panel9.ResumeLayout(False)
+        Panel10.ResumeLayout(False)
         pnlReports.ResumeLayout(False)
         TableLayoutPanel9.ResumeLayout(False)
         Panel23.ResumeLayout(False)
@@ -3795,6 +4183,36 @@ Partial Class SuperAdmin
     Friend WithEvents expensesRecorded As TextBox
     Friend WithEvents TextBox20 As TextBox
     Friend WithEvents TextBox18 As TextBox
+    Friend WithEvents dashboardDateLabel As Label
+    Friend WithEvents salesTrendTitleLabel As Label
+    Friend WithEvents salesTrendLegendLabel As Label
+    Friend WithEvents trendFiltersPanel As FlowLayoutPanel
+    Friend WithEvents trend7DaysButton As Button
+    Friend WithEvents trendThisMonthButton As Button
+    Friend WithEvents trendThisYearButton As Button
+    Friend WithEvents salesTrendPlot As Panel
+    Friend WithEvents revenueTitleLabel As Label
+    Friend WithEvents revenueNetIncomeLabel As Label
+    Friend WithEvents inventoryAlertsTitleLabel As Label
+    Friend WithEvents inventoryViewAllLink As LinkLabel
+    Friend WithEvents inventoryAlertLowStock As Panel
+    Friend WithEvents inventoryAlertLowStockCount As Label
+    Friend WithEvents inventoryAlertLowStockCaption As Label
+    Friend WithEvents inventoryAlertNearExpiry As Panel
+    Friend WithEvents inventoryAlertNearExpiryCount As Label
+    Friend WithEvents inventoryAlertNearExpiryCaption As Label
+    Friend WithEvents inventoryAlertExpired As Panel
+    Friend WithEvents inventoryAlertExpiredCount As Label
+    Friend WithEvents inventoryAlertExpiredCaption As Label
+    Friend WithEvents quickOverviewTitleLabel As Label
+    Friend WithEvents quickOverviewRestockLabel As Label
+    Friend WithEvents quickOverviewRestockValue As Label
+    Friend WithEvents quickOverviewExpiryLabel As Label
+    Friend WithEvents quickOverviewExpiryValue As Label
+    Friend WithEvents quickOverviewTransactionsLabel As Label
+    Friend WithEvents quickOverviewTransactionsValue As Label
+    Friend WithEvents quickOverviewSeparator1 As Panel
+    Friend WithEvents quickOverviewSeparator2 As Panel
     Friend WithEvents pnlLogin As Panel
     Friend WithEvents NavBar As Panel
     Friend WithEvents picHide As PictureBox
