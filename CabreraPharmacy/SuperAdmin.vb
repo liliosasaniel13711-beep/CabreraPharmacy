@@ -131,10 +131,9 @@ Public Class SuperAdmin
         pnlHeaderAccounts.SetBounds(0, 0, headerWidth, headerHeight)
         pnlHeaderReports.SetBounds(0, 0, headerWidth, headerHeight)
 
-        titleLabel.SetBounds(20, 6, Math.Max(1, headerWidth - 280), 32)
-        titleLabel.Text = hdrDashboard.Text
+        hdrDashboard.SetBounds(20, 6, Math.Max(1, headerWidth - 280), 32)
         subtitleLabel.SetBounds(20, 43, Math.Max(1, headerWidth - 280), 16)
-        hdrDashboard.Visible = False
+        hdrDashboard.Visible = True
 
         hdrAccounts.SetBounds(20, 6, Math.Max(1, headerWidth - 280), 32)
         Label3.SetBounds(20, 43, Math.Max(1, headerWidth - 280), 16)
@@ -420,7 +419,6 @@ Public Class SuperAdmin
         hdrDashboard.Text = pageTitle
         hdrAccounts.Text = pageTitle
         Label6.Text = pageTitle
-        titleLabel.Text = pageTitle
         LayoutPrimaryHeaders()
 
         Select Case pageTitle
@@ -1705,7 +1703,6 @@ Public Class SuperAdmin
         hdrDashboard.Text = "Reports"
         hdrAccounts.Text = "Reports"
         Label6.Text = "Reports"
-        titleLabel.Text = "Reports"
         LayoutPrimaryHeaders()
         LayoutReportPageFor(reportPanel)
         SetActiveNavigation("Reports")

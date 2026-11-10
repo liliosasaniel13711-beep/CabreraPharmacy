@@ -23,6 +23,7 @@ Partial Class SuperAdmin
     <System.Diagnostics.DebuggerStepThrough()>
     Private Sub InitializeComponent()
         sideBarSuperAdmin = New Panel()
+        Label13 = New Label()
         logoBox = New PictureBox()
         PharName = New Label()
         btnDashboard = New Button()
@@ -33,14 +34,24 @@ Partial Class SuperAdmin
         motherPanel = New Panel()
         pnlDashboard = New Panel()
         pnlHeaderDashboard = New Panel()
+        Label1 = New Label()
         subtitleLabel = New Label()
-        titleLabel = New Label()
         usrName = New TextBox()
         usrSuperAdmin = New Label()
         hdrDashboard = New Label()
+        dashboardDateLabel = New Label()
         TableLayoutPanel4 = New TableLayoutPanel()
         Panel11 = New Panel()
+        salesTrendPlot = New Panel()
+        trendFiltersPanel = New FlowLayoutPanel()
+        trendThisYearButton = New Button()
+        trendThisMonthButton = New Button()
+        trend7DaysButton = New Button()
+        salesTrendLegendLabel = New Label()
+        salesTrendTitleLabel = New Label()
         Panel12 = New Panel()
+        revenueNetIncomeLabel = New Label()
+        revenueTitleLabel = New Label()
         TableLayoutPanel1 = New TableLayoutPanel()
         Panel1 = New Panel()
         todaysSale = New TextBox()
@@ -77,17 +88,6 @@ Partial Class SuperAdmin
         TextBox18 = New TextBox()
         TableLayoutPanel3 = New TableLayoutPanel()
         Panel9 = New Panel()
-        Panel10 = New Panel()
-        dashboardDateLabel = New Label()
-        salesTrendTitleLabel = New Label()
-        salesTrendLegendLabel = New Label()
-        trendFiltersPanel = New FlowLayoutPanel()
-        trend7DaysButton = New Button()
-        trendThisMonthButton = New Button()
-        trendThisYearButton = New Button()
-        salesTrendPlot = New Panel()
-        revenueTitleLabel = New Label()
-        revenueNetIncomeLabel = New Label()
         inventoryAlertsTitleLabel = New Label()
         inventoryViewAllLink = New LinkLabel()
         inventoryAlertLowStock = New Panel()
@@ -99,6 +99,7 @@ Partial Class SuperAdmin
         inventoryAlertExpired = New Panel()
         inventoryAlertExpiredCount = New Label()
         inventoryAlertExpiredCaption = New Label()
+        Panel10 = New Panel()
         quickOverviewTitleLabel = New Label()
         quickOverviewRestockLabel = New Label()
         quickOverviewRestockValue = New Label()
@@ -344,6 +345,7 @@ Partial Class SuperAdmin
         pnlHeaderDashboard.SuspendLayout()
         TableLayoutPanel4.SuspendLayout()
         Panel11.SuspendLayout()
+        trendFiltersPanel.SuspendLayout()
         Panel12.SuspendLayout()
         TableLayoutPanel1.SuspendLayout()
         Panel1.SuspendLayout()
@@ -357,6 +359,9 @@ Partial Class SuperAdmin
         Panel8.SuspendLayout()
         TableLayoutPanel3.SuspendLayout()
         Panel9.SuspendLayout()
+        inventoryAlertLowStock.SuspendLayout()
+        inventoryAlertNearExpiry.SuspendLayout()
+        inventoryAlertExpired.SuspendLayout()
         Panel10.SuspendLayout()
         pnlReports.SuspendLayout()
         TableLayoutPanel9.SuspendLayout()
@@ -419,6 +424,7 @@ Partial Class SuperAdmin
         ' sideBarSuperAdmin
         ' 
         sideBarSuperAdmin.BackColor = Color.FromArgb(CByte(18), CByte(101), CByte(54))
+        sideBarSuperAdmin.Controls.Add(Label13)
         sideBarSuperAdmin.Controls.Add(logoBox)
         sideBarSuperAdmin.Controls.Add(PharName)
         sideBarSuperAdmin.Controls.Add(btnDashboard)
@@ -428,8 +434,19 @@ Partial Class SuperAdmin
         sideBarSuperAdmin.Dock = DockStyle.Left
         sideBarSuperAdmin.Location = New Point(0, 0)
         sideBarSuperAdmin.Name = "sideBarSuperAdmin"
-        sideBarSuperAdmin.Size = New Size(168, 1055)
+        sideBarSuperAdmin.Size = New Size(168, 791)
         sideBarSuperAdmin.TabIndex = 1
+        ' 
+        ' Label13
+        ' 
+        Label13.BackColor = Color.Transparent
+        Label13.Font = New Font("Segoe UI", 8F, FontStyle.Bold)
+        Label13.ForeColor = Color.White
+        Label13.Location = New Point(80, 16)
+        Label13.Name = "Label13"
+        Label13.Size = New Size(80, 68)
+        Label13.TabIndex = 19
+        Label13.Text = "Cabrera's" & vbCrLf & "Drugstore and Medical Supplies"
         ' 
         ' logoBox
         ' 
@@ -444,15 +461,13 @@ Partial Class SuperAdmin
         ' 
         ' PharName
         ' 
-        PharName.AutoSize = True
         PharName.BackColor = Color.Transparent
-        PharName.AutoSize = False
-        PharName.Font = New Font("Segoe UI", 8.0F, FontStyle.Bold)
+        PharName.Font = New Font("Segoe UI", 8F, FontStyle.Bold)
         PharName.ForeColor = Color.White
         PharName.Location = New Point(80, 16)
         PharName.MaximumSize = New Size(80, 0)
         PharName.Name = "PharName"
-        PharName.Size = New Size(80, 68)
+        PharName.Size = New Size(80, 0)
         PharName.TabIndex = 19
         PharName.Text = "Cabrera's" & vbCrLf & "Drugstore and Medical Supplies"
         ' 
@@ -462,7 +477,7 @@ Partial Class SuperAdmin
         btnDashboard.Cursor = Cursors.Hand
         btnDashboard.FlatAppearance.BorderSize = 0
         btnDashboard.FlatStyle = FlatStyle.Flat
-        btnDashboard.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
+        btnDashboard.Font = New Font("Segoe UI", 9F, FontStyle.Bold)
         btnDashboard.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
         btnDashboard.Location = New Point(19, 92)
         btnDashboard.Name = "btnDashboard"
@@ -479,7 +494,7 @@ Partial Class SuperAdmin
         btnAccounts.Cursor = Cursors.Hand
         btnAccounts.FlatAppearance.BorderSize = 0
         btnAccounts.FlatStyle = FlatStyle.Flat
-        btnAccounts.Font = New Font("Segoe UI", 9.0F, FontStyle.Regular)
+        btnAccounts.Font = New Font("Segoe UI", 9F)
         btnAccounts.ForeColor = Color.White
         btnAccounts.Location = New Point(19, 138)
         btnAccounts.Name = "btnAccounts"
@@ -496,7 +511,7 @@ Partial Class SuperAdmin
         btnReports.Cursor = Cursors.Hand
         btnReports.FlatAppearance.BorderSize = 0
         btnReports.FlatStyle = FlatStyle.Flat
-        btnReports.Font = New Font("Segoe UI", 9.0F, FontStyle.Regular)
+        btnReports.Font = New Font("Segoe UI", 9F)
         btnReports.ForeColor = Color.White
         btnReports.Location = New Point(19, 184)
         btnReports.Name = "btnReports"
@@ -515,9 +530,9 @@ Partial Class SuperAdmin
         btnLogin.Cursor = Cursors.Hand
         btnLogin.FlatAppearance.BorderColor = Color.White
         btnLogin.FlatStyle = FlatStyle.Flat
-        btnLogin.Font = New Font("Segoe UI", 9.0F, FontStyle.Regular)
+        btnLogin.Font = New Font("Segoe UI", 9F)
         btnLogin.ForeColor = Color.White
-        btnLogin.Location = New Point(19, 1005)
+        btnLogin.Location = New Point(19, 741)
         btnLogin.Name = "btnLogin"
         btnLogin.Size = New Size(130, 34)
         btnLogin.TabIndex = 17
@@ -530,7 +545,7 @@ Partial Class SuperAdmin
         LogoutBtn.BackColor = Color.White
         LogoutBtn.FlatAppearance.BorderSize = 2
         LogoutBtn.FlatStyle = FlatStyle.Flat
-        LogoutBtn.Font = New Font("Segoe UI Semibold", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        LogoutBtn.Font = New Font("Segoe UI Semibold", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         LogoutBtn.ForeColor = Color.SeaGreen
         LogoutBtn.Location = New Point(20, 4045)
         LogoutBtn.Name = "LogoutBtn"
@@ -560,8 +575,8 @@ Partial Class SuperAdmin
         ' 
         ' pnlDashboard
         ' 
-        pnlDashboard.BackColor = Color.FromArgb(CByte(245), CByte(245), CByte(245))
         pnlDashboard.AutoScroll = True
+        pnlDashboard.BackColor = Color.FromArgb(CByte(245), CByte(245), CByte(245))
         pnlDashboard.Controls.Add(pnlHeaderDashboard)
         pnlDashboard.Controls.Add(dashboardDateLabel)
         pnlDashboard.Controls.Add(TableLayoutPanel4)
@@ -571,65 +586,52 @@ Partial Class SuperAdmin
         pnlDashboard.Dock = DockStyle.Fill
         pnlDashboard.Location = New Point(0, 0)
         pnlDashboard.Name = "pnlDashboard"
-        pnlDashboard.Size = New Size(1698, 1055)
+        pnlDashboard.Size = New Size(1756, 1055)
         pnlDashboard.TabIndex = 1
         ' 
         ' pnlHeaderDashboard
         ' 
         pnlHeaderDashboard.Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right
         pnlHeaderDashboard.BackColor = Color.White
+        pnlHeaderDashboard.Controls.Add(Label1)
         pnlHeaderDashboard.Controls.Add(subtitleLabel)
-        pnlHeaderDashboard.Controls.Add(titleLabel)
         pnlHeaderDashboard.Controls.Add(usrName)
         pnlHeaderDashboard.Controls.Add(usrSuperAdmin)
         pnlHeaderDashboard.Controls.Add(hdrDashboard)
         pnlHeaderDashboard.Location = New Point(0, 0)
         pnlHeaderDashboard.Name = "pnlHeaderDashboard"
-        pnlHeaderDashboard.Size = New Size(1756, 72)
+        pnlHeaderDashboard.Size = New Size(1814, 72)
         pnlHeaderDashboard.TabIndex = 2
         ' 
-        ' dashboardDateLabel
+        ' Label1
         ' 
-        dashboardDateLabel.Anchor = AnchorStyles.Top Or AnchorStyles.Right
-        dashboardDateLabel.BackColor = Color.FromArgb(CByte(226), CByte(238), CByte(231))
-        dashboardDateLabel.Font = New Font("Segoe UI", 8.0F, FontStyle.Bold)
-        dashboardDateLabel.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        dashboardDateLabel.Location = New Point(1380, 20)
-        dashboardDateLabel.Name = "dashboardDateLabel"
-        dashboardDateLabel.Size = New Size(300, 32)
-        dashboardDateLabel.TabIndex = 9
-        dashboardDateLabel.Text = "Today"
-        dashboardDateLabel.TextAlign = ContentAlignment.MiddleCenter
+        Label1.BackColor = Color.Transparent
+        Label1.Font = New Font("Segoe UI", 8F, FontStyle.Bold)
+        Label1.ForeColor = Color.White
+        Label1.Location = New Point(867, 2)
+        Label1.Name = "Label1"
+        Label1.Size = New Size(80, 68)
+        Label1.TabIndex = 10
+        Label1.Text = "Cabrera's" & vbCrLf & "Drugstore and Medical Supplies"
         ' 
         ' subtitleLabel
         ' 
         subtitleLabel.AutoSize = True
-        subtitleLabel.Font = New Font("Segoe UI", 8.0F)
+        subtitleLabel.Font = New Font("Segoe UI", 8F)
         subtitleLabel.ForeColor = Color.Gray
         subtitleLabel.Location = New Point(20, 43)
         subtitleLabel.Name = "subtitleLabel"
-        subtitleLabel.Size = New Size(369, 20)
+        subtitleLabel.Size = New Size(287, 13)
         subtitleLabel.TabIndex = 9
         subtitleLabel.Text = "Overview of Cabrera's Drugstore and Medical Supplies"
-        ' 
-        ' titleLabel
-        ' 
-        titleLabel.AutoSize = True
-        titleLabel.Font = New Font("Segoe UI", 18.0F, FontStyle.Bold)
-        titleLabel.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        titleLabel.Location = New Point(20, 6)
-        titleLabel.Name = "titleLabel"
-        titleLabel.Size = New Size(184, 45)
-        titleLabel.TabIndex = 8
-        titleLabel.Text = "Dashboard"
         ' 
         ' usrName
         ' 
         usrName.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         usrName.BackColor = Color.White
         usrName.BorderStyle = BorderStyle.None
-        usrName.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
-        usrName.Location = New Point(1454, 35)
+        usrName.Font = New Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        usrName.Location = New Point(1512, 35)
         usrName.Name = "usrName"
         usrName.Size = New Size(220, 16)
         usrName.TabIndex = 7
@@ -640,18 +642,18 @@ Partial Class SuperAdmin
         ' 
         usrSuperAdmin.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         usrSuperAdmin.AutoSize = True
-        usrSuperAdmin.Font = New Font("Segoe UI", 9.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        usrSuperAdmin.Font = New Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         usrSuperAdmin.ForeColor = Color.SeaGreen
-        usrSuperAdmin.Location = New Point(1454, 50)
+        usrSuperAdmin.Location = New Point(1512, 50)
         usrSuperAdmin.Name = "usrSuperAdmin"
-        usrSuperAdmin.Size = New Size(91, 12)
+        usrSuperAdmin.Size = New Size(122, 15)
         usrSuperAdmin.TabIndex = 5
         usrSuperAdmin.Text = "Super Admin / Owner"
         ' 
         ' hdrDashboard
         ' 
         hdrDashboard.AutoSize = True
-        hdrDashboard.Font = New Font("Segoe UI", 24.0F, FontStyle.Bold)
+        hdrDashboard.Font = New Font("Segoe UI", 24F, FontStyle.Bold)
         hdrDashboard.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
         hdrDashboard.Location = New Point(20, 6)
         hdrDashboard.Name = "hdrDashboard"
@@ -659,20 +661,33 @@ Partial Class SuperAdmin
         hdrDashboard.TabIndex = 0
         hdrDashboard.Text = "Dashboard"
         ' 
+        ' dashboardDateLabel
+        ' 
+        dashboardDateLabel.Anchor = AnchorStyles.Top Or AnchorStyles.Right
+        dashboardDateLabel.BackColor = Color.FromArgb(CByte(226), CByte(238), CByte(231))
+        dashboardDateLabel.Font = New Font("Segoe UI", 8F, FontStyle.Bold)
+        dashboardDateLabel.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
+        dashboardDateLabel.Location = New Point(1438, 20)
+        dashboardDateLabel.Name = "dashboardDateLabel"
+        dashboardDateLabel.Size = New Size(300, 32)
+        dashboardDateLabel.TabIndex = 9
+        dashboardDateLabel.Text = "Today"
+        dashboardDateLabel.TextAlign = ContentAlignment.MiddleCenter
+        ' 
         ' TableLayoutPanel4
         ' 
         TableLayoutPanel4.Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right
         TableLayoutPanel4.ColumnCount = 2
-        TableLayoutPanel4.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 60.0F))
-        TableLayoutPanel4.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 40.0F))
+        TableLayoutPanel4.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 60F))
+        TableLayoutPanel4.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 40F))
         TableLayoutPanel4.Controls.Add(Panel11, 0, 0)
         TableLayoutPanel4.Controls.Add(Panel12, 1, 0)
         TableLayoutPanel4.Location = New Point(14, 330)
         TableLayoutPanel4.Margin = New Padding(0)
         TableLayoutPanel4.Name = "TableLayoutPanel4"
         TableLayoutPanel4.RowCount = 1
-        TableLayoutPanel4.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
-        TableLayoutPanel4.Size = New Size(1728, 245)
+        TableLayoutPanel4.RowStyles.Add(New RowStyle(SizeType.Percent, 100F))
+        TableLayoutPanel4.Size = New Size(1786, 245)
         TableLayoutPanel4.TabIndex = 8
         ' 
         ' Panel11
@@ -684,62 +699,40 @@ Partial Class SuperAdmin
         Panel11.Controls.Add(salesTrendLegendLabel)
         Panel11.Controls.Add(salesTrendTitleLabel)
         Panel11.Dock = DockStyle.Fill
-        Panel11.Location = New Point(3, 3)
-        Panel11.Name = "Panel11"
+        Panel11.Location = New Point(0, 0)
         Panel11.Margin = New Padding(0, 0, 10, 0)
-        Panel11.Size = New Size(680, 300)
+        Panel11.Name = "Panel11"
+        Panel11.Size = New Size(1061, 245)
         Panel11.TabIndex = 0
         ' 
-        ' Panel12
+        ' salesTrendPlot
         ' 
-        Panel12.BackColor = Color.White
-        Panel12.BorderStyle = BorderStyle.FixedSingle
-        Panel12.Controls.Add(revenueNetIncomeLabel)
-        Panel12.Controls.Add(revenueTitleLabel)
-        Panel12.Dock = DockStyle.Fill
-        Panel12.Location = New Point(689, 3)
-        Panel12.Name = "Panel12"
-        Panel12.Margin = New Padding(0)
-        Panel12.Size = New Size(682, 300)
-        Panel12.TabIndex = 1
-        ' 
-        ' salesTrendTitleLabel
-        ' 
-        salesTrendTitleLabel.Font = New Font("Segoe UI", 11.0F, FontStyle.Bold)
-        salesTrendTitleLabel.Location = New Point(16, 10)
-        salesTrendTitleLabel.Name = "salesTrendTitleLabel"
-        salesTrendTitleLabel.Size = New Size(160, 24)
-        salesTrendTitleLabel.TabIndex = 0
-        salesTrendTitleLabel.Text = "Sales Trend"
-        ' 
-        ' salesTrendLegendLabel
-        ' 
-        salesTrendLegendLabel.Font = New Font("Segoe UI", 8.0F)
-        salesTrendLegendLabel.ForeColor = Color.DimGray
-        salesTrendLegendLabel.Location = New Point(16, 38)
-        salesTrendLegendLabel.Name = "salesTrendLegendLabel"
-        salesTrendLegendLabel.Size = New Size(260, 18)
-        salesTrendLegendLabel.TabIndex = 1
-        salesTrendLegendLabel.Text = "Sales    Expenses unavailable"
+        salesTrendPlot.Anchor = AnchorStyles.Top Or AnchorStyles.Bottom Or AnchorStyles.Left Or AnchorStyles.Right
+        salesTrendPlot.BackColor = Color.White
+        salesTrendPlot.Location = New Point(16, 62)
+        salesTrendPlot.Name = "salesTrendPlot"
+        salesTrendPlot.Size = New Size(1365, 110)
+        salesTrendPlot.TabIndex = 3
         ' 
         ' trendFiltersPanel
         ' 
         trendFiltersPanel.Anchor = AnchorStyles.Top Or AnchorStyles.Right
+        trendFiltersPanel.Controls.Add(trendThisYearButton)
+        trendFiltersPanel.Controls.Add(trendThisMonthButton)
+        trendFiltersPanel.Controls.Add(trend7DaysButton)
         trendFiltersPanel.FlowDirection = FlowDirection.RightToLeft
-        trendFiltersPanel.Location = New Point(610, 8)
+        trendFiltersPanel.Location = New Point(762, 6)
         trendFiltersPanel.Name = "trendFiltersPanel"
         trendFiltersPanel.Size = New Size(290, 28)
         trendFiltersPanel.TabIndex = 2
         trendFiltersPanel.WrapContents = False
-        trendFiltersPanel.Controls.Add(trendThisYearButton)
-        trendFiltersPanel.Controls.Add(trendThisMonthButton)
-        trendFiltersPanel.Controls.Add(trend7DaysButton)
         ' 
         ' trendThisYearButton
         ' 
         trendThisYearButton.BackColor = Color.White
         trendThisYearButton.FlatStyle = FlatStyle.Flat
-        trendThisYearButton.Font = New Font("Segoe UI", 7.0F)
+        trendThisYearButton.Font = New Font("Segoe UI", 7F)
+        trendThisYearButton.Location = New Point(211, 3)
         trendThisYearButton.Name = "trendThisYearButton"
         trendThisYearButton.Size = New Size(76, 24)
         trendThisYearButton.TabIndex = 2
@@ -751,7 +744,8 @@ Partial Class SuperAdmin
         ' 
         trendThisMonthButton.BackColor = Color.White
         trendThisMonthButton.FlatStyle = FlatStyle.Flat
-        trendThisMonthButton.Font = New Font("Segoe UI", 7.0F)
+        trendThisMonthButton.Font = New Font("Segoe UI", 7F)
+        trendThisMonthButton.Location = New Point(129, 3)
         trendThisMonthButton.Name = "trendThisMonthButton"
         trendThisMonthButton.Size = New Size(76, 24)
         trendThisMonthButton.TabIndex = 1
@@ -763,8 +757,9 @@ Partial Class SuperAdmin
         ' 
         trend7DaysButton.BackColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
         trend7DaysButton.FlatStyle = FlatStyle.Flat
-        trend7DaysButton.Font = New Font("Segoe UI", 7.0F)
+        trend7DaysButton.Font = New Font("Segoe UI", 7F)
         trend7DaysButton.ForeColor = Color.White
+        trend7DaysButton.Location = New Point(59, 3)
         trend7DaysButton.Name = "trend7DaysButton"
         trend7DaysButton.Size = New Size(64, 24)
         trend7DaysButton.TabIndex = 0
@@ -772,36 +767,59 @@ Partial Class SuperAdmin
         trend7DaysButton.Text = "7 Days"
         trend7DaysButton.UseVisualStyleBackColor = False
         ' 
-        ' salesTrendPlot
+        ' salesTrendLegendLabel
         ' 
-        salesTrendPlot.Anchor = AnchorStyles.Top Or AnchorStyles.Bottom Or AnchorStyles.Left Or AnchorStyles.Right
-        salesTrendPlot.BackColor = Color.White
-        salesTrendPlot.Location = New Point(16, 62)
-        salesTrendPlot.Name = "salesTrendPlot"
-        salesTrendPlot.Size = New Size(984, 165)
-        salesTrendPlot.TabIndex = 3
+        salesTrendLegendLabel.Font = New Font("Segoe UI", 8F)
+        salesTrendLegendLabel.ForeColor = Color.DimGray
+        salesTrendLegendLabel.Location = New Point(16, 38)
+        salesTrendLegendLabel.Name = "salesTrendLegendLabel"
+        salesTrendLegendLabel.Size = New Size(260, 18)
+        salesTrendLegendLabel.TabIndex = 1
+        salesTrendLegendLabel.Text = "Sales    Expenses unavailable"
         ' 
-        ' revenueTitleLabel
+        ' salesTrendTitleLabel
         ' 
-        revenueTitleLabel.Font = New Font("Segoe UI", 11.0F, FontStyle.Bold)
-        revenueTitleLabel.Location = New Point(16, 10)
-        revenueTitleLabel.Name = "revenueTitleLabel"
-        revenueTitleLabel.Size = New Size(250, 24)
-        revenueTitleLabel.TabIndex = 0
-        revenueTitleLabel.Text = "Revenue vs. Expenses"
+        salesTrendTitleLabel.Font = New Font("Segoe UI", 11F, FontStyle.Bold)
+        salesTrendTitleLabel.Location = New Point(16, 10)
+        salesTrendTitleLabel.Name = "salesTrendTitleLabel"
+        salesTrendTitleLabel.Size = New Size(160, 24)
+        salesTrendTitleLabel.TabIndex = 0
+        salesTrendTitleLabel.Text = "Sales Trend"
+        ' 
+        ' Panel12
+        ' 
+        Panel12.BackColor = Color.White
+        Panel12.BorderStyle = BorderStyle.FixedSingle
+        Panel12.Controls.Add(revenueNetIncomeLabel)
+        Panel12.Controls.Add(revenueTitleLabel)
+        Panel12.Dock = DockStyle.Fill
+        Panel12.Location = New Point(1071, 0)
+        Panel12.Margin = New Padding(0)
+        Panel12.Name = "Panel12"
+        Panel12.Size = New Size(715, 245)
+        Panel12.TabIndex = 1
         ' 
         ' revenueNetIncomeLabel
         ' 
         revenueNetIncomeLabel.Anchor = AnchorStyles.Bottom Or AnchorStyles.Left Or AnchorStyles.Right
         revenueNetIncomeLabel.BackColor = Color.FromArgb(CByte(226), CByte(238), CByte(231))
-        revenueNetIncomeLabel.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
+        revenueNetIncomeLabel.Font = New Font("Segoe UI", 9F, FontStyle.Bold)
         revenueNetIncomeLabel.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        revenueNetIncomeLabel.Location = New Point(16, 197)
+        revenueNetIncomeLabel.Location = New Point(16, 141)
         revenueNetIncomeLabel.Name = "revenueNetIncomeLabel"
-        revenueNetIncomeLabel.Size = New Size(648, 36)
+        revenueNetIncomeLabel.Size = New Size(681, 36)
         revenueNetIncomeLabel.TabIndex = 1
         revenueNetIncomeLabel.Text = "Net income unavailable without expense records"
         revenueNetIncomeLabel.TextAlign = ContentAlignment.MiddleCenter
+        ' 
+        ' revenueTitleLabel
+        ' 
+        revenueTitleLabel.Font = New Font("Segoe UI", 11F, FontStyle.Bold)
+        revenueTitleLabel.Location = New Point(16, 10)
+        revenueTitleLabel.Name = "revenueTitleLabel"
+        revenueTitleLabel.Size = New Size(250, 24)
+        revenueTitleLabel.TabIndex = 0
+        revenueTitleLabel.Text = "Revenue vs. Expenses"
         ' 
         ' TableLayoutPanel1
         ' 
@@ -818,8 +836,8 @@ Partial Class SuperAdmin
         TableLayoutPanel1.Location = New Point(14, 102)
         TableLayoutPanel1.Name = "TableLayoutPanel1"
         TableLayoutPanel1.RowCount = 1
-        TableLayoutPanel1.RowStyles.Add(New RowStyle(SizeType.Percent, 50.0F))
-        TableLayoutPanel1.Size = New Size(1728, 104)
+        TableLayoutPanel1.RowStyles.Add(New RowStyle(SizeType.Percent, 50F))
+        TableLayoutPanel1.Size = New Size(1786, 104)
         TableLayoutPanel1.TabIndex = 3
         ' 
         ' Panel1
@@ -831,7 +849,7 @@ Partial Class SuperAdmin
         Panel1.Dock = DockStyle.Fill
         Panel1.Location = New Point(3, 3)
         Panel1.Name = "Panel1"
-        Panel1.Size = New Size(337, 111)
+        Panel1.Size = New Size(440, 98)
         Panel1.TabIndex = 0
         ' 
         ' todaysSale
@@ -874,9 +892,9 @@ Partial Class SuperAdmin
         Panel2.Controls.Add(TextBox3)
         Panel2.Controls.Add(TextBox2)
         Panel2.Dock = DockStyle.Fill
-        Panel2.Location = New Point(346, 3)
+        Panel2.Location = New Point(449, 3)
         Panel2.Name = "Panel2"
-        Panel2.Size = New Size(337, 111)
+        Panel2.Size = New Size(440, 98)
         Panel2.TabIndex = 1
         ' 
         ' transactionRetail
@@ -919,9 +937,9 @@ Partial Class SuperAdmin
         Panel3.Controls.Add(TextBox6)
         Panel3.Controls.Add(TextBox5)
         Panel3.Dock = DockStyle.Fill
-        Panel3.Location = New Point(689, 3)
+        Panel3.Location = New Point(895, 3)
         Panel3.Name = "Panel3"
-        Panel3.Size = New Size(337, 111)
+        Panel3.Size = New Size(440, 98)
         Panel3.TabIndex = 2
         ' 
         ' transactionsWholesale
@@ -964,9 +982,9 @@ Partial Class SuperAdmin
         Panel4.Controls.Add(TextBox15)
         Panel4.Controls.Add(TextBox14)
         Panel4.Dock = DockStyle.Fill
-        Panel4.Location = New Point(1032, 3)
+        Panel4.Location = New Point(1341, 3)
         Panel4.Name = "Panel4"
-        Panel4.Size = New Size(339, 111)
+        Panel4.Size = New Size(442, 98)
         Panel4.TabIndex = 3
         ' 
         ' allCategories
@@ -1017,9 +1035,9 @@ Partial Class SuperAdmin
         TableLayoutPanel2.Location = New Point(14, 214)
         TableLayoutPanel2.Name = "TableLayoutPanel2"
         TableLayoutPanel2.RowCount = 1
-        TableLayoutPanel2.RowStyles.Add(New RowStyle(SizeType.Percent, 50.0F))
-        TableLayoutPanel2.RowStyles.Add(New RowStyle(SizeType.Absolute, 117.0F))
-        TableLayoutPanel2.Size = New Size(1728, 104)
+        TableLayoutPanel2.RowStyles.Add(New RowStyle(SizeType.Percent, 50F))
+        TableLayoutPanel2.RowStyles.Add(New RowStyle(SizeType.Absolute, 104F))
+        TableLayoutPanel2.Size = New Size(1786, 104)
         TableLayoutPanel2.TabIndex = 7
         ' 
         ' Panel5
@@ -1031,7 +1049,7 @@ Partial Class SuperAdmin
         Panel5.Dock = DockStyle.Fill
         Panel5.Location = New Point(3, 3)
         Panel5.Name = "Panel5"
-        Panel5.Size = New Size(337, 111)
+        Panel5.Size = New Size(440, 98)
         Panel5.TabIndex = 0
         ' 
         ' needOrdering
@@ -1074,9 +1092,9 @@ Partial Class SuperAdmin
         Panel6.Controls.Add(TextBox12)
         Panel6.Controls.Add(TextBox11)
         Panel6.Dock = DockStyle.Fill
-        Panel6.Location = New Point(346, 3)
+        Panel6.Location = New Point(449, 3)
         Panel6.Name = "Panel6"
-        Panel6.Size = New Size(337, 111)
+        Panel6.Size = New Size(440, 98)
         Panel6.TabIndex = 1
         ' 
         ' days
@@ -1119,9 +1137,9 @@ Partial Class SuperAdmin
         Panel7.Controls.Add(TextBox19)
         Panel7.Controls.Add(TextBox17)
         Panel7.Dock = DockStyle.Fill
-        Panel7.Location = New Point(689, 3)
+        Panel7.Location = New Point(895, 3)
         Panel7.Name = "Panel7"
-        Panel7.Size = New Size(337, 111)
+        Panel7.Size = New Size(440, 98)
         Panel7.TabIndex = 2
         ' 
         ' requiresDisposal
@@ -1164,9 +1182,9 @@ Partial Class SuperAdmin
         Panel8.Controls.Add(TextBox20)
         Panel8.Controls.Add(TextBox18)
         Panel8.Dock = DockStyle.Fill
-        Panel8.Location = New Point(1032, 3)
+        Panel8.Location = New Point(1341, 3)
         Panel8.Name = "Panel8"
-        Panel8.Size = New Size(339, 111)
+        Panel8.Size = New Size(442, 98)
         Panel8.TabIndex = 3
         ' 
         ' expensesRecorded
@@ -1206,16 +1224,16 @@ Partial Class SuperAdmin
         ' 
         TableLayoutPanel3.Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right
         TableLayoutPanel3.ColumnCount = 2
-        TableLayoutPanel3.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 60.0F))
-        TableLayoutPanel3.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 40.0F))
+        TableLayoutPanel3.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 60F))
+        TableLayoutPanel3.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 40F))
         TableLayoutPanel3.Controls.Add(Panel9, 0, 0)
         TableLayoutPanel3.Controls.Add(Panel10, 1, 0)
         TableLayoutPanel3.Location = New Point(14, 585)
         TableLayoutPanel3.Margin = New Padding(0)
         TableLayoutPanel3.Name = "TableLayoutPanel3"
         TableLayoutPanel3.RowCount = 1
-        TableLayoutPanel3.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
-        TableLayoutPanel3.Size = New Size(1728, 190)
+        TableLayoutPanel3.RowStyles.Add(New RowStyle(SizeType.Percent, 100F))
+        TableLayoutPanel3.Size = New Size(1786, 190)
         TableLayoutPanel3.TabIndex = 5
         ' 
         ' Panel9
@@ -1228,35 +1246,15 @@ Partial Class SuperAdmin
         Panel9.Controls.Add(inventoryAlertNearExpiry)
         Panel9.Controls.Add(inventoryAlertExpired)
         Panel9.Dock = DockStyle.Fill
-        Panel9.Location = New Point(3, 3)
-        Panel9.Name = "Panel9"
+        Panel9.Location = New Point(0, 0)
         Panel9.Margin = New Padding(0, 0, 10, 0)
-        Panel9.Size = New Size(1020, 190)
+        Panel9.Name = "Panel9"
+        Panel9.Size = New Size(1061, 190)
         Panel9.TabIndex = 0
-        ' 
-        ' Panel10
-        ' 
-        Panel10.BackColor = Color.White
-        Panel10.BorderStyle = BorderStyle.FixedSingle
-        Panel10.Controls.Add(quickOverviewTitleLabel)
-        Panel10.Controls.Add(quickOverviewRestockLabel)
-        Panel10.Controls.Add(quickOverviewRestockValue)
-        Panel10.Controls.Add(quickOverviewExpiryLabel)
-        Panel10.Controls.Add(quickOverviewExpiryValue)
-        Panel10.Controls.Add(quickOverviewTransactionsLabel)
-        Panel10.Controls.Add(quickOverviewTransactionsValue)
-        Panel10.Controls.Add(quickOverviewSeparator1)
-        Panel10.Controls.Add(quickOverviewSeparator2)
-        Panel10.Dock = DockStyle.Fill
-        Panel10.Location = New Point(689, 3)
-        Panel10.Name = "Panel10"
-        Panel10.Margin = New Padding(0)
-        Panel10.Size = New Size(680, 190)
-        Panel10.TabIndex = 1
         ' 
         ' inventoryAlertsTitleLabel
         ' 
-        inventoryAlertsTitleLabel.Font = New Font("Segoe UI", 11.0F, FontStyle.Bold)
+        inventoryAlertsTitleLabel.Font = New Font("Segoe UI", 11F, FontStyle.Bold)
         inventoryAlertsTitleLabel.Location = New Point(16, 10)
         inventoryAlertsTitleLabel.Name = "inventoryAlertsTitleLabel"
         inventoryAlertsTitleLabel.Size = New Size(220, 24)
@@ -1268,7 +1266,7 @@ Partial Class SuperAdmin
         inventoryViewAllLink.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         inventoryViewAllLink.AutoSize = True
         inventoryViewAllLink.LinkColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        inventoryViewAllLink.Location = New Point(700, 14)
+        inventoryViewAllLink.Location = New Point(741, 14)
         inventoryViewAllLink.Name = "inventoryViewAllLink"
         inventoryViewAllLink.Size = New Size(62, 15)
         inventoryViewAllLink.TabIndex = 1
@@ -1289,7 +1287,7 @@ Partial Class SuperAdmin
         ' inventoryAlertLowStockCount
         ' 
         inventoryAlertLowStockCount.Dock = DockStyle.Top
-        inventoryAlertLowStockCount.Font = New Font("Segoe UI", 18.0F, FontStyle.Bold)
+        inventoryAlertLowStockCount.Font = New Font("Segoe UI", 18F, FontStyle.Bold)
         inventoryAlertLowStockCount.ForeColor = Color.FromArgb(CByte(95), CByte(75), CByte(0))
         inventoryAlertLowStockCount.Location = New Point(0, 0)
         inventoryAlertLowStockCount.Name = "inventoryAlertLowStockCount"
@@ -1301,10 +1299,11 @@ Partial Class SuperAdmin
         ' inventoryAlertLowStockCaption
         ' 
         inventoryAlertLowStockCaption.Dock = DockStyle.Fill
-        inventoryAlertLowStockCaption.Font = New Font("Segoe UI", 8.0F)
+        inventoryAlertLowStockCaption.Font = New Font("Segoe UI", 8F)
         inventoryAlertLowStockCaption.ForeColor = Color.FromArgb(CByte(95), CByte(75), CByte(0))
+        inventoryAlertLowStockCaption.Location = New Point(0, 0)
         inventoryAlertLowStockCaption.Name = "inventoryAlertLowStockCaption"
-        inventoryAlertLowStockCaption.Size = New Size(158, 90)
+        inventoryAlertLowStockCaption.Size = New Size(158, 124)
         inventoryAlertLowStockCaption.TabIndex = 1
         inventoryAlertLowStockCaption.Text = "Low Stock" & vbCrLf & "Restock soon"
         inventoryAlertLowStockCaption.TextAlign = ContentAlignment.MiddleCenter
@@ -1323,7 +1322,7 @@ Partial Class SuperAdmin
         ' inventoryAlertNearExpiryCount
         ' 
         inventoryAlertNearExpiryCount.Dock = DockStyle.Top
-        inventoryAlertNearExpiryCount.Font = New Font("Segoe UI", 18.0F, FontStyle.Bold)
+        inventoryAlertNearExpiryCount.Font = New Font("Segoe UI", 18F, FontStyle.Bold)
         inventoryAlertNearExpiryCount.ForeColor = Color.FromArgb(CByte(95), CByte(75), CByte(0))
         inventoryAlertNearExpiryCount.Location = New Point(0, 0)
         inventoryAlertNearExpiryCount.Name = "inventoryAlertNearExpiryCount"
@@ -1335,10 +1334,11 @@ Partial Class SuperAdmin
         ' inventoryAlertNearExpiryCaption
         ' 
         inventoryAlertNearExpiryCaption.Dock = DockStyle.Fill
-        inventoryAlertNearExpiryCaption.Font = New Font("Segoe UI", 8.0F)
+        inventoryAlertNearExpiryCaption.Font = New Font("Segoe UI", 8F)
         inventoryAlertNearExpiryCaption.ForeColor = Color.FromArgb(CByte(95), CByte(75), CByte(0))
+        inventoryAlertNearExpiryCaption.Location = New Point(0, 0)
         inventoryAlertNearExpiryCaption.Name = "inventoryAlertNearExpiryCaption"
-        inventoryAlertNearExpiryCaption.Size = New Size(158, 90)
+        inventoryAlertNearExpiryCaption.Size = New Size(158, 124)
         inventoryAlertNearExpiryCaption.TabIndex = 1
         inventoryAlertNearExpiryCaption.Text = "Near Expiry" & vbCrLf & "Check expiry dates"
         inventoryAlertNearExpiryCaption.TextAlign = ContentAlignment.MiddleCenter
@@ -1357,7 +1357,7 @@ Partial Class SuperAdmin
         ' inventoryAlertExpiredCount
         ' 
         inventoryAlertExpiredCount.Dock = DockStyle.Top
-        inventoryAlertExpiredCount.Font = New Font("Segoe UI", 18.0F, FontStyle.Bold)
+        inventoryAlertExpiredCount.Font = New Font("Segoe UI", 18F, FontStyle.Bold)
         inventoryAlertExpiredCount.ForeColor = Color.FromArgb(CByte(145), CByte(45), CByte(45))
         inventoryAlertExpiredCount.Location = New Point(0, 0)
         inventoryAlertExpiredCount.Name = "inventoryAlertExpiredCount"
@@ -1369,17 +1369,38 @@ Partial Class SuperAdmin
         ' inventoryAlertExpiredCaption
         ' 
         inventoryAlertExpiredCaption.Dock = DockStyle.Fill
-        inventoryAlertExpiredCaption.Font = New Font("Segoe UI", 8.0F)
+        inventoryAlertExpiredCaption.Font = New Font("Segoe UI", 8F)
         inventoryAlertExpiredCaption.ForeColor = Color.FromArgb(CByte(145), CByte(45), CByte(45))
+        inventoryAlertExpiredCaption.Location = New Point(0, 0)
         inventoryAlertExpiredCaption.Name = "inventoryAlertExpiredCaption"
-        inventoryAlertExpiredCaption.Size = New Size(158, 90)
+        inventoryAlertExpiredCaption.Size = New Size(158, 124)
         inventoryAlertExpiredCaption.TabIndex = 1
         inventoryAlertExpiredCaption.Text = "Expired" & vbCrLf & "Remove from stock"
         inventoryAlertExpiredCaption.TextAlign = ContentAlignment.MiddleCenter
         ' 
+        ' Panel10
+        ' 
+        Panel10.BackColor = Color.White
+        Panel10.BorderStyle = BorderStyle.FixedSingle
+        Panel10.Controls.Add(quickOverviewTitleLabel)
+        Panel10.Controls.Add(quickOverviewRestockLabel)
+        Panel10.Controls.Add(quickOverviewRestockValue)
+        Panel10.Controls.Add(quickOverviewExpiryLabel)
+        Panel10.Controls.Add(quickOverviewExpiryValue)
+        Panel10.Controls.Add(quickOverviewTransactionsLabel)
+        Panel10.Controls.Add(quickOverviewTransactionsValue)
+        Panel10.Controls.Add(quickOverviewSeparator1)
+        Panel10.Controls.Add(quickOverviewSeparator2)
+        Panel10.Dock = DockStyle.Fill
+        Panel10.Location = New Point(1071, 0)
+        Panel10.Margin = New Padding(0)
+        Panel10.Name = "Panel10"
+        Panel10.Size = New Size(715, 190)
+        Panel10.TabIndex = 1
+        ' 
         ' quickOverviewTitleLabel
         ' 
-        quickOverviewTitleLabel.Font = New Font("Segoe UI", 11.0F, FontStyle.Bold)
+        quickOverviewTitleLabel.Font = New Font("Segoe UI", 11F, FontStyle.Bold)
         quickOverviewTitleLabel.Location = New Point(16, 10)
         quickOverviewTitleLabel.Name = "quickOverviewTitleLabel"
         quickOverviewTitleLabel.Size = New Size(220, 24)
@@ -1398,7 +1419,7 @@ Partial Class SuperAdmin
         ' quickOverviewRestockValue
         ' 
         quickOverviewRestockValue.Anchor = AnchorStyles.Top Or AnchorStyles.Right
-        quickOverviewRestockValue.Location = New Point(370, 44)
+        quickOverviewRestockValue.Location = New Point(405, 44)
         quickOverviewRestockValue.Name = "quickOverviewRestockValue"
         quickOverviewRestockValue.Size = New Size(180, 24)
         quickOverviewRestockValue.TabIndex = 2
@@ -1417,7 +1438,7 @@ Partial Class SuperAdmin
         ' quickOverviewExpiryValue
         ' 
         quickOverviewExpiryValue.Anchor = AnchorStyles.Top Or AnchorStyles.Right
-        quickOverviewExpiryValue.Location = New Point(370, 76)
+        quickOverviewExpiryValue.Location = New Point(405, 76)
         quickOverviewExpiryValue.Name = "quickOverviewExpiryValue"
         quickOverviewExpiryValue.Size = New Size(180, 24)
         quickOverviewExpiryValue.TabIndex = 4
@@ -1436,7 +1457,7 @@ Partial Class SuperAdmin
         ' quickOverviewTransactionsValue
         ' 
         quickOverviewTransactionsValue.Anchor = AnchorStyles.Top Or AnchorStyles.Right
-        quickOverviewTransactionsValue.Location = New Point(370, 108)
+        quickOverviewTransactionsValue.Location = New Point(405, 108)
         quickOverviewTransactionsValue.Name = "quickOverviewTransactionsValue"
         quickOverviewTransactionsValue.Size = New Size(180, 24)
         quickOverviewTransactionsValue.TabIndex = 6
@@ -1472,7 +1493,7 @@ Partial Class SuperAdmin
         pnlReports.Dock = DockStyle.Fill
         pnlReports.Location = New Point(0, 0)
         pnlReports.Name = "pnlReports"
-        pnlReports.Size = New Size(1698, 1055)
+        pnlReports.Size = New Size(1756, 1055)
         pnlReports.TabIndex = 10
         ' 
         ' TableLayoutPanel9
@@ -1481,14 +1502,14 @@ Partial Class SuperAdmin
         TableLayoutPanel9.ColumnCount = 2
         TableLayoutPanel9.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 49.99999F))
         TableLayoutPanel9.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 50.00002F))
-        TableLayoutPanel9.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 20.0F))
+        TableLayoutPanel9.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 20F))
         TableLayoutPanel9.Controls.Add(Panel23, 0, 0)
         TableLayoutPanel9.Location = New Point(271, 599)
         TableLayoutPanel9.Name = "TableLayoutPanel9"
         TableLayoutPanel9.RowCount = 1
-        TableLayoutPanel9.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
-        TableLayoutPanel9.RowStyles.Add(New RowStyle(SizeType.Absolute, 117.0F))
-        TableLayoutPanel9.Size = New Size(1374, 117)
+        TableLayoutPanel9.RowStyles.Add(New RowStyle(SizeType.Percent, 100F))
+        TableLayoutPanel9.RowStyles.Add(New RowStyle(SizeType.Absolute, 117F))
+        TableLayoutPanel9.Size = New Size(1432, 117)
         TableLayoutPanel9.TabIndex = 9
         ' 
         ' Panel23
@@ -1500,7 +1521,7 @@ Partial Class SuperAdmin
         Panel23.Dock = DockStyle.Fill
         Panel23.Location = New Point(3, 3)
         Panel23.Name = "Panel23"
-        Panel23.Size = New Size(680, 111)
+        Panel23.Size = New Size(709, 111)
         Panel23.TabIndex = 0
         ' 
         ' employeeViewReport
@@ -1508,7 +1529,7 @@ Partial Class SuperAdmin
         employeeViewReport.BackColor = Color.SeaGreen
         employeeViewReport.FlatAppearance.BorderSize = 0
         employeeViewReport.FlatStyle = FlatStyle.Flat
-        employeeViewReport.Font = New Font("Segoe UI Semibold", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        employeeViewReport.Font = New Font("Segoe UI Semibold", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         employeeViewReport.ForeColor = SystemColors.ControlLightLight
         employeeViewReport.Location = New Point(66, 64)
         employeeViewReport.Name = "employeeViewReport"
@@ -1521,7 +1542,7 @@ Partial Class SuperAdmin
         ' 
         employeeDescription.BackColor = SystemColors.ControlLightLight
         employeeDescription.BorderStyle = BorderStyle.None
-        employeeDescription.Font = New Font("Segoe UI", 12.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        employeeDescription.Font = New Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         employeeDescription.ForeColor = SystemColors.ControlDarkDark
         employeeDescription.Location = New Point(66, 39)
         employeeDescription.Name = "employeeDescription"
@@ -1547,15 +1568,15 @@ Partial Class SuperAdmin
         TableLayoutPanel7.ColumnCount = 2
         TableLayoutPanel7.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 49.99999F))
         TableLayoutPanel7.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 50.00002F))
-        TableLayoutPanel7.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 20.0F))
+        TableLayoutPanel7.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 20F))
         TableLayoutPanel7.Controls.Add(Panel19, 0, 0)
         TableLayoutPanel7.Controls.Add(Panel22, 1, 0)
         TableLayoutPanel7.Location = New Point(270, 479)
         TableLayoutPanel7.Name = "TableLayoutPanel7"
         TableLayoutPanel7.RowCount = 1
-        TableLayoutPanel7.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
-        TableLayoutPanel7.RowStyles.Add(New RowStyle(SizeType.Absolute, 117.0F))
-        TableLayoutPanel7.Size = New Size(1374, 117)
+        TableLayoutPanel7.RowStyles.Add(New RowStyle(SizeType.Percent, 100F))
+        TableLayoutPanel7.RowStyles.Add(New RowStyle(SizeType.Absolute, 117F))
+        TableLayoutPanel7.Size = New Size(1432, 117)
         TableLayoutPanel7.TabIndex = 8
         ' 
         ' Panel19
@@ -1567,7 +1588,7 @@ Partial Class SuperAdmin
         Panel19.Dock = DockStyle.Fill
         Panel19.Location = New Point(3, 3)
         Panel19.Name = "Panel19"
-        Panel19.Size = New Size(680, 111)
+        Panel19.Size = New Size(709, 111)
         Panel19.TabIndex = 0
         ' 
         ' expensesViewReport
@@ -1576,7 +1597,7 @@ Partial Class SuperAdmin
         expensesViewReport.Enabled = False
         expensesViewReport.FlatAppearance.BorderSize = 0
         expensesViewReport.FlatStyle = FlatStyle.Flat
-        expensesViewReport.Font = New Font("Segoe UI Semibold", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        expensesViewReport.Font = New Font("Segoe UI Semibold", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         expensesViewReport.ForeColor = SystemColors.ControlLightLight
         expensesViewReport.Location = New Point(66, 64)
         expensesViewReport.Name = "expensesViewReport"
@@ -1589,7 +1610,7 @@ Partial Class SuperAdmin
         ' 
         expensesDescriptions.BackColor = SystemColors.ControlLightLight
         expensesDescriptions.BorderStyle = BorderStyle.None
-        expensesDescriptions.Font = New Font("Segoe UI", 12.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        expensesDescriptions.Font = New Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         expensesDescriptions.ForeColor = SystemColors.ControlDarkDark
         expensesDescriptions.Location = New Point(0, 0)
         expensesDescriptions.Name = "expensesDescriptions"
@@ -1616,9 +1637,9 @@ Partial Class SuperAdmin
         Panel22.Controls.Add(financialDescriptions)
         Panel22.Controls.Add(financialTitle)
         Panel22.Dock = DockStyle.Fill
-        Panel22.Location = New Point(689, 3)
+        Panel22.Location = New Point(718, 3)
         Panel22.Name = "Panel22"
-        Panel22.Size = New Size(682, 111)
+        Panel22.Size = New Size(711, 111)
         Panel22.TabIndex = 1
         ' 
         ' financialViewReport
@@ -1626,7 +1647,7 @@ Partial Class SuperAdmin
         financialViewReport.BackColor = Color.SeaGreen
         financialViewReport.FlatAppearance.BorderSize = 0
         financialViewReport.FlatStyle = FlatStyle.Flat
-        financialViewReport.Font = New Font("Segoe UI Semibold", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        financialViewReport.Font = New Font("Segoe UI Semibold", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         financialViewReport.ForeColor = SystemColors.ControlLightLight
         financialViewReport.Location = New Point(59, 64)
         financialViewReport.Name = "financialViewReport"
@@ -1639,7 +1660,7 @@ Partial Class SuperAdmin
         ' 
         financialDescriptions.BackColor = SystemColors.ControlLightLight
         financialDescriptions.BorderStyle = BorderStyle.None
-        financialDescriptions.Font = New Font("Segoe UI", 12.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        financialDescriptions.Font = New Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         financialDescriptions.ForeColor = SystemColors.ControlDarkDark
         financialDescriptions.Location = New Point(58, 39)
         financialDescriptions.Name = "financialDescriptions"
@@ -1669,7 +1690,7 @@ Partial Class SuperAdmin
         pnlHeaderReports.Controls.Add(Label6)
         pnlHeaderReports.Location = New Point(0, 0)
         pnlHeaderReports.Name = "pnlHeaderReports"
-        pnlHeaderReports.Size = New Size(1756, 72)
+        pnlHeaderReports.Size = New Size(1814, 72)
         pnlHeaderReports.TabIndex = 4
         ' 
         ' TextBox24
@@ -1677,8 +1698,8 @@ Partial Class SuperAdmin
         TextBox24.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         TextBox24.BackColor = SystemColors.ControlLightLight
         TextBox24.BorderStyle = BorderStyle.None
-        TextBox24.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
-        TextBox24.Location = New Point(1308, 26)
+        TextBox24.Font = New Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        TextBox24.Location = New Point(1366, 26)
         TextBox24.Name = "TextBox24"
         TextBox24.Size = New Size(220, 16)
         TextBox24.TabIndex = 8
@@ -1689,11 +1710,11 @@ Partial Class SuperAdmin
         ' 
         Label4.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         Label4.AutoSize = True
-        Label4.Font = New Font("Segoe UI", 9.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        Label4.Font = New Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         Label4.ForeColor = Color.SeaGreen
-        Label4.Location = New Point(1335, 45)
+        Label4.Location = New Point(1393, 45)
         Label4.Name = "Label4"
-        Label4.Size = New Size(91, 12)
+        Label4.Size = New Size(122, 15)
         Label4.TabIndex = 9
         Label4.Text = "Super Admin / Owner"
         ' 
@@ -1701,22 +1722,22 @@ Partial Class SuperAdmin
         ' 
         Label5.AutoSize = True
         Label5.BackColor = Color.Transparent
-        Label5.Font = New Font("Segoe UI", 8.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        Label5.Font = New Font("Segoe UI", 8F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         Label5.ForeColor = Color.Gray
         Label5.Location = New Point(20, 43)
         Label5.Name = "Label5"
-        Label5.Size = New Size(241, 17)
+        Label5.Size = New Size(223, 13)
         Label5.TabIndex = 1
         Label5.Text = "Cabrera’s Drugstore and Medical Supplies"
         ' 
         ' Label6
         ' 
         Label6.AutoSize = True
-        Label6.Font = New Font("Segoe UI", 18.0F, FontStyle.Bold)
+        Label6.Font = New Font("Segoe UI", 18F, FontStyle.Bold)
         Label6.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
         Label6.Location = New Point(20, 6)
         Label6.Name = "Label6"
-        Label6.Size = New Size(157, 45)
+        Label6.Size = New Size(120, 32)
         Label6.TabIndex = 0
         Label6.Text = "Accounts"
         ' 
@@ -1728,14 +1749,14 @@ Partial Class SuperAdmin
         Panel16.Controls.Add(titleBusinessReports)
         Panel16.Location = New Point(14, 147)
         Panel16.Name = "Panel16"
-        Panel16.Size = New Size(1670, 76)
+        Panel16.Size = New Size(1728, 76)
         Panel16.TabIndex = 7
         ' 
         ' reportsDescription
         ' 
         reportsDescription.BackColor = SystemColors.ControlLightLight
         reportsDescription.BorderStyle = BorderStyle.None
-        reportsDescription.Font = New Font("Segoe UI", 12.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        reportsDescription.Font = New Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         reportsDescription.ForeColor = SystemColors.ControlDarkDark
         reportsDescription.Location = New Point(18, 53)
         reportsDescription.Name = "reportsDescription"
@@ -1761,15 +1782,15 @@ Partial Class SuperAdmin
         TableLayoutPanel8.ColumnCount = 2
         TableLayoutPanel8.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 49.99999F))
         TableLayoutPanel8.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 50.00002F))
-        TableLayoutPanel8.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 20.0F))
+        TableLayoutPanel8.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 20F))
         TableLayoutPanel8.Controls.Add(Panel20, 0, 0)
         TableLayoutPanel8.Controls.Add(Panel21, 1, 0)
         TableLayoutPanel8.Location = New Point(14, 235)
         TableLayoutPanel8.Name = "TableLayoutPanel8"
         TableLayoutPanel8.RowCount = 1
-        TableLayoutPanel8.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
-        TableLayoutPanel8.RowStyles.Add(New RowStyle(SizeType.Absolute, 117.0F))
-        TableLayoutPanel8.Size = New Size(1670, 124)
+        TableLayoutPanel8.RowStyles.Add(New RowStyle(SizeType.Percent, 100F))
+        TableLayoutPanel8.RowStyles.Add(New RowStyle(SizeType.Absolute, 124F))
+        TableLayoutPanel8.Size = New Size(1728, 124)
         TableLayoutPanel8.TabIndex = 6
         ' 
         ' Panel20
@@ -1781,7 +1802,7 @@ Partial Class SuperAdmin
         Panel20.Dock = DockStyle.Fill
         Panel20.Location = New Point(3, 3)
         Panel20.Name = "Panel20"
-        Panel20.Size = New Size(828, 118)
+        Panel20.Size = New Size(857, 118)
         Panel20.TabIndex = 0
         ' 
         ' inventoryViewReport
@@ -1789,7 +1810,7 @@ Partial Class SuperAdmin
         inventoryViewReport.BackColor = Color.SeaGreen
         inventoryViewReport.FlatAppearance.BorderSize = 0
         inventoryViewReport.FlatStyle = FlatStyle.Flat
-        inventoryViewReport.Font = New Font("Segoe UI Semibold", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        inventoryViewReport.Font = New Font("Segoe UI Semibold", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         inventoryViewReport.ForeColor = SystemColors.ControlLightLight
         inventoryViewReport.Location = New Point(66, 64)
         inventoryViewReport.Name = "inventoryViewReport"
@@ -1802,7 +1823,7 @@ Partial Class SuperAdmin
         ' 
         inventoryDescriptions.BackColor = SystemColors.ControlLightLight
         inventoryDescriptions.BorderStyle = BorderStyle.None
-        inventoryDescriptions.Font = New Font("Segoe UI", 12.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        inventoryDescriptions.Font = New Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         inventoryDescriptions.ForeColor = SystemColors.ControlDarkDark
         inventoryDescriptions.Location = New Point(66, 39)
         inventoryDescriptions.Name = "inventoryDescriptions"
@@ -1829,9 +1850,9 @@ Partial Class SuperAdmin
         Panel21.Controls.Add(retailDescriptions)
         Panel21.Controls.Add(retailTitle)
         Panel21.Dock = DockStyle.Fill
-        Panel21.Location = New Point(837, 3)
+        Panel21.Location = New Point(866, 3)
         Panel21.Name = "Panel21"
-        Panel21.Size = New Size(830, 118)
+        Panel21.Size = New Size(859, 118)
         Panel21.TabIndex = 1
         ' 
         ' retailViewReport
@@ -1839,7 +1860,7 @@ Partial Class SuperAdmin
         retailViewReport.BackColor = Color.SeaGreen
         retailViewReport.FlatAppearance.BorderSize = 0
         retailViewReport.FlatStyle = FlatStyle.Flat
-        retailViewReport.Font = New Font("Segoe UI Semibold", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        retailViewReport.Font = New Font("Segoe UI Semibold", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         retailViewReport.ForeColor = SystemColors.ControlLightLight
         retailViewReport.Location = New Point(59, 64)
         retailViewReport.Name = "retailViewReport"
@@ -1852,7 +1873,7 @@ Partial Class SuperAdmin
         ' 
         retailDescriptions.BackColor = SystemColors.ControlLightLight
         retailDescriptions.BorderStyle = BorderStyle.None
-        retailDescriptions.Font = New Font("Segoe UI", 12.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        retailDescriptions.Font = New Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         retailDescriptions.ForeColor = SystemColors.ControlDarkDark
         retailDescriptions.Location = New Point(58, 39)
         retailDescriptions.Name = "retailDescriptions"
@@ -1878,15 +1899,15 @@ Partial Class SuperAdmin
         TableLayoutPanel6.ColumnCount = 2
         TableLayoutPanel6.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 49.99999F))
         TableLayoutPanel6.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 50.00002F))
-        TableLayoutPanel6.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 20.0F))
+        TableLayoutPanel6.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 20F))
         TableLayoutPanel6.Controls.Add(Panel17, 0, 0)
         TableLayoutPanel6.Controls.Add(Panel18, 1, 0)
         TableLayoutPanel6.Location = New Point(14, 369)
         TableLayoutPanel6.Name = "TableLayoutPanel6"
         TableLayoutPanel6.RowCount = 1
-        TableLayoutPanel6.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
-        TableLayoutPanel6.RowStyles.Add(New RowStyle(SizeType.Absolute, 117.0F))
-        TableLayoutPanel6.Size = New Size(1670, 124)
+        TableLayoutPanel6.RowStyles.Add(New RowStyle(SizeType.Percent, 100F))
+        TableLayoutPanel6.RowStyles.Add(New RowStyle(SizeType.Absolute, 124F))
+        TableLayoutPanel6.Size = New Size(1728, 124)
         TableLayoutPanel6.TabIndex = 7
         ' 
         ' Panel17
@@ -1898,7 +1919,7 @@ Partial Class SuperAdmin
         Panel17.Dock = DockStyle.Fill
         Panel17.Location = New Point(3, 3)
         Panel17.Name = "Panel17"
-        Panel17.Size = New Size(828, 118)
+        Panel17.Size = New Size(857, 118)
         Panel17.TabIndex = 0
         ' 
         ' wholesaleViewReport
@@ -1906,7 +1927,7 @@ Partial Class SuperAdmin
         wholesaleViewReport.BackColor = Color.SeaGreen
         wholesaleViewReport.FlatAppearance.BorderSize = 0
         wholesaleViewReport.FlatStyle = FlatStyle.Flat
-        wholesaleViewReport.Font = New Font("Segoe UI Semibold", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        wholesaleViewReport.Font = New Font("Segoe UI Semibold", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         wholesaleViewReport.ForeColor = SystemColors.ControlLightLight
         wholesaleViewReport.Location = New Point(66, 64)
         wholesaleViewReport.Name = "wholesaleViewReport"
@@ -1919,7 +1940,7 @@ Partial Class SuperAdmin
         ' 
         wholesaleDescriptions.BackColor = SystemColors.ControlLightLight
         wholesaleDescriptions.BorderStyle = BorderStyle.None
-        wholesaleDescriptions.Font = New Font("Segoe UI", 12.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        wholesaleDescriptions.Font = New Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         wholesaleDescriptions.ForeColor = SystemColors.ControlDarkDark
         wholesaleDescriptions.Location = New Point(66, 39)
         wholesaleDescriptions.Name = "wholesaleDescriptions"
@@ -1946,9 +1967,9 @@ Partial Class SuperAdmin
         Panel18.Controls.Add(purchasesDescriptions)
         Panel18.Controls.Add(purchasesTitle)
         Panel18.Dock = DockStyle.Fill
-        Panel18.Location = New Point(837, 3)
+        Panel18.Location = New Point(866, 3)
         Panel18.Name = "Panel18"
-        Panel18.Size = New Size(830, 118)
+        Panel18.Size = New Size(859, 118)
         Panel18.TabIndex = 1
         ' 
         ' purchasesViewReport
@@ -1957,7 +1978,7 @@ Partial Class SuperAdmin
         purchasesViewReport.Enabled = False
         purchasesViewReport.FlatAppearance.BorderSize = 0
         purchasesViewReport.FlatStyle = FlatStyle.Flat
-        purchasesViewReport.Font = New Font("Segoe UI Semibold", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        purchasesViewReport.Font = New Font("Segoe UI Semibold", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         purchasesViewReport.ForeColor = SystemColors.ControlLightLight
         purchasesViewReport.Location = New Point(59, 64)
         purchasesViewReport.Name = "purchasesViewReport"
@@ -1970,7 +1991,7 @@ Partial Class SuperAdmin
         ' 
         purchasesDescriptions.BackColor = SystemColors.ControlLightLight
         purchasesDescriptions.BorderStyle = BorderStyle.None
-        purchasesDescriptions.Font = New Font("Segoe UI", 12.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        purchasesDescriptions.Font = New Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         purchasesDescriptions.ForeColor = SystemColors.ControlDarkDark
         purchasesDescriptions.Location = New Point(58, 39)
         purchasesDescriptions.Name = "purchasesDescriptions"
@@ -1999,7 +2020,7 @@ Partial Class SuperAdmin
         pnlInventoryStockReport.Dock = DockStyle.Fill
         pnlInventoryStockReport.Location = New Point(0, 0)
         pnlInventoryStockReport.Name = "pnlInventoryStockReport"
-        pnlInventoryStockReport.Size = New Size(1698, 1055)
+        pnlInventoryStockReport.Size = New Size(1756, 1055)
         pnlInventoryStockReport.TabIndex = 10
         ' 
         ' inventoryDataGrid
@@ -2013,7 +2034,7 @@ Partial Class SuperAdmin
         inventoryDataGrid.Name = "inventoryDataGrid"
         inventoryDataGrid.RowHeadersBorderStyle = DataGridViewHeaderBorderStyle.Sunken
         inventoryDataGrid.RowHeadersWidth = 51
-        inventoryDataGrid.Size = New Size(1670, 780)
+        inventoryDataGrid.Size = New Size(1728, 780)
         inventoryDataGrid.TabIndex = 15
         ' 
         ' DataGridViewTextBoxColumn1
@@ -2089,12 +2110,12 @@ Partial Class SuperAdmin
         panelnvenotryStockReport.Controls.Add(titleInventoryStockReport)
         panelnvenotryStockReport.Location = New Point(14, 147)
         panelnvenotryStockReport.Name = "panelnvenotryStockReport"
-        panelnvenotryStockReport.Size = New Size(1670, 100)
+        panelnvenotryStockReport.Size = New Size(1728, 100)
         panelnvenotryStockReport.TabIndex = 8
         ' 
         ' inventoryPeriodDropdown
         ' 
-        inventoryPeriodDropdown.Font = New Font("Segoe UI", 15.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        inventoryPeriodDropdown.Font = New Font("Segoe UI", 15F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         inventoryPeriodDropdown.FormattingEnabled = True
         inventoryPeriodDropdown.Location = New Point(742, 53)
         inventoryPeriodDropdown.Name = "inventoryPeriodDropdown"
@@ -2106,7 +2127,7 @@ Partial Class SuperAdmin
         inventoryPrintReport.BackColor = Color.SeaGreen
         inventoryPrintReport.FlatAppearance.BorderSize = 0
         inventoryPrintReport.FlatStyle = FlatStyle.Flat
-        inventoryPrintReport.Font = New Font("Segoe UI Semibold", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        inventoryPrintReport.Font = New Font("Segoe UI Semibold", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         inventoryPrintReport.ForeColor = SystemColors.ControlLightLight
         inventoryPrintReport.Location = New Point(742, 12)
         inventoryPrintReport.Name = "inventoryPrintReport"
@@ -2119,7 +2140,7 @@ Partial Class SuperAdmin
         ' 
         inventoryGenerated.BackColor = SystemColors.ControlLightLight
         inventoryGenerated.BorderStyle = BorderStyle.None
-        inventoryGenerated.Font = New Font("Segoe UI", 12.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        inventoryGenerated.Font = New Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         inventoryGenerated.ForeColor = SystemColors.ControlDarkDark
         inventoryGenerated.Location = New Point(18, 53)
         inventoryGenerated.Name = "inventoryGenerated"
@@ -2149,7 +2170,7 @@ Partial Class SuperAdmin
         Panel25.Controls.Add(Label9)
         Panel25.Location = New Point(0, 0)
         Panel25.Name = "Panel25"
-        Panel25.Size = New Size(1479, 133)
+        Panel25.Size = New Size(1537, 133)
         Panel25.TabIndex = 5
         ' 
         ' Label7
@@ -2158,7 +2179,7 @@ Partial Class SuperAdmin
         Label7.AutoSize = True
         Label7.Font = New Font("Segoe UI", 6.75F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         Label7.ForeColor = Color.SeaGreen
-        Label7.Location = New Point(1334, 45)
+        Label7.Location = New Point(1392, 45)
         Label7.Name = "Label7"
         Label7.Size = New Size(91, 12)
         Label7.TabIndex = 10
@@ -2169,8 +2190,8 @@ Partial Class SuperAdmin
         TextBox50.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         TextBox50.BackColor = SystemColors.ControlLightLight
         TextBox50.BorderStyle = BorderStyle.None
-        TextBox50.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
-        TextBox50.Location = New Point(1308, 26)
+        TextBox50.Font = New Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        TextBox50.Location = New Point(1366, 26)
         TextBox50.Name = "TextBox50"
         TextBox50.Size = New Size(145, 16)
         TextBox50.TabIndex = 9
@@ -2208,7 +2229,7 @@ Partial Class SuperAdmin
         pnlFinancialSalesReport.Dock = DockStyle.Fill
         pnlFinancialSalesReport.Location = New Point(0, 0)
         pnlFinancialSalesReport.Name = "pnlFinancialSalesReport"
-        pnlFinancialSalesReport.Size = New Size(1698, 1055)
+        pnlFinancialSalesReport.Size = New Size(1756, 1055)
         pnlFinancialSalesReport.TabIndex = 18
         ' 
         ' DataGridView4
@@ -2222,7 +2243,7 @@ Partial Class SuperAdmin
         DataGridView4.Name = "DataGridView4"
         DataGridView4.RowHeadersBorderStyle = DataGridViewHeaderBorderStyle.Sunken
         DataGridView4.RowHeadersWidth = 51
-        DataGridView4.Size = New Size(1670, 780)
+        DataGridView4.Size = New Size(1728, 780)
         DataGridView4.TabIndex = 16
         ' 
         ' financialTransactionID
@@ -2284,12 +2305,12 @@ Partial Class SuperAdmin
         panelFinancialSalesReport.Controls.Add(titleFinancialSalesReport)
         panelFinancialSalesReport.Location = New Point(14, 147)
         panelFinancialSalesReport.Name = "panelFinancialSalesReport"
-        panelFinancialSalesReport.Size = New Size(1670, 100)
+        panelFinancialSalesReport.Size = New Size(1728, 100)
         panelFinancialSalesReport.TabIndex = 9
         ' 
         ' financialPeriodDropdown
         ' 
-        financialPeriodDropdown.Font = New Font("Segoe UI", 15.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        financialPeriodDropdown.Font = New Font("Segoe UI", 15F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         financialPeriodDropdown.FormattingEnabled = True
         financialPeriodDropdown.Location = New Point(742, 53)
         financialPeriodDropdown.Name = "financialPeriodDropdown"
@@ -2301,7 +2322,7 @@ Partial Class SuperAdmin
         financialPrintReport.BackColor = Color.SeaGreen
         financialPrintReport.FlatAppearance.BorderSize = 0
         financialPrintReport.FlatStyle = FlatStyle.Flat
-        financialPrintReport.Font = New Font("Segoe UI Semibold", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        financialPrintReport.Font = New Font("Segoe UI Semibold", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         financialPrintReport.ForeColor = SystemColors.ControlLightLight
         financialPrintReport.Location = New Point(742, 12)
         financialPrintReport.Name = "financialPrintReport"
@@ -2314,7 +2335,7 @@ Partial Class SuperAdmin
         ' 
         financialGenerated.BackColor = SystemColors.ControlLightLight
         financialGenerated.BorderStyle = BorderStyle.None
-        financialGenerated.Font = New Font("Segoe UI", 12.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        financialGenerated.Font = New Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         financialGenerated.ForeColor = SystemColors.ControlDarkDark
         financialGenerated.Location = New Point(18, 53)
         financialGenerated.Name = "financialGenerated"
@@ -2342,7 +2363,7 @@ Partial Class SuperAdmin
         Panel31.Controls.Add(Label18)
         Panel31.Location = New Point(0, 0)
         Panel31.Name = "Panel31"
-        Panel31.Size = New Size(1479, 133)
+        Panel31.Size = New Size(1537, 133)
         Panel31.TabIndex = 4
         ' 
         ' Label17
@@ -2376,7 +2397,7 @@ Partial Class SuperAdmin
         pnlRetailSalesReport.Dock = DockStyle.Fill
         pnlRetailSalesReport.Location = New Point(0, 0)
         pnlRetailSalesReport.Name = "pnlRetailSalesReport"
-        pnlRetailSalesReport.Size = New Size(1698, 1055)
+        pnlRetailSalesReport.Size = New Size(1756, 1055)
         pnlRetailSalesReport.TabIndex = 16
         ' 
         ' retailDataGrid
@@ -2390,7 +2411,7 @@ Partial Class SuperAdmin
         retailDataGrid.Name = "retailDataGrid"
         retailDataGrid.RowHeadersBorderStyle = DataGridViewHeaderBorderStyle.Sunken
         retailDataGrid.RowHeadersWidth = 51
-        retailDataGrid.Size = New Size(1670, 780)
+        retailDataGrid.Size = New Size(1728, 780)
         retailDataGrid.TabIndex = 16
         ' 
         ' retailTransactionID
@@ -2452,15 +2473,15 @@ Partial Class SuperAdmin
         panelRetailSalesReport.Controls.Add(titleRetailSalesReport)
         panelRetailSalesReport.Location = New Point(14, 147)
         panelRetailSalesReport.Name = "panelRetailSalesReport"
-        panelRetailSalesReport.Size = New Size(1368, 100)
+        panelRetailSalesReport.Size = New Size(1426, 100)
         panelRetailSalesReport.TabIndex = 9
         ' 
         ' ComboBox4
         ' 
         ComboBox4.Anchor = AnchorStyles.Top Or AnchorStyles.Right
-        ComboBox4.Font = New Font("Segoe UI", 15.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        ComboBox4.Font = New Font("Segoe UI", 15F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         ComboBox4.FormattingEnabled = True
-        ComboBox4.Location = New Point(1176, 54)
+        ComboBox4.Location = New Point(1234, 54)
         ComboBox4.Name = "ComboBox4"
         ComboBox4.Size = New Size(175, 36)
         ComboBox4.TabIndex = 19
@@ -2471,9 +2492,9 @@ Partial Class SuperAdmin
         retailPrintReport.BackColor = Color.SeaGreen
         retailPrintReport.FlatAppearance.BorderSize = 0
         retailPrintReport.FlatStyle = FlatStyle.Flat
-        retailPrintReport.Font = New Font("Segoe UI Semibold", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        retailPrintReport.Font = New Font("Segoe UI Semibold", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         retailPrintReport.ForeColor = SystemColors.ControlLightLight
-        retailPrintReport.Location = New Point(1176, 13)
+        retailPrintReport.Location = New Point(1234, 13)
         retailPrintReport.Name = "retailPrintReport"
         retailPrintReport.Size = New Size(175, 35)
         retailPrintReport.TabIndex = 18
@@ -2484,7 +2505,7 @@ Partial Class SuperAdmin
         ' 
         retailGenerated.BackColor = SystemColors.ControlLightLight
         retailGenerated.BorderStyle = BorderStyle.None
-        retailGenerated.Font = New Font("Segoe UI", 12.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        retailGenerated.Font = New Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         retailGenerated.ForeColor = SystemColors.ControlDarkDark
         retailGenerated.Location = New Point(18, 53)
         retailGenerated.Name = "retailGenerated"
@@ -2514,7 +2535,7 @@ Partial Class SuperAdmin
         Panel24.Controls.Add(Label12)
         Panel24.Location = New Point(0, 0)
         Panel24.Name = "Panel24"
-        Panel24.Size = New Size(1479, 133)
+        Panel24.Size = New Size(1537, 133)
         Panel24.TabIndex = 4
         ' 
         ' Label10
@@ -2523,7 +2544,7 @@ Partial Class SuperAdmin
         Label10.AutoSize = True
         Label10.Font = New Font("Segoe UI", 6.75F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         Label10.ForeColor = Color.SeaGreen
-        Label10.Location = New Point(1334, 45)
+        Label10.Location = New Point(1392, 45)
         Label10.Name = "Label10"
         Label10.Size = New Size(91, 12)
         Label10.TabIndex = 12
@@ -2534,8 +2555,8 @@ Partial Class SuperAdmin
         TextBox48.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         TextBox48.BackColor = SystemColors.ControlLightLight
         TextBox48.BorderStyle = BorderStyle.None
-        TextBox48.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
-        TextBox48.Location = New Point(1308, 26)
+        TextBox48.Font = New Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        TextBox48.Location = New Point(1366, 26)
         TextBox48.Name = "TextBox48"
         TextBox48.Size = New Size(145, 16)
         TextBox48.TabIndex = 11
@@ -2573,7 +2594,7 @@ Partial Class SuperAdmin
         pnlExpensesReport.Dock = DockStyle.Fill
         pnlExpensesReport.Location = New Point(0, 0)
         pnlExpensesReport.Name = "pnlExpensesReport"
-        pnlExpensesReport.Size = New Size(1698, 1055)
+        pnlExpensesReport.Size = New Size(1756, 1055)
         pnlExpensesReport.TabIndex = 20
         ' 
         ' expenseDataGrid
@@ -2587,7 +2608,7 @@ Partial Class SuperAdmin
         expenseDataGrid.Name = "expenseDataGrid"
         expenseDataGrid.RowHeadersBorderStyle = DataGridViewHeaderBorderStyle.Sunken
         expenseDataGrid.RowHeadersWidth = 51
-        expenseDataGrid.Size = New Size(1368, 100)
+        expenseDataGrid.Size = New Size(1426, 100)
         expenseDataGrid.TabIndex = 16
         ' 
         ' expensesExpenseID
@@ -2645,7 +2666,7 @@ Partial Class SuperAdmin
         panelExpenseReport.Controls.Add(titleExpensesReport)
         panelExpenseReport.Location = New Point(274, 122)
         panelExpenseReport.Name = "panelExpenseReport"
-        panelExpenseReport.Size = New Size(1368, 100)
+        panelExpenseReport.Size = New Size(1426, 100)
         panelExpenseReport.TabIndex = 9
         ' 
         ' expensesPeriodDropdown
@@ -2653,7 +2674,7 @@ Partial Class SuperAdmin
         expensesPeriodDropdown.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         expensesPeriodDropdown.Font = New Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         expensesPeriodDropdown.FormattingEnabled = True
-        expensesPeriodDropdown.Location = New Point(949, 52)
+        expensesPeriodDropdown.Location = New Point(1007, 52)
         expensesPeriodDropdown.Name = "expensesPeriodDropdown"
         expensesPeriodDropdown.Size = New Size(121, 28)
         expensesPeriodDropdown.TabIndex = 22
@@ -2665,9 +2686,9 @@ Partial Class SuperAdmin
         btnAddExpenses.Enabled = False
         btnAddExpenses.FlatAppearance.BorderSize = 0
         btnAddExpenses.FlatStyle = FlatStyle.Flat
-        btnAddExpenses.Font = New Font("Segoe UI Semibold", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        btnAddExpenses.Font = New Font("Segoe UI Semibold", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         btnAddExpenses.ForeColor = SystemColors.ControlLightLight
-        btnAddExpenses.Location = New Point(1176, 12)
+        btnAddExpenses.Location = New Point(1234, 12)
         btnAddExpenses.Name = "btnAddExpenses"
         btnAddExpenses.Size = New Size(175, 35)
         btnAddExpenses.TabIndex = 21
@@ -2678,7 +2699,7 @@ Partial Class SuperAdmin
         ' 
         expensesDateTime.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         expensesDateTime.Font = New Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
-        expensesDateTime.Location = New Point(1088, 53)
+        expensesDateTime.Location = New Point(1146, 53)
         expensesDateTime.Name = "expensesDateTime"
         expensesDateTime.Size = New Size(263, 27)
         expensesDateTime.TabIndex = 20
@@ -2686,9 +2707,9 @@ Partial Class SuperAdmin
         ' ComboBox6
         ' 
         ComboBox6.Anchor = AnchorStyles.Top Or AnchorStyles.Right
-        ComboBox6.Font = New Font("Segoe UI", 15.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        ComboBox6.Font = New Font("Segoe UI", 15F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         ComboBox6.FormattingEnabled = True
-        ComboBox6.Location = New Point(2644, 54)
+        ComboBox6.Location = New Point(2702, 54)
         ComboBox6.Name = "ComboBox6"
         ComboBox6.Size = New Size(175, 36)
         ComboBox6.TabIndex = 19
@@ -2700,9 +2721,9 @@ Partial Class SuperAdmin
         Button15.Enabled = False
         Button15.FlatAppearance.BorderSize = 0
         Button15.FlatStyle = FlatStyle.Flat
-        Button15.Font = New Font("Segoe UI Semibold", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        Button15.Font = New Font("Segoe UI Semibold", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         Button15.ForeColor = SystemColors.ControlLightLight
-        Button15.Location = New Point(2644, 13)
+        Button15.Location = New Point(2702, 13)
         Button15.Name = "Button15"
         Button15.Size = New Size(175, 35)
         Button15.TabIndex = 18
@@ -2718,7 +2739,7 @@ Partial Class SuperAdmin
         expensesSearchBar.ForeColor = SystemColors.ControlDarkDark
         expensesSearchBar.Location = New Point(18, 53)
         expensesSearchBar.Name = "expensesSearchBar"
-        expensesSearchBar.Size = New Size(911, 26)
+        expensesSearchBar.Size = New Size(969, 26)
         expensesSearchBar.TabIndex = 6
         expensesSearchBar.Text = "   Search by delivery ID or supplier..."
         ' 
@@ -2748,7 +2769,7 @@ Partial Class SuperAdmin
         Panel35.Controls.Add(Label26)
         Panel35.Location = New Point(0, 0)
         Panel35.Name = "Panel35"
-        Panel35.Size = New Size(1479, 133)
+        Panel35.Size = New Size(1537, 133)
         Panel35.TabIndex = 4
         ' 
         ' TextBox66
@@ -2756,8 +2777,8 @@ Partial Class SuperAdmin
         TextBox66.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         TextBox66.BackColor = SystemColors.ControlLightLight
         TextBox66.BorderStyle = BorderStyle.None
-        TextBox66.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
-        TextBox66.Location = New Point(1308, 26)
+        TextBox66.Font = New Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        TextBox66.Location = New Point(1366, 26)
         TextBox66.Name = "TextBox66"
         TextBox66.Size = New Size(145, 16)
         TextBox66.TabIndex = 16
@@ -2770,7 +2791,7 @@ Partial Class SuperAdmin
         Label27.AutoSize = True
         Label27.Font = New Font("Segoe UI", 6.75F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         Label27.ForeColor = Color.SeaGreen
-        Label27.Location = New Point(1335, 45)
+        Label27.Location = New Point(1393, 45)
         Label27.Name = "Label27"
         Label27.Size = New Size(91, 12)
         Label27.TabIndex = 15
@@ -2781,8 +2802,8 @@ Partial Class SuperAdmin
         TextBox64.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         TextBox64.BackColor = SystemColors.ControlLightLight
         TextBox64.BorderStyle = BorderStyle.None
-        TextBox64.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
-        TextBox64.Location = New Point(2153, 26)
+        TextBox64.Font = New Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        TextBox64.Location = New Point(2211, 26)
         TextBox64.Name = "TextBox64"
         TextBox64.Size = New Size(145, 16)
         TextBox64.TabIndex = 14
@@ -2795,7 +2816,7 @@ Partial Class SuperAdmin
         Label23.AutoSize = True
         Label23.Font = New Font("Segoe UI", 6.75F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         Label23.ForeColor = Color.SeaGreen
-        Label23.Location = New Point(2180, 45)
+        Label23.Location = New Point(2238, 45)
         Label23.Name = "Label23"
         Label23.Size = New Size(91, 12)
         Label23.TabIndex = 13
@@ -2807,7 +2828,7 @@ Partial Class SuperAdmin
         Label24.AutoSize = True
         Label24.Font = New Font("Segoe UI", 6.75F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         Label24.ForeColor = Color.SeaGreen
-        Label24.Location = New Point(3024, 45)
+        Label24.Location = New Point(3082, 45)
         Label24.Name = "Label24"
         Label24.Size = New Size(91, 12)
         Label24.TabIndex = 12
@@ -2818,8 +2839,8 @@ Partial Class SuperAdmin
         TextBox65.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         TextBox65.BackColor = SystemColors.ControlLightLight
         TextBox65.BorderStyle = BorderStyle.None
-        TextBox65.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
-        TextBox65.Location = New Point(2998, 26)
+        TextBox65.Font = New Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        TextBox65.Location = New Point(3056, 26)
         TextBox65.Name = "TextBox65"
         TextBox65.Size = New Size(145, 16)
         TextBox65.TabIndex = 11
@@ -2857,7 +2878,7 @@ Partial Class SuperAdmin
         pnlPurchasesReport.Dock = DockStyle.Fill
         pnlPurchasesReport.Location = New Point(0, 0)
         pnlPurchasesReport.Name = "pnlPurchasesReport"
-        pnlPurchasesReport.Size = New Size(1698, 1055)
+        pnlPurchasesReport.Size = New Size(1756, 1055)
         pnlPurchasesReport.TabIndex = 19
         ' 
         ' purchasesDataGrid
@@ -2871,7 +2892,7 @@ Partial Class SuperAdmin
         purchasesDataGrid.Name = "purchasesDataGrid"
         purchasesDataGrid.RowHeadersBorderStyle = DataGridViewHeaderBorderStyle.Sunken
         purchasesDataGrid.RowHeadersWidth = 51
-        purchasesDataGrid.Size = New Size(1670, 780)
+        purchasesDataGrid.Size = New Size(1728, 780)
         purchasesDataGrid.TabIndex = 16
         ' 
         ' DataGridViewTextBoxColumn9
@@ -2934,7 +2955,7 @@ Partial Class SuperAdmin
         panelPurchasesReport.Controls.Add(titlePurchasesReport)
         panelPurchasesReport.Location = New Point(14, 147)
         panelPurchasesReport.Name = "panelPurchasesReport"
-        panelPurchasesReport.Size = New Size(1368, 100)
+        panelPurchasesReport.Size = New Size(1426, 100)
         panelPurchasesReport.TabIndex = 9
         ' 
         ' purchasesDateTime
@@ -2948,9 +2969,9 @@ Partial Class SuperAdmin
         ' ComboBox5
         ' 
         ComboBox5.Anchor = AnchorStyles.Top Or AnchorStyles.Right
-        ComboBox5.Font = New Font("Segoe UI", 15.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        ComboBox5.Font = New Font("Segoe UI", 15F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         ComboBox5.FormattingEnabled = True
-        ComboBox5.Location = New Point(1910, 54)
+        ComboBox5.Location = New Point(1968, 54)
         ComboBox5.Name = "ComboBox5"
         ComboBox5.Size = New Size(175, 36)
         ComboBox5.TabIndex = 19
@@ -2962,9 +2983,9 @@ Partial Class SuperAdmin
         Button14.Enabled = False
         Button14.FlatAppearance.BorderSize = 0
         Button14.FlatStyle = FlatStyle.Flat
-        Button14.Font = New Font("Segoe UI Semibold", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        Button14.Font = New Font("Segoe UI Semibold", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         Button14.ForeColor = SystemColors.ControlLightLight
-        Button14.Location = New Point(1910, 13)
+        Button14.Location = New Point(1968, 13)
         Button14.Name = "Button14"
         Button14.Size = New Size(175, 35)
         Button14.TabIndex = 18
@@ -3007,7 +3028,7 @@ Partial Class SuperAdmin
         Panel33.Controls.Add(Label21)
         Panel33.Location = New Point(0, 0)
         Panel33.Name = "Panel33"
-        Panel33.Size = New Size(1479, 133)
+        Panel33.Size = New Size(1537, 133)
         Panel33.TabIndex = 4
         ' 
         ' TextBox61
@@ -3015,8 +3036,8 @@ Partial Class SuperAdmin
         TextBox61.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         TextBox61.BackColor = SystemColors.ControlLightLight
         TextBox61.BorderStyle = BorderStyle.None
-        TextBox61.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
-        TextBox61.Location = New Point(1308, 26)
+        TextBox61.Font = New Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        TextBox61.Location = New Point(1366, 26)
         TextBox61.Name = "TextBox61"
         TextBox61.Size = New Size(145, 16)
         TextBox61.TabIndex = 14
@@ -3029,7 +3050,7 @@ Partial Class SuperAdmin
         Label22.AutoSize = True
         Label22.Font = New Font("Segoe UI", 6.75F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         Label22.ForeColor = Color.SeaGreen
-        Label22.Location = New Point(1335, 45)
+        Label22.Location = New Point(1393, 45)
         Label22.Name = "Label22"
         Label22.Size = New Size(91, 12)
         Label22.TabIndex = 13
@@ -3041,7 +3062,7 @@ Partial Class SuperAdmin
         Label19.AutoSize = True
         Label19.Font = New Font("Segoe UI", 6.75F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         Label19.ForeColor = Color.SeaGreen
-        Label19.Location = New Point(2179, 45)
+        Label19.Location = New Point(2237, 45)
         Label19.Name = "Label19"
         Label19.Size = New Size(91, 12)
         Label19.TabIndex = 12
@@ -3052,8 +3073,8 @@ Partial Class SuperAdmin
         TextBox60.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         TextBox60.BackColor = SystemColors.ControlLightLight
         TextBox60.BorderStyle = BorderStyle.None
-        TextBox60.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
-        TextBox60.Location = New Point(2153, 26)
+        TextBox60.Font = New Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        TextBox60.Location = New Point(2211, 26)
         TextBox60.Name = "TextBox60"
         TextBox60.Size = New Size(145, 16)
         TextBox60.TabIndex = 11
@@ -3091,7 +3112,7 @@ Partial Class SuperAdmin
         pnlWholesaleSalesReport.Dock = DockStyle.Fill
         pnlWholesaleSalesReport.Location = New Point(0, 0)
         pnlWholesaleSalesReport.Name = "pnlWholesaleSalesReport"
-        pnlWholesaleSalesReport.Size = New Size(1698, 1055)
+        pnlWholesaleSalesReport.Size = New Size(1756, 1055)
         pnlWholesaleSalesReport.TabIndex = 17
         ' 
         ' wholesaleDataGrid
@@ -3105,7 +3126,7 @@ Partial Class SuperAdmin
         wholesaleDataGrid.Name = "wholesaleDataGrid"
         wholesaleDataGrid.RowHeadersBorderStyle = DataGridViewHeaderBorderStyle.Sunken
         wholesaleDataGrid.RowHeadersWidth = 51
-        wholesaleDataGrid.Size = New Size(1670, 780)
+        wholesaleDataGrid.Size = New Size(1728, 780)
         wholesaleDataGrid.TabIndex = 16
         ' 
         ' DataGridViewTextBoxColumn2
@@ -3167,12 +3188,12 @@ Partial Class SuperAdmin
         panelWholesale.Controls.Add(titleWholesaleSalesReport)
         panelWholesale.Location = New Point(14, 147)
         panelWholesale.Name = "panelWholesale"
-        panelWholesale.Size = New Size(1368, 100)
+        panelWholesale.Size = New Size(1426, 100)
         panelWholesale.TabIndex = 9
         ' 
         ' wholesaleScheduleDropdown
         ' 
-        wholesaleScheduleDropdown.Font = New Font("Segoe UI", 15.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        wholesaleScheduleDropdown.Font = New Font("Segoe UI", 15F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         wholesaleScheduleDropdown.FormattingEnabled = True
         wholesaleScheduleDropdown.Location = New Point(742, 53)
         wholesaleScheduleDropdown.Name = "wholesaleScheduleDropdown"
@@ -3184,7 +3205,7 @@ Partial Class SuperAdmin
         wholesalePrintReport.BackColor = Color.SeaGreen
         wholesalePrintReport.FlatAppearance.BorderSize = 0
         wholesalePrintReport.FlatStyle = FlatStyle.Flat
-        wholesalePrintReport.Font = New Font("Segoe UI Semibold", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        wholesalePrintReport.Font = New Font("Segoe UI Semibold", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         wholesalePrintReport.ForeColor = SystemColors.ControlLightLight
         wholesalePrintReport.Location = New Point(742, 12)
         wholesalePrintReport.Name = "wholesalePrintReport"
@@ -3197,7 +3218,7 @@ Partial Class SuperAdmin
         ' 
         employeeGenerated.BackColor = SystemColors.ControlLightLight
         employeeGenerated.BorderStyle = BorderStyle.None
-        employeeGenerated.Font = New Font("Segoe UI", 12.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        employeeGenerated.Font = New Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         employeeGenerated.ForeColor = SystemColors.ControlDarkDark
         employeeGenerated.Location = New Point(18, 53)
         employeeGenerated.Name = "employeeGenerated"
@@ -3227,7 +3248,7 @@ Partial Class SuperAdmin
         Panel29.Controls.Add(Label15)
         Panel29.Location = New Point(0, 0)
         Panel29.Name = "Panel29"
-        Panel29.Size = New Size(1479, 133)
+        Panel29.Size = New Size(1537, 133)
         Panel29.TabIndex = 4
         ' 
         ' TextBox25
@@ -3235,8 +3256,8 @@ Partial Class SuperAdmin
         TextBox25.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         TextBox25.BackColor = SystemColors.ControlLightLight
         TextBox25.BorderStyle = BorderStyle.None
-        TextBox25.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
-        TextBox25.Location = New Point(1308, 26)
+        TextBox25.Font = New Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        TextBox25.Location = New Point(1366, 26)
         TextBox25.Name = "TextBox25"
         TextBox25.Size = New Size(145, 16)
         TextBox25.TabIndex = 16
@@ -3249,7 +3270,7 @@ Partial Class SuperAdmin
         Label32.AutoSize = True
         Label32.Font = New Font("Segoe UI", 6.75F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         Label32.ForeColor = Color.SeaGreen
-        Label32.Location = New Point(1335, 45)
+        Label32.Location = New Point(1393, 45)
         Label32.Name = "Label32"
         Label32.Size = New Size(91, 12)
         Label32.TabIndex = 15
@@ -3286,7 +3307,7 @@ Partial Class SuperAdmin
         pnlEmployeesalesReport.Dock = DockStyle.Fill
         pnlEmployeesalesReport.Location = New Point(0, 0)
         pnlEmployeesalesReport.Name = "pnlEmployeesalesReport"
-        pnlEmployeesalesReport.Size = New Size(1698, 1055)
+        pnlEmployeesalesReport.Size = New Size(1756, 1055)
         pnlEmployeesalesReport.TabIndex = 21
         ' 
         ' panelEmployeeDataGrid
@@ -3297,7 +3318,7 @@ Partial Class SuperAdmin
         panelEmployeeDataGrid.Controls.Add(employeDataGrid)
         panelEmployeeDataGrid.Location = New Point(14, 261)
         panelEmployeeDataGrid.Name = "panelEmployeeDataGrid"
-        panelEmployeeDataGrid.Size = New Size(1670, 780)
+        panelEmployeeDataGrid.Size = New Size(1728, 780)
         panelEmployeeDataGrid.TabIndex = 17
         ' 
         ' employeeName
@@ -3323,7 +3344,7 @@ Partial Class SuperAdmin
         employeDataGrid.Name = "employeDataGrid"
         employeDataGrid.RowHeadersBorderStyle = DataGridViewHeaderBorderStyle.Sunken
         employeDataGrid.RowHeadersWidth = 51
-        employeDataGrid.Size = New Size(1642, 704)
+        employeDataGrid.Size = New Size(1700, 704)
         employeDataGrid.TabIndex = 16
         ' 
         ' employeeTransactionID
@@ -3387,12 +3408,12 @@ Partial Class SuperAdmin
         panelEmployeeSalesReport.Controls.Add(titleEmployeeSalesReport)
         panelEmployeeSalesReport.Location = New Point(14, 147)
         panelEmployeeSalesReport.Name = "panelEmployeeSalesReport"
-        panelEmployeeSalesReport.Size = New Size(1368, 100)
+        panelEmployeeSalesReport.Size = New Size(1426, 100)
         panelEmployeeSalesReport.TabIndex = 9
         ' 
         ' employeeScheduleDropdown
         ' 
-        employeeScheduleDropdown.Font = New Font("Segoe UI", 15.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        employeeScheduleDropdown.Font = New Font("Segoe UI", 15F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         employeeScheduleDropdown.FormattingEnabled = True
         employeeScheduleDropdown.Location = New Point(18, 54)
         employeeScheduleDropdown.Name = "employeeScheduleDropdown"
@@ -3403,9 +3424,9 @@ Partial Class SuperAdmin
         ' employeeNamesDropdown
         ' 
         employeeNamesDropdown.Anchor = AnchorStyles.Top Or AnchorStyles.Right
-        employeeNamesDropdown.Font = New Font("Segoe UI", 15.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        employeeNamesDropdown.Font = New Font("Segoe UI", 15F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         employeeNamesDropdown.FormattingEnabled = True
-        employeeNamesDropdown.Location = New Point(1176, 53)
+        employeeNamesDropdown.Location = New Point(1234, 53)
         employeeNamesDropdown.Name = "employeeNamesDropdown"
         employeeNamesDropdown.Size = New Size(175, 36)
         employeeNamesDropdown.TabIndex = 19
@@ -3417,9 +3438,9 @@ Partial Class SuperAdmin
         employeePrintReport.BackColor = Color.SeaGreen
         employeePrintReport.FlatAppearance.BorderSize = 0
         employeePrintReport.FlatStyle = FlatStyle.Flat
-        employeePrintReport.Font = New Font("Segoe UI Semibold", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        employeePrintReport.Font = New Font("Segoe UI Semibold", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         employeePrintReport.ForeColor = SystemColors.ControlLightLight
-        employeePrintReport.Location = New Point(1176, 12)
+        employeePrintReport.Location = New Point(1234, 12)
         employeePrintReport.Name = "employeePrintReport"
         employeePrintReport.Size = New Size(175, 35)
         employeePrintReport.TabIndex = 18
@@ -3432,9 +3453,9 @@ Partial Class SuperAdmin
         Button18.BackColor = Color.SeaGreen
         Button18.FlatAppearance.BorderSize = 0
         Button18.FlatStyle = FlatStyle.Flat
-        Button18.Font = New Font("Segoe UI Semibold", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        Button18.Font = New Font("Segoe UI Semibold", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         Button18.ForeColor = SystemColors.ControlLightLight
-        Button18.Location = New Point(2644, 36)
+        Button18.Location = New Point(2702, 36)
         Button18.Name = "Button18"
         Button18.Size = New Size(175, 35)
         Button18.TabIndex = 15
@@ -3445,7 +3466,7 @@ Partial Class SuperAdmin
         ' 
         TextBox67.BackColor = SystemColors.ControlLightLight
         TextBox67.BorderStyle = BorderStyle.None
-        TextBox67.Font = New Font("Segoe UI", 12.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        TextBox67.Font = New Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         TextBox67.ForeColor = SystemColors.ControlDarkDark
         TextBox67.Location = New Point(18, 53)
         TextBox67.Name = "TextBox67"
@@ -3477,7 +3498,7 @@ Partial Class SuperAdmin
         Panel37.Controls.Add(Label30)
         Panel37.Location = New Point(0, 0)
         Panel37.Name = "Panel37"
-        Panel37.Size = New Size(1479, 133)
+        Panel37.Size = New Size(1537, 133)
         Panel37.TabIndex = 4
         ' 
         ' TextBox68
@@ -3485,8 +3506,8 @@ Partial Class SuperAdmin
         TextBox68.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         TextBox68.BackColor = SystemColors.ControlLightLight
         TextBox68.BorderStyle = BorderStyle.None
-        TextBox68.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
-        TextBox68.Location = New Point(1308, 26)
+        TextBox68.Font = New Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        TextBox68.Location = New Point(1366, 26)
         TextBox68.Name = "TextBox68"
         TextBox68.Size = New Size(145, 16)
         TextBox68.TabIndex = 14
@@ -3499,7 +3520,7 @@ Partial Class SuperAdmin
         Label31.AutoSize = True
         Label31.Font = New Font("Segoe UI", 6.75F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         Label31.ForeColor = Color.SeaGreen
-        Label31.Location = New Point(1335, 45)
+        Label31.Location = New Point(1393, 45)
         Label31.Name = "Label31"
         Label31.Size = New Size(91, 12)
         Label31.TabIndex = 13
@@ -3511,7 +3532,7 @@ Partial Class SuperAdmin
         Label28.AutoSize = True
         Label28.Font = New Font("Segoe UI", 6.75F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         Label28.ForeColor = Color.SeaGreen
-        Label28.Location = New Point(4088, 45)
+        Label28.Location = New Point(4146, 45)
         Label28.Name = "Label28"
         Label28.Size = New Size(91, 12)
         Label28.TabIndex = 12
@@ -3522,8 +3543,8 @@ Partial Class SuperAdmin
         TextBox69.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         TextBox69.BackColor = SystemColors.ControlLightLight
         TextBox69.BorderStyle = BorderStyle.None
-        TextBox69.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
-        TextBox69.Location = New Point(4062, 26)
+        TextBox69.Font = New Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        TextBox69.Location = New Point(4120, 26)
         TextBox69.Name = "TextBox69"
         TextBox69.Size = New Size(145, 16)
         TextBox69.TabIndex = 11
@@ -3563,7 +3584,7 @@ Partial Class SuperAdmin
         pnlAccounts.Dock = DockStyle.Fill
         pnlAccounts.Location = New Point(0, 0)
         pnlAccounts.Name = "pnlAccounts"
-        pnlAccounts.Size = New Size(1698, 1055)
+        pnlAccounts.Size = New Size(1756, 1055)
         pnlAccounts.TabIndex = 9
         ' 
         ' accountsDataGrid
@@ -3577,7 +3598,7 @@ Partial Class SuperAdmin
         accountsDataGrid.Name = "accountsDataGrid"
         accountsDataGrid.RowHeadersBorderStyle = DataGridViewHeaderBorderStyle.Sunken
         accountsDataGrid.RowHeadersWidth = 51
-        accountsDataGrid.Size = New Size(1670, 715)
+        accountsDataGrid.Size = New Size(1728, 715)
         accountsDataGrid.TabIndex = 14
         ' 
         ' accountUserID
@@ -3640,7 +3661,7 @@ Partial Class SuperAdmin
         ' 
         numberTotalUsersRegistered.BackColor = SystemColors.Control
         numberTotalUsersRegistered.BorderStyle = BorderStyle.None
-        numberTotalUsersRegistered.Font = New Font("Segoe UI", 9.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        numberTotalUsersRegistered.Font = New Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         numberTotalUsersRegistered.ForeColor = SystemColors.ControlDarkDark
         numberTotalUsersRegistered.Location = New Point(276, 122)
         numberTotalUsersRegistered.Name = "numberTotalUsersRegistered"
@@ -3654,9 +3675,9 @@ Partial Class SuperAdmin
         btnAddAccount.BackColor = Color.SeaGreen
         btnAddAccount.FlatAppearance.BorderSize = 0
         btnAddAccount.FlatStyle = FlatStyle.Flat
-        btnAddAccount.Font = New Font("Segoe UI Semibold", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        btnAddAccount.Font = New Font("Segoe UI Semibold", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         btnAddAccount.ForeColor = SystemColors.ControlLightLight
-        btnAddAccount.Location = New Point(1472, 122)
+        btnAddAccount.Location = New Point(1530, 122)
         btnAddAccount.Name = "btnAddAccount"
         btnAddAccount.Size = New Size(175, 35)
         btnAddAccount.TabIndex = 13
@@ -3670,15 +3691,15 @@ Partial Class SuperAdmin
         accountTableLayout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 33.3333244F))
         accountTableLayout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 33.3333359F))
         accountTableLayout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 33.33334F))
-        accountTableLayout.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 20.0F))
+        accountTableLayout.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 20F))
         accountTableLayout.Controls.Add(panelSuperAdmin, 0, 0)
         accountTableLayout.Controls.Add(panelAdmin, 1, 0)
         accountTableLayout.Controls.Add(panelAssistant, 2, 0)
         accountTableLayout.Location = New Point(14, 147)
         accountTableLayout.Name = "accountTableLayout"
         accountTableLayout.RowCount = 1
-        accountTableLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
-        accountTableLayout.Size = New Size(1670, 110)
+        accountTableLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 100F))
+        accountTableLayout.Size = New Size(1728, 110)
         accountTableLayout.TabIndex = 4
         ' 
         ' panelSuperAdmin
@@ -3689,7 +3710,7 @@ Partial Class SuperAdmin
         panelSuperAdmin.Dock = DockStyle.Fill
         panelSuperAdmin.Location = New Point(3, 3)
         panelSuperAdmin.Name = "panelSuperAdmin"
-        panelSuperAdmin.Size = New Size(550, 104)
+        panelSuperAdmin.Size = New Size(569, 104)
         panelSuperAdmin.TabIndex = 0
         ' 
         ' titleSuperAdmin
@@ -3721,9 +3742,9 @@ Partial Class SuperAdmin
         panelAdmin.Controls.Add(numberAdmin)
         panelAdmin.Controls.Add(titleAdmin)
         panelAdmin.Dock = DockStyle.Fill
-        panelAdmin.Location = New Point(559, 3)
+        panelAdmin.Location = New Point(578, 3)
         panelAdmin.Name = "panelAdmin"
-        panelAdmin.Size = New Size(550, 104)
+        panelAdmin.Size = New Size(570, 104)
         panelAdmin.TabIndex = 1
         ' 
         ' numberAdmin
@@ -3755,9 +3776,9 @@ Partial Class SuperAdmin
         panelAssistant.Controls.Add(numberAssistant)
         panelAssistant.Controls.Add(titleAssistant)
         panelAssistant.Dock = DockStyle.Fill
-        panelAssistant.Location = New Point(1115, 3)
+        panelAssistant.Location = New Point(1154, 3)
         panelAssistant.Name = "panelAssistant"
-        panelAssistant.Size = New Size(552, 104)
+        panelAssistant.Size = New Size(571, 104)
         panelAssistant.TabIndex = 2
         ' 
         ' numberAssistant
@@ -3793,7 +3814,7 @@ Partial Class SuperAdmin
         pnlHeaderAccounts.Controls.Add(hdrAccounts)
         pnlHeaderAccounts.Location = New Point(0, 0)
         pnlHeaderAccounts.Name = "pnlHeaderAccounts"
-        pnlHeaderAccounts.Size = New Size(1756, 72)
+        pnlHeaderAccounts.Size = New Size(1814, 72)
         pnlHeaderAccounts.TabIndex = 3
         ' 
         ' TextBox23
@@ -3801,8 +3822,8 @@ Partial Class SuperAdmin
         TextBox23.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         TextBox23.BackColor = SystemColors.ControlLightLight
         TextBox23.BorderStyle = BorderStyle.None
-        TextBox23.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
-        TextBox23.Location = New Point(1308, 26)
+        TextBox23.Font = New Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        TextBox23.Location = New Point(1366, 26)
         TextBox23.Name = "TextBox23"
         TextBox23.Size = New Size(220, 16)
         TextBox23.TabIndex = 7
@@ -3813,11 +3834,11 @@ Partial Class SuperAdmin
         ' 
         Label2.Anchor = AnchorStyles.Top Or AnchorStyles.Right
         Label2.AutoSize = True
-        Label2.Font = New Font("Segoe UI", 9.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        Label2.Font = New Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         Label2.ForeColor = Color.SeaGreen
-        Label2.Location = New Point(1335, 45)
+        Label2.Location = New Point(1393, 45)
         Label2.Name = "Label2"
-        Label2.Size = New Size(91, 12)
+        Label2.Size = New Size(122, 15)
         Label2.TabIndex = 5
         Label2.Text = "Super Admin / Owner"
         ' 
@@ -3825,22 +3846,22 @@ Partial Class SuperAdmin
         ' 
         Label3.AutoSize = True
         Label3.BackColor = Color.Transparent
-        Label3.Font = New Font("Segoe UI", 8.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        Label3.Font = New Font("Segoe UI", 8F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         Label3.ForeColor = Color.Gray
         Label3.Location = New Point(20, 43)
         Label3.Name = "Label3"
-        Label3.Size = New Size(241, 17)
+        Label3.Size = New Size(223, 13)
         Label3.TabIndex = 1
         Label3.Text = "Cabrera’s Drugstore and Medical Supplies"
         ' 
         ' hdrAccounts
         ' 
         hdrAccounts.AutoSize = True
-        hdrAccounts.Font = New Font("Segoe UI", 18.0F, FontStyle.Bold)
+        hdrAccounts.Font = New Font("Segoe UI", 18F, FontStyle.Bold)
         hdrAccounts.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
         hdrAccounts.Location = New Point(20, 6)
         hdrAccounts.Name = "hdrAccounts"
-        hdrAccounts.Size = New Size(157, 45)
+        hdrAccounts.Size = New Size(120, 32)
         hdrAccounts.TabIndex = 0
         hdrAccounts.Text = "Accounts"
         ' 
@@ -3921,7 +3942,7 @@ Partial Class SuperAdmin
         LoginBtn.BackColor = Color.DarkOrange
         LoginBtn.FlatAppearance.BorderSize = 0
         LoginBtn.FlatStyle = FlatStyle.Flat
-        LoginBtn.Font = New Font("Segoe UI", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        LoginBtn.Font = New Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         LoginBtn.ForeColor = Color.White
         LoginBtn.Location = New Point(553, 387)
         LoginBtn.Margin = New Padding(3, 2, 3, 2)
@@ -3935,7 +3956,7 @@ Partial Class SuperAdmin
         ' 
         PasswordField.Anchor = AnchorStyles.Left Or AnchorStyles.Right
         PasswordField.BackColor = SystemColors.Window
-        PasswordField.Font = New Font("Segoe UI", 12.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        PasswordField.Font = New Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         PasswordField.Location = New Point(391, 333)
         PasswordField.Margin = New Padding(3, 2, 3, 2)
         PasswordField.Name = "PasswordField"
@@ -3947,7 +3968,7 @@ Partial Class SuperAdmin
         ' 
         UsernameField.Anchor = AnchorStyles.Left Or AnchorStyles.Right
         UsernameField.BackColor = SystemColors.Window
-        UsernameField.Font = New Font("Segoe UI", 12.0F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
+        UsernameField.Font = New Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point, CByte(0))
         UsernameField.Location = New Point(391, 266)
         UsernameField.Margin = New Padding(3, 2, 3, 2)
         UsernameField.Name = "UsernameField"
@@ -3959,7 +3980,7 @@ Partial Class SuperAdmin
         ' 
         Password.Anchor = AnchorStyles.Right
         Password.AutoSize = True
-        Password.Font = New Font("Segoe UI", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        Password.Font = New Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         Password.Location = New Point(391, 310)
         Password.Name = "Password"
         Password.Size = New Size(82, 21)
@@ -3970,7 +3991,7 @@ Partial Class SuperAdmin
         ' 
         Username.Anchor = AnchorStyles.Right
         Username.AutoSize = True
-        Username.Font = New Font("Segoe UI", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        Username.Font = New Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         Username.Location = New Point(391, 243)
         Username.Name = "Username"
         Username.Size = New Size(87, 21)
@@ -3981,7 +4002,7 @@ Partial Class SuperAdmin
         ' 
         DrugstoreName.Anchor = AnchorStyles.None
         DrugstoreName.AutoSize = True
-        DrugstoreName.Font = New Font("Calibri", 12.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
+        DrugstoreName.Font = New Font("Calibri", 12F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
         DrugstoreName.Location = New Point(376, 164)
         DrugstoreName.Name = "DrugstoreName"
         DrugstoreName.Size = New Size(297, 19)
@@ -4000,18 +4021,17 @@ Partial Class SuperAdmin
         ' 
         ' SuperAdmin
         ' 
-        AutoScaleDimensions = New SizeF(7.0F, 15.0F)
+        AutoScaleDimensions = New SizeF(7F, 15F)
         AutoScaleMode = AutoScaleMode.Font
-        ClientSize = New Size(1924, 1055)
+        ClientSize = New Size(1684, 791)
         Controls.Add(sideBarSuperAdmin)
         Controls.Add(motherPanel)
         Controls.Add(pnlLogin)
-        MinimumSize = New Size(960, 650)
+        MinimumSize = New Size(960, 648)
         Name = "SuperAdmin"
         Text = "Form1"
         WindowState = FormWindowState.Maximized
         sideBarSuperAdmin.ResumeLayout(False)
-        sideBarSuperAdmin.PerformLayout()
         CType(logoBox, ComponentModel.ISupportInitialize).EndInit()
         motherPanel.ResumeLayout(False)
         pnlDashboard.ResumeLayout(False)
@@ -4019,6 +4039,7 @@ Partial Class SuperAdmin
         pnlHeaderDashboard.PerformLayout()
         TableLayoutPanel4.ResumeLayout(False)
         Panel11.ResumeLayout(False)
+        trendFiltersPanel.ResumeLayout(False)
         Panel12.ResumeLayout(False)
         TableLayoutPanel1.ResumeLayout(False)
         Panel1.ResumeLayout(False)
@@ -4040,6 +4061,10 @@ Partial Class SuperAdmin
         Panel8.PerformLayout()
         TableLayoutPanel3.ResumeLayout(False)
         Panel9.ResumeLayout(False)
+        Panel9.PerformLayout()
+        inventoryAlertLowStock.ResumeLayout(False)
+        inventoryAlertNearExpiry.ResumeLayout(False)
+        inventoryAlertExpired.ResumeLayout(False)
         Panel10.ResumeLayout(False)
         pnlReports.ResumeLayout(False)
         TableLayoutPanel9.ResumeLayout(False)
@@ -4449,7 +4474,8 @@ Partial Class SuperAdmin
     Friend WithEvents PictureBox1 As PictureBox
     Friend WithEvents PharName As Label
     Friend WithEvents logoBox As PictureBox
-    Friend WithEvents titleLabel As Label
     Friend WithEvents subtitleLabel As Label
+    Friend WithEvents Label13 As Label
+    Friend WithEvents Label1 As Label
 
 End Class
