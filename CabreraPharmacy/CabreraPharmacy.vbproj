@@ -23,6 +23,20 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Update="Staff.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Staff.Designer.vb">
+      <DependentUpon>Staff.vb</DependentUpon>
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+    </Compile>
+    <EmbeddedResource Update="Staff.resx">
+      <DependentUpon>Staff.vb</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Update="My Project\Application.Designer.vb">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
