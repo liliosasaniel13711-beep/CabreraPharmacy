@@ -43,6 +43,21 @@ Public Class Admin
     Private salesReportGrid As DataGridView
     Private salesReportTotalLabel As Label
     Private salesReportDetailsLabel As Label
+    Private empSalesReportPeriod As String = "Daily"
+    Private empSalesReportPeriodButtons As New Dictionary(Of String, Button)(StringComparer.OrdinalIgnoreCase)
+    Private empSalesReportDatePicker As DateTimePicker
+    Private empSalesReportMonthCombo As ComboBox
+    Private empSalesReportYearCombo As ComboBox
+    Private empSalesReportFilterPanel As Panel
+    Private empSalesReportTotalLabel As Label
+    Private WithEvents dgvExpenses As DataGridView
+    Private expReportPeriod As String = "Daily"
+    Private expReportPeriodButtons As New Dictionary(Of String, Button)(StringComparer.OrdinalIgnoreCase)
+    Private expReportDatePicker As DateTimePicker
+    Private expReportMonthCombo As ComboBox
+    Private expReportYearCombo As ComboBox
+    Private expReportFilterPanel As Panel
+    Private expReportTotalLabel As Label
     Private trendButtons As New Dictionary(Of String, Button)(StringComparer.OrdinalIgnoreCase)
     Private trendLabels As New List(Of String)
     Private trendValues As New List(Of Decimal)
@@ -418,9 +433,16 @@ Public Class Admin
         card.Controls.Add(titleLabel)
         card.Controls.Add(descriptionLabel)
         card.Controls.Add(viewButton)
+
+        ' --- NEW: Wired up the new reports ---
         If String.Equals(title, "Sales Report", StringComparison.Ordinal) Then
             AddHandler viewButton.Click, Sub(sender, e) ShowSalesReport()
+        ElseIf String.Equals(title, "Employee Sales Report", StringComparison.Ordinal) Then
+            AddHandler viewButton.Click, Sub(sender, e) ShowEmployeeSalesReport()
+        ElseIf String.Equals(title, "Expenses Report", StringComparison.Ordinal) Then
+            AddHandler viewButton.Click, Sub(sender, e) ShowExpenseReport()
         End If
+
         Return card
     End Function
 
@@ -1091,10 +1113,18 @@ Public Class Admin
             MessageBox.Show("Could not load inventory totals. " & ex.Message, "Inventory dashboard", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
 
-        ' The connected cabreradb schema currently has no expense records/table or purchase cost field.
-        ' Keep the card explicit instead of presenting an unsupported expense total as a real figure.
-        card8Value.Text = "Unavailable"
-        card8Footer.Text = "Expense data is not stored"
+        Try
+            Dim todayExpenses = New SalesRepository().GetTodayTotalExpenses()
+            card8Value.Text = "P " & todayExpenses.ToString("N2")
+            card8Footer.Text = "Recorded today"
+
+            ' Optional: If you want to update the Net Income on the Revenue panel
+            ' dashboardNetIncome = dashboardRevenue - todayExpenses
+        Catch ex As Exception
+            card8Value.Text = "P 0.00"
+            card8Footer.Text = "Error loading expenses"
+        End Try
+
         UpdateDashboardCounts()
     End Sub
 
@@ -2039,7 +2069,7 @@ Public Class Admin
                     If Not autoWholesaleCheck.Checked Then Return
                     Dim retailPrice As Decimal
                     If Decimal.TryParse(retailBox.Text, NumberStyles.Currency, CultureInfo.CurrentCulture, retailPrice) AndAlso retailPrice >= 0D Then
-                        Dim calculated = Decimal.Round(retailPrice * quantityPerBox * 0.90D, 2, MidpointRounding.AwayFromZero)
+                        Dim calculated = Decimal.Round(retailPrice * quantityPerBox * 0.9D, 2, MidpointRounding.AwayFromZero)
                         wholesaleBox.Text = calculated.ToString("0.00", CultureInfo.CurrentCulture)
                     End If
                 End Sub
@@ -2204,4 +2234,461 @@ Public Class Admin
     Private Sub card2Value_Click(sender As Object, e As EventArgs) Handles card2Value.Click
 
     End Sub
+
+    Private Sub ShowEmployeeSalesReport()
+        reportsView.Controls.Clear()
+        reportsView.Padding = New Padding(14)
+        reportsView.BackColor = lightGray
+
+        Dim layout As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 1, .RowCount = 2, .BackColor = lightGray, .Margin = New Padding(0)}
+        layout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
+        layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 106))
+        layout.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
+
+        Dim header As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = New Padding(0, 0, 0, 12)}
+        header.Controls.Add(New Label With {.Text = "Employee Sales Report", .AutoSize = True, .Font = New Font("Segoe UI", 14.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(35, 45, 40), .Location = New Point(18, 12)})
+        header.Controls.Add(New Label With {.Text = "Generated: " & DateTime.Now.ToString("MMMM dd, yyyy, h:mm tt", CultureInfo.CurrentCulture) & " | By: " & CurrentFullName, .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(20, 42)})
+
+        Dim backButton As New Button With {.Text = "Back to Reports", .Size = New Size(126, 32), .Anchor = AnchorStyles.Top Or AnchorStyles.Right, .BackColor = Color.White, .ForeColor = darkGreen, .FlatStyle = FlatStyle.Flat}
+        backButton.Location = New Point(header.ClientSize.Width - backButton.Width - 16, 12)
+        AddHandler header.Resize, Sub(sender, e) backButton.Left = header.ClientSize.Width - backButton.Width - 16
+        AddHandler backButton.Click, Sub(sender, e) InitializeReportsUi()
+        header.Controls.Add(backButton)
+
+        Dim printReportButton As New Button With {.Text = "Print Report", .Size = New Size(112, 32), .Anchor = AnchorStyles.Top Or AnchorStyles.Right, .BackColor = darkGreen, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat}
+        printReportButton.FlatAppearance.BorderSize = 0
+        printReportButton.Location = New Point(backButton.Left - printReportButton.Width - 10, 12)
+        AddHandler header.Resize, Sub(sender, e) printReportButton.Left = backButton.Left - printReportButton.Width - 10
+        AddHandler printReportButton.Click, AddressOf PrintEmployeeSalesReport
+        header.Controls.Add(printReportButton)
+
+        empSalesReportPeriodButtons.Clear()
+        AddSalesReportButtonGroup(header, {"Daily", "Monthly", "Yearly"}, empSalesReportPeriodButtons, 18, 66, AddressOf SelectEmpSalesReportPeriod)
+        UpdateEmpSalesReportButtonStyles()
+
+        Dim body As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 2, .RowCount = 1, .BackColor = lightGray, .Margin = New Padding(0)}
+        body.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 225))
+        body.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
+
+        empSalesReportFilterPanel = New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(14), .Margin = New Padding(0, 0, 12, 0)}
+
+        Dim reportPanel As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(0), .Margin = New Padding(0)}
+        salesReportGrid = New DataGridView With {
+            .Dock = DockStyle.Fill,
+            .ReadOnly = True,
+            .AllowUserToAddRows = False,
+            .AllowUserToDeleteRows = False,
+            .AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+            .SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+            .RowHeadersVisible = False,
+            .BackgroundColor = Color.White,
+            .BorderStyle = BorderStyle.None,
+            .GridColor = Color.FromArgb(230, 234, 231),
+            .EnableHeadersVisualStyles = False
+        }
+        salesReportGrid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(245, 247, 246)
+        salesReportGrid.ColumnHeadersDefaultCellStyle.ForeColor = Color.Gray
+        salesReportGrid.ColumnHeadersDefaultCellStyle.Font = New Font("Segoe UI", 8.5F, FontStyle.Bold)
+        salesReportGrid.DefaultCellStyle.Font = New Font("Segoe UI", 9.0F)
+        salesReportGrid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(225, 245, 230)
+        salesReportGrid.DefaultCellStyle.SelectionForeColor = Color.Black
+        salesReportGrid.RowTemplate.Height = 36
+
+        empSalesReportTotalLabel = New Label With {.Text = "TOTAL SALES: ₱0.00", .Dock = DockStyle.Bottom, .Height = 44, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = darkGreen, .TextAlign = ContentAlignment.MiddleRight, .Padding = New Padding(0, 0, 18, 0)}
+
+        reportPanel.Controls.Add(salesReportGrid)
+        reportPanel.Controls.Add(empSalesReportTotalLabel)
+
+        body.Controls.Add(empSalesReportFilterPanel, 0, 0)
+        body.Controls.Add(reportPanel, 1, 0)
+        layout.Controls.Add(header, 0, 0)
+        layout.Controls.Add(body, 0, 1)
+        reportsView.Controls.Add(layout)
+
+        ConfigureEmpSalesReportFilters()
+    End Sub
+
+    Private Sub SelectEmpSalesReportPeriod(period As String)
+        If String.Equals(empSalesReportPeriod, period, StringComparison.OrdinalIgnoreCase) Then Return
+        empSalesReportPeriod = period
+        UpdateEmpSalesReportButtonStyles()
+        ConfigureEmpSalesReportFilters()
+    End Sub
+
+    Private Sub UpdateEmpSalesReportButtonStyles()
+        For Each pair In empSalesReportPeriodButtons
+            Dim isSelected = String.Equals(pair.Key, empSalesReportPeriod, StringComparison.OrdinalIgnoreCase)
+            pair.Value.BackColor = If(isSelected, darkGreen, Color.White)
+            pair.Value.ForeColor = If(isSelected, Color.White, darkGreen)
+        Next
+    End Sub
+
+    Private Sub ConfigureEmpSalesReportFilters()
+        If empSalesReportFilterPanel Is Nothing Then Return
+        empSalesReportFilterPanel.Controls.Clear()
+        empSalesReportDatePicker = Nothing
+        empSalesReportMonthCombo = Nothing
+        empSalesReportYearCombo = Nothing
+        Dim period = empSalesReportPeriod
+
+        empSalesReportFilterPanel.Controls.Add(New Label With {.Text = "Filter by " & period.ToLowerInvariant(), .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(14, 14)})
+
+        If String.Equals(period, "Daily", StringComparison.Ordinal) Then
+            Dim firstAvailableDate As New DateTime(2026, 9, 1)
+            Dim lastAvailableDate As New DateTime(2026, 10, 31)
+            If Date.Today < lastAvailableDate Then lastAvailableDate = Date.Today
+
+            empSalesReportFilterPanel.Controls.Add(New Label With {.Text = "Date", .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(14, 60)})
+            empSalesReportDatePicker = New DateTimePicker With {
+                .Format = DateTimePickerFormat.Custom,
+                .CustomFormat = "MMMM dd, yyyy",
+                .MinDate = firstAvailableDate,
+                .MaxDate = lastAvailableDate,
+                .Value = lastAvailableDate,
+                .Location = New Point(14, 82),
+                .Width = 190,
+                .Font = New Font("Segoe UI", 9.0F)
+            }
+            empSalesReportFilterPanel.Controls.Add(empSalesReportDatePicker)
+        ElseIf String.Equals(period, "Monthly", StringComparison.Ordinal) Then
+            empSalesReportMonthCombo = AddEmpFilterCombo("Month", {"September", "October"}, "October", 60)
+            empSalesReportYearCombo = AddEmpFilterCombo("Year", {"2026"}, "2026", 145)
+        Else
+            empSalesReportYearCombo = AddEmpFilterCombo("Year", {"2026"}, "2026", 60)
+        End If
+
+        If empSalesReportDatePicker IsNot Nothing Then AddHandler empSalesReportDatePicker.ValueChanged, Sub(sender, e) LoadEmpSalesReportRows()
+        If empSalesReportMonthCombo IsNot Nothing Then AddHandler empSalesReportMonthCombo.SelectedIndexChanged, Sub(sender, e) LoadEmpSalesReportRows()
+        If empSalesReportYearCombo IsNot Nothing Then AddHandler empSalesReportYearCombo.SelectedIndexChanged, Sub(sender, e) LoadEmpSalesReportRows()
+        LoadEmpSalesReportRows()
+    End Sub
+
+    Private Function AddEmpFilterCombo(labelText As String, items As String(), selected As String, top As Integer) As ComboBox
+        empSalesReportFilterPanel.Controls.Add(New Label With {.Text = labelText, .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(14, top)})
+        Dim combo As New ComboBox With {.DropDownStyle = ComboBoxStyle.DropDownList, .Font = New Font("Segoe UI", 9.0F), .Location = New Point(14, top + 20), .Width = 190}
+        combo.Items.AddRange(items.Cast(Of Object)().ToArray())
+        combo.SelectedItem = selected
+        empSalesReportFilterPanel.Controls.Add(combo)
+        Return combo
+    End Function
+
+    Private Function AddExpFilterCombo(labelText As String, items As String(), selected As String, top As Integer) As ComboBox
+        expReportFilterPanel.Controls.Add(New Label With {.Text = labelText, .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(14, top)})
+        Dim combo As New ComboBox With {.DropDownStyle = ComboBoxStyle.DropDownList, .Font = New Font("Segoe UI", 9.0F), .Location = New Point(14, top + 20), .Width = 190}
+        combo.Items.AddRange(items.Cast(Of Object)().ToArray())
+        combo.SelectedItem = selected
+        expReportFilterPanel.Controls.Add(combo)
+        Return combo
+    End Function
+
+    Private Sub LoadEmpSalesReportRows()
+        If salesReportGrid Is Nothing Then Return
+        Try
+            Dim period = empSalesReportPeriod
+            Dim year As Integer = 2026
+            If Not String.Equals(period, "Daily", StringComparison.Ordinal) Then
+                If empSalesReportYearCombo Is Nothing OrElse empSalesReportYearCombo.SelectedItem Is Nothing Then Return
+                year = Integer.Parse(Convert.ToString(empSalesReportYearCombo.SelectedItem), CultureInfo.InvariantCulture)
+            End If
+            Dim startDate As DateTime
+            Dim endDate As DateTime
+
+            If String.Equals(period, "Daily", StringComparison.Ordinal) Then
+                If empSalesReportDatePicker Is Nothing Then Return
+                startDate = empSalesReportDatePicker.Value.Date
+                endDate = startDate.AddDays(1)
+            ElseIf String.Equals(period, "Yearly", StringComparison.Ordinal) Then
+                startDate = New DateTime(year, 1, 1)
+                endDate = startDate.AddYears(1)
+            Else
+                If empSalesReportMonthCombo Is Nothing OrElse empSalesReportMonthCombo.SelectedItem Is Nothing Then Return
+                Dim month = DateTime.ParseExact(Convert.ToString(empSalesReportMonthCombo.SelectedItem), "MMMM", CultureInfo.InvariantCulture).Month
+                startDate = New DateTime(year, month, 1)
+                endDate = startDate.AddMonths(1)
+            End If
+
+            Dim repo As New SalesRepository()
+            Dim rows = repo.GetEmployeeSalesReport(startDate, endDate)
+            salesReportGrid.DataSource = rows
+            If salesReportGrid.Columns.Contains("Total Sales Revenue") Then
+                salesReportGrid.Columns("Total Sales Revenue").DefaultCellStyle.Format = "₱#,##0.00"
+            End If
+
+            Dim total As Decimal = rows.AsEnumerable().Sum(Function(row) If(row.IsNull("Total Sales Revenue"), 0D, Convert.ToDecimal(row("Total Sales Revenue"))))
+            empSalesReportTotalLabel.Text = "TOTAL SALES: ₱" & total.ToString("N2", CultureInfo.CurrentCulture)
+        Catch ex As Exception
+            MessageBox.Show("Could not load the employee sales report. " & ex.Message, "Sales Report", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Sub
+
+    Private Sub PrintEmployeeSalesReport(sender As Object, e As EventArgs)
+        Try
+            If salesReportGrid Is Nothing Then Return
+            Dim rows = TryCast(salesReportGrid.DataSource, DataTable)
+            If rows Is Nothing Then Return
+
+            Dim period = empSalesReportPeriod
+            Dim title = period & " Employee Sales Report"
+            Dim destinationFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "employee_sales_report", period.ToLowerInvariant())
+            Dim fileSuffix As String
+            Dim periodCaption As String
+
+            If String.Equals(period, "Daily", StringComparison.Ordinal) Then
+                Dim saleDate = empSalesReportDatePicker.Value.Date
+                fileSuffix = saleDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+                periodCaption = saleDate.ToString("MMMM dd, yyyy", CultureInfo.CurrentCulture)
+            ElseIf String.Equals(period, "Monthly", StringComparison.Ordinal) Then
+                Dim year = Integer.Parse(Convert.ToString(empSalesReportYearCombo.SelectedItem), CultureInfo.InvariantCulture)
+                Dim month = DateTime.ParseExact(Convert.ToString(empSalesReportMonthCombo.SelectedItem), "MMMM", CultureInfo.InvariantCulture).Month
+                Dim saleDate = New DateTime(year, month, 1)
+                destinationFolder = Path.Combine(destinationFolder, year.ToString(CultureInfo.InvariantCulture), saleDate.ToString("MMMM", CultureInfo.InvariantCulture))
+                fileSuffix = saleDate.ToString("MMMM_yyyy", CultureInfo.InvariantCulture)
+                periodCaption = saleDate.ToString("MMMM yyyy", CultureInfo.CurrentCulture)
+            Else
+                Dim year = Integer.Parse(Convert.ToString(empSalesReportYearCombo.SelectedItem), CultureInfo.InvariantCulture)
+                destinationFolder = Path.Combine(destinationFolder, year.ToString(CultureInfo.InvariantCulture))
+                fileSuffix = year.ToString(CultureInfo.InvariantCulture)
+                periodCaption = year.ToString(CultureInfo.InvariantCulture)
+            End If
+
+            Dim total = rows.AsEnumerable().Sum(Function(row) If(row.IsNull("Total Sales Revenue"), 0D, Convert.ToDecimal(row("Total Sales Revenue"))))
+            Dim totalTransactions = rows.AsEnumerable().Sum(Function(row) If(row.IsNull("Total Transactions"), 0, Convert.ToInt32(row("Total Transactions"))))
+
+            Dim lines As New List(Of String) From {
+                "CABRERA'S DRUGSTORE AND MEDICAL SUPPLIES",
+                title,
+                "@META|Report Period: " & periodCaption,
+                "@META|Generated: " & DateTime.Now.ToString("MMMM dd, yyyy h:mm tt", CultureInfo.CurrentCulture) & "|Prepared by: " & CurrentFullName,
+                "@SECTION|EMPLOYEE SALES SUMMARY",
+                "@SUMMARY|Active Cashiers|" & rows.Rows.Count.ToString(CultureInfo.InvariantCulture) & "|Total Transactions|" & totalTransactions.ToString(CultureInfo.InvariantCulture),
+                "@TOTAL|TOTAL REVENUE|PHP " & total.ToString("N2", CultureInfo.InvariantCulture),
+                "@SECTION|EMPLOYEE BREAKDOWN",
+                "@TABLE|EMPLOYEE NAME|ROLE|TOTAL TRANSACTIONS|TOTAL SALES REVENUE"
+            }
+
+            For Each row As DataRow In rows.Rows
+                lines.Add(String.Join("|", {
+                    "@TABLE",
+                    Convert.ToString(row("Employee Name")),
+                    Convert.ToString(row("Role")),
+                    Convert.ToString(row("Total Transactions"), CultureInfo.InvariantCulture),
+                    "PHP " & Convert.ToDecimal(row("Total Sales Revenue")).ToString("N2", CultureInfo.InvariantCulture)
+                }))
+            Next
+
+            If rows.Rows.Count = 0 Then lines.Add("@NOTE|No transactions were recorded for this period.")
+
+            Directory.CreateDirectory(destinationFolder)
+            Dim outputPath = Path.Combine(destinationFolder, "employee_sales_" & fileSuffix & ".pdf")
+            Staff.CreateReportPdf(outputPath, lines)
+            Process.Start(New ProcessStartInfo(outputPath) With {.UseShellExecute = True})
+        Catch ex As Exception
+            MessageBox.Show("Unable to create or open the employee sales report PDF. " & ex.Message, "Print Report", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Sub
+
+    Private Sub ShowExpenseReport()
+        reportsView.Controls.Clear()
+        reportsView.Padding = New Padding(14)
+        reportsView.BackColor = lightGray
+
+        Dim layout As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 1, .RowCount = 2, .BackColor = lightGray, .Margin = New Padding(0)}
+        layout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
+        layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 106))
+        layout.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
+
+        Dim header As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = New Padding(0, 0, 0, 12)}
+        header.Controls.Add(New Label With {.Text = "Financial Expense Report", .AutoSize = True, .Font = New Font("Segoe UI", 14.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(35, 45, 40), .Location = New Point(18, 12)})
+        header.Controls.Add(New Label With {.Text = "Generated: " & DateTime.Now.ToString("MMMM dd, yyyy, h:mm tt", Globalization.CultureInfo.CurrentCulture) & " | By: " & CurrentFullName, .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(20, 42)})
+
+        Dim backButton As New Button With {.Text = "Back to Reports", .Size = New Size(126, 32), .Anchor = AnchorStyles.Top Or AnchorStyles.Right, .BackColor = Color.White, .ForeColor = darkGreen, .FlatStyle = FlatStyle.Flat}
+        backButton.Location = New Point(header.ClientSize.Width - backButton.Width - 16, 12)
+        AddHandler header.Resize, Sub(sender, e) backButton.Left = header.ClientSize.Width - backButton.Width - 16
+        AddHandler backButton.Click, Sub(sender, e) InitializeReportsUi()
+
+        Dim addExpenseBtn As New Button With {.Text = "+ Add Expense", .Size = New Size(126, 32), .Anchor = AnchorStyles.Top Or AnchorStyles.Right, .BackColor = darkGreen, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat}
+        addExpenseBtn.FlatAppearance.BorderSize = 0
+        addExpenseBtn.Location = New Point(backButton.Left - addExpenseBtn.Width - 10, 12)
+        AddHandler header.Resize, Sub(sender, e) addExpenseBtn.Left = backButton.Left - addExpenseBtn.Width - 10
+        AddHandler addExpenseBtn.Click, AddressOf ShowAddExpenseModal
+
+        header.Controls.Add(backButton)
+        header.Controls.Add(addExpenseBtn)
+
+        expReportPeriodButtons.Clear()
+        AddSalesReportButtonGroup(header, {"Daily", "Monthly", "Yearly"}, expReportPeriodButtons, 18, 66, AddressOf SelectExpReportPeriod)
+        UpdateExpReportButtonStyles()
+
+        Dim body As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 2, .RowCount = 1, .BackColor = lightGray, .Margin = New Padding(0)}
+        body.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 225))
+        body.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
+
+        expReportFilterPanel = New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(14), .Margin = New Padding(0, 0, 12, 0)}
+
+        Dim reportPanel As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(0), .Margin = New Padding(0)}
+        dgvExpenses = New DataGridView With {
+            .Dock = DockStyle.Fill,
+            .ReadOnly = True,
+            .AllowUserToAddRows = False,
+            .AllowUserToDeleteRows = False,
+            .AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+            .SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+            .RowHeadersVisible = False,
+            .BackgroundColor = Color.White,
+            .BorderStyle = BorderStyle.None,
+            .GridColor = Color.FromArgb(230, 234, 231),
+            .EnableHeadersVisualStyles = False
+        }
+        dgvExpenses.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(245, 247, 246)
+        dgvExpenses.ColumnHeadersDefaultCellStyle.ForeColor = Color.Gray
+        dgvExpenses.ColumnHeadersDefaultCellStyle.Font = New Font("Segoe UI", 8.5F, FontStyle.Bold)
+        dgvExpenses.DefaultCellStyle.Font = New Font("Segoe UI", 9.0F)
+        dgvExpenses.DefaultCellStyle.SelectionBackColor = Color.FromArgb(225, 245, 230)
+        dgvExpenses.DefaultCellStyle.SelectionForeColor = Color.Black
+        dgvExpenses.RowTemplate.Height = 36
+
+        expReportTotalLabel = New Label With {.Text = "TOTAL EXPENSES: ₱0.00", .Dock = DockStyle.Bottom, .Height = 44, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = Color.DarkRed, .TextAlign = ContentAlignment.MiddleRight, .Padding = New Padding(0, 0, 18, 0)}
+
+        reportPanel.Controls.Add(dgvExpenses)
+        reportPanel.Controls.Add(expReportTotalLabel)
+
+        body.Controls.Add(expReportFilterPanel, 0, 0)
+        body.Controls.Add(reportPanel, 1, 0)
+        layout.Controls.Add(header, 0, 0)
+        layout.Controls.Add(body, 0, 1)
+        reportsView.Controls.Add(layout)
+
+        ConfigureExpReportFilters()
+    End Sub
+
+    ' --- Expense Report Filter Logic ---
+    Private Sub SelectExpReportPeriod(period As String)
+        If String.Equals(expReportPeriod, period, StringComparison.OrdinalIgnoreCase) Then Return
+        expReportPeriod = period
+        UpdateExpReportButtonStyles()
+        ConfigureExpReportFilters()
+    End Sub
+
+    Private Sub UpdateExpReportButtonStyles()
+        For Each pair In expReportPeriodButtons
+            Dim isSelected = String.Equals(pair.Key, expReportPeriod, StringComparison.OrdinalIgnoreCase)
+            pair.Value.BackColor = If(isSelected, darkGreen, Color.White)
+            pair.Value.ForeColor = If(isSelected, Color.White, darkGreen)
+        Next
+    End Sub
+
+    Private Sub ConfigureExpReportFilters()
+        If expReportFilterPanel Is Nothing Then Return
+        expReportFilterPanel.Controls.Clear()
+        expReportDatePicker = Nothing
+        expReportMonthCombo = Nothing
+        expReportYearCombo = Nothing
+        Dim period = expReportPeriod
+
+        expReportFilterPanel.Controls.Add(New Label With {.Text = "Filter by " & period.ToLowerInvariant(), .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(14, 14)})
+
+        If String.Equals(period, "Daily", StringComparison.Ordinal) Then
+            Dim firstAvailableDate As New DateTime(2026, 9, 1)
+            Dim lastAvailableDate As New DateTime(2026, 10, 31)
+            If Date.Today < lastAvailableDate Then lastAvailableDate = Date.Today
+
+            expReportFilterPanel.Controls.Add(New Label With {.Text = "Date", .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(14, 60)})
+            expReportDatePicker = New DateTimePicker With {.Format = DateTimePickerFormat.Custom, .CustomFormat = "MMMM dd, yyyy", .Value = lastAvailableDate, .Location = New Point(14, 82), .Width = 190, .Font = New Font("Segoe UI", 9.0F)}
+            expReportFilterPanel.Controls.Add(expReportDatePicker)
+            AddHandler expReportDatePicker.ValueChanged, Sub(sender, e) LoadExpenseReportRows()
+        ElseIf String.Equals(period, "Monthly", StringComparison.Ordinal) Then
+            ' Updated to use AddExpFilterCombo
+            expReportMonthCombo = AddExpFilterCombo("Month", {"September", "October"}, "October", 60)
+            expReportYearCombo = AddExpFilterCombo("Year", {"2026"}, "2026", 145)
+            AddHandler expReportMonthCombo.SelectedIndexChanged, Sub(sender, e) LoadExpenseReportRows()
+            AddHandler expReportYearCombo.SelectedIndexChanged, Sub(sender, e) LoadExpenseReportRows()
+        Else
+            ' Updated to use AddExpFilterCombo
+            expReportYearCombo = AddExpFilterCombo("Year", {"2026"}, "2026", 60)
+            AddHandler expReportYearCombo.SelectedIndexChanged, Sub(sender, e) LoadExpenseReportRows()
+        End If
+
+        LoadExpenseReportRows()
+    End Sub
+
+    Private Sub LoadExpenseReportRows()
+        If dgvExpenses Is Nothing Then Return
+        Try
+            Dim repo As New SalesRepository()
+            Dim rows = repo.GetExpenseReport() ' Future optimization: pass dates to repo like we did for sales
+
+            Dim filteredRows = rows.Clone()
+            For Each row As DataRow In rows.Rows
+                Dim expDate = Convert.ToDateTime(row("Date"))
+                Dim include = False
+
+                If expReportPeriod = "Daily" AndAlso expReportDatePicker IsNot Nothing Then
+                    include = (expDate.Date = expReportDatePicker.Value.Date)
+                ElseIf expReportPeriod = "Monthly" AndAlso expReportMonthCombo IsNot Nothing AndAlso expReportYearCombo IsNot Nothing Then
+                    Dim selectedMonth = DateTime.ParseExact(expReportMonthCombo.Text, "MMMM", Globalization.CultureInfo.InvariantCulture).Month
+                    Dim selectedYear = Integer.Parse(expReportYearCombo.Text)
+                    include = (expDate.Month = selectedMonth AndAlso expDate.Year = selectedYear)
+                ElseIf expReportPeriod = "Yearly" AndAlso expReportYearCombo IsNot Nothing Then
+                    include = (expDate.Year = Integer.Parse(expReportYearCombo.Text))
+                End If
+
+                If include Then filteredRows.ImportRow(row)
+            Next
+
+            dgvExpenses.DataSource = filteredRows
+            If dgvExpenses.Columns.Contains("Amount") Then dgvExpenses.Columns("Amount").DefaultCellStyle.Format = "₱#,##0.00"
+            If dgvExpenses.Columns.Contains("Date") Then dgvExpenses.Columns("Date").DefaultCellStyle.Format = "MM/dd/yyyy"
+
+            Dim total As Decimal = filteredRows.AsEnumerable().Sum(Function(row) If(row.IsNull("Amount"), 0D, Convert.ToDecimal(row("Amount"))))
+            expReportTotalLabel.Text = "TOTAL EXPENSES: ₱" & total.ToString("N2", Globalization.CultureInfo.CurrentCulture)
+        Catch ex As Exception
+            MessageBox.Show("Could not load expenses. " & ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Sub
+
+    ' --- Add Expense Modal ---
+    Private Sub ShowAddExpenseModal()
+        Using modal As New Form()
+            modal.Text = "Log Financial Expense"
+            modal.Size = New Size(400, 360)
+            modal.StartPosition = FormStartPosition.CenterParent
+            modal.FormBorderStyle = FormBorderStyle.FixedDialog
+            modal.MaximizeBox = False
+            modal.MinimizeBox = False
+            modal.BackColor = Color.White
+
+            modal.Controls.Add(New Label With {.Text = "Expense Category:", .Location = New Point(25, 23), .Size = New Size(120, 22), .Font = New Font("Segoe UI", 9.5F, FontStyle.Bold)})
+            Dim cboCategory As New ComboBox() With {.DropDownStyle = ComboBoxStyle.DropDownList, .Location = New Point(150, 20), .Width = 200, .Font = New Font("Segoe UI", 9.5F)}
+            cboCategory.Items.AddRange({"Utilities", "Payroll", "Store Supplies", "Maintenance", "Marketing", "Logistics", "Other"})
+            cboCategory.SelectedIndex = 0
+            modal.Controls.Add(cboCategory)
+
+            modal.Controls.Add(New Label With {.Text = "Amount (₱):", .Location = New Point(25, 63), .Size = New Size(120, 22), .Font = New Font("Segoe UI", 9.5F, FontStyle.Bold)})
+            Dim numAmount As New NumericUpDown() With {.DecimalPlaces = 2, .Maximum = 1000000, .Location = New Point(150, 60), .Width = 200, .Font = New Font("Segoe UI", 9.5F)}
+            modal.Controls.Add(numAmount)
+
+            modal.Controls.Add(New Label With {.Text = "Description:", .Location = New Point(25, 103), .Size = New Size(120, 22), .Font = New Font("Segoe UI", 9.5F, FontStyle.Bold)})
+            Dim txtDesc As New TextBox() With {.Multiline = True, .Location = New Point(150, 100), .Size = New Size(200, 80), .Font = New Font("Segoe UI", 9.5F)}
+            modal.Controls.Add(txtDesc)
+
+            Dim btnSave As New Button() With {.Text = "Save Expense", .BackColor = darkGreen, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .Size = New Size(130, 38), .Location = New Point(220, 200)}
+            AddHandler btnSave.Click, Sub(s, ev)
+                                          If numAmount.Value <= 0 Then
+                                              MessageBox.Show("Please enter a valid amount.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                                              Return
+                                          End If
+                                          Dim repo As New SalesRepository()
+                                          repo.AddExpense(cboCategory.Text, txtDesc.Text, numAmount.Value)
+                                          modal.DialogResult = DialogResult.OK
+                                          modal.Close()
+                                      End Sub
+            modal.Controls.Add(btnSave)
+
+            If modal.ShowDialog(Me) = DialogResult.OK Then
+                LoadExpenseReportRows()
+                LoadDashboardStats() ' Refresh dashboard total
+            End If
+        End Using
+    End Sub
+
 End Class

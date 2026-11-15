@@ -317,4 +317,101 @@ Public Class SalesRepository
         command.Parameters.AddWithValue(parameterName, If(value Is Nothing, DBNull.Value, value))
     End Sub
 
+    ' --- NEW: Fetches total sales grouped by cashier/employee ---
+    Public Function GetEmployeeSalesReport(Optional fromDate As DateTime? = Nothing,
+                                           Optional throughDateExclusive As DateTime? = Nothing) As DataTable
+        Dim dt As New DataTable()
+        Try
+            Using conn = GetConnection()
+                conn.Open()
+                Const query = "SELECT " &
+                              "u.full_name AS 'Employee Name', " &
+                              "u.role AS 'Role', " &
+                              "COUNT(ps.sale_id) AS 'Total Transactions', " &
+                              "SUM(ps.total_amount) AS 'Total Sales Revenue' " &
+                              "FROM users u " &
+                              "INNER JOIN pharmacy_sales ps ON u.user_id = ps.cashier_user_id " &
+                              "WHERE (@fromDate IS NULL OR ps.created_at >= @fromDate) " &
+                              "AND (@throughDateExclusive IS NULL OR ps.created_at < @throughDateExclusive) " &
+                              "GROUP BY u.user_id, u.full_name, u.role " &
+                              "ORDER BY 'Total Sales Revenue' DESC"
+
+                Using cmd As New MySqlCommand(query, conn)
+                    AddNullable(cmd, "@fromDate", If(fromDate.HasValue, CType(fromDate.Value, Object), Nothing))
+                    AddNullable(cmd, "@throughDateExclusive", If(throughDateExclusive.HasValue, CType(throughDateExclusive.Value, Object), Nothing))
+                    Using da As New MySqlDataAdapter(cmd)
+                        da.Fill(dt)
+                    End Using
+                End Using
+            End Using
+        Catch ex As Exception
+            MessageBox.Show("Failed to load employee sales: " & ex.Message, "Report Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+        Return dt
+    End Function
+
+    ' --- NEW: Fetches financial expenses ---
+    Public Function GetExpenseReport() As DataTable
+        Dim dt As New DataTable()
+        Try
+            Using conn = GetConnection()
+                conn.Open()
+                Const query = "SELECT " &
+                              "e.expense_date AS 'Date', " &
+                              "e.expense_category AS 'Category', " &
+                              "e.description AS 'Description', " &
+                              "e.amount AS 'Amount', " &
+                              "u.full_name AS 'Recorded By' " &
+                              "FROM pharmacy_expenses e " &
+                              "INNER JOIN users u ON e.recorded_by = u.user_id " &
+                              "ORDER BY e.expense_date DESC"
+
+                Using cmd As New MySqlCommand(query, conn)
+                    Using da As New MySqlDataAdapter(cmd)
+                        da.Fill(dt)
+                    End Using
+                End Using
+            End Using
+        Catch ex As Exception
+            MessageBox.Show("Failed to load expenses: " & ex.Message, "Report Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+        Return dt
+    End Function
+
+    ' --- NEW: Saves a new expense to the database ---
+    Public Sub AddExpense(category As String, description As String, amount As Decimal)
+        Try
+            Using conn = GetConnection()
+                conn.Open()
+                Const query = "INSERT INTO pharmacy_expenses (expense_category, description, amount, expense_date, recorded_by) " &
+                              "VALUES (@category, @desc, @amount, CURDATE(), @userId)"
+                Using cmd As New MySqlCommand(query, conn)
+                    cmd.Parameters.AddWithValue("@category", category)
+                    cmd.Parameters.AddWithValue("@desc", If(String.IsNullOrWhiteSpace(description), DBNull.Value, description))
+                    cmd.Parameters.AddWithValue("@amount", amount)
+                    cmd.Parameters.AddWithValue("@userId", CurrentUserID)
+                    cmd.ExecuteNonQuery()
+                End Using
+            End Using
+        Catch ex As Exception
+            Throw New Exception("Database error while saving expense: " & ex.Message)
+        End Try
+    End Sub
+
+    ' --- NEW: Fetches today's total expenses for the dashboard ---
+    Public Function GetTodayTotalExpenses() As Decimal
+        Try
+            Using conn = GetConnection()
+                conn.Open()
+                Const query = "SELECT COALESCE(SUM(amount), 0) FROM pharmacy_expenses WHERE expense_date = CURDATE()"
+                Using cmd As New MySqlCommand(query, conn)
+                    Return Convert.ToDecimal(cmd.ExecuteScalar())
+                End Using
+            End Using
+        Catch ex As Exception
+            Return 0D
+        End Try
+    End Function
+
+
 End Class
