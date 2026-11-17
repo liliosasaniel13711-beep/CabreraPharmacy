@@ -57,6 +57,10 @@ Public Class SalesRepository
             connection.Open()
             Using dbTransaction = connection.BeginTransaction()
                 Try
+                    Dim allocationTrackingEnabled = BatchControlRepository.IsMigrationApplied(connection, dbTransaction)
+                    If Not allocationTrackingEnabled Then
+                        Throw New InvalidOperationException("Batch allocation controls are missing or incomplete. Sales are unavailable until V001 is verified and applied by an authorized administrator.")
+                    End If
                     Const insertSale = "INSERT INTO pharmacy_sales (sale_mode, cashier_user_id, customer_type, customer_name, customer_id_number, subtotal, discount_amount, total_amount, amount_received, change_amount, prescription_no, prescribing_practioner, prc_liscense, prescription_date, purchase_order_no, purchase_order_date, payment_method, payment_provider, payment_account_name, payment_reference_number, wholesale_client_id) " &
                                        "VALUES (@saleMode, @cashierId, @customerType, @customerName, @customerId, @subtotal, @discount, @total, @cash, @change, @rxNumber, @prescriber, @prescriberLicense, @rxDate, @poNumber, @poDate, @paymentMethod, @paymentProvider, @paymentAccountName, @paymentReference, @wholesaleClientId)"
                     Dim saleId As Long
@@ -97,8 +101,9 @@ Public Class SalesRepository
                             quantityToDeduct *= GetQuantityPerBox(connection, dbTransaction, item.ProductId)
                         End If
 
-                        DeductInventory(connection, dbTransaction, item.ProductId, quantityToDeduct)
+                        Dim allocations = DeductInventory(connection, dbTransaction, item.ProductId, quantityToDeduct, allocationTrackingEnabled)
 
+                        Dim saleItemId As Long
                         Using command As New MySqlCommand(insertItem, connection, dbTransaction)
                             command.Parameters.AddWithValue("@saleId", saleId)
                             command.Parameters.AddWithValue("@productId", item.ProductId)
@@ -111,7 +116,10 @@ Public Class SalesRepository
                             command.Parameters.AddWithValue("@lineTotal", item.LineTotal)
                             command.Parameters.AddWithValue("@isPrescription", item.IsPrescription)
                             command.ExecuteNonQuery()
+                            saleItemId = command.LastInsertedId
                         End Using
+
+                        RecordBatchAllocations(connection, dbTransaction, saleItemId, allocations)
                     Next
 
                     dbTransaction.Commit()
@@ -142,33 +150,60 @@ Public Class SalesRepository
         End Using
     End Function
 
-    Private Shared Sub DeductInventory(connection As MySqlConnection, transaction As MySqlTransaction, productId As Integer, quantityToDeduct As Integer)
+    Private Shared Function DeductInventory(connection As MySqlConnection,
+                                            transaction As MySqlTransaction,
+                                            productId As Integer,
+                                            quantityToDeduct As Integer,
+                                            allocationTrackingEnabled As Boolean) As List(Of KeyValuePair(Of Long, Integer))
         If quantityToDeduct < 1 Then Throw New InvalidOperationException("The sale quantity must be greater than zero.")
+
+        Const productStatusQuery = "SELECT is_active, brand_name FROM product WHERE product_ID = @productId FOR UPDATE"
+        Dim medicineName As String
+        Using command As New MySqlCommand(productStatusQuery, connection, transaction)
+            command.Parameters.AddWithValue("@productId", productId)
+            Using reader = command.ExecuteReader()
+                If Not reader.Read() Then
+                    Throw New InvalidOperationException("The product could not be found while checking its sale status.")
+                End If
+                If Not Convert.ToBoolean(reader("is_active")) Then
+                    Throw New InvalidOperationException("This product is inactive and cannot be sold.")
+                End If
+                medicineName = Convert.ToString(reader("brand_name"))
+            End Using
+        End Using
 
         Dim batches As New List(Of KeyValuePair(Of Long, Integer))()
         Dim availableQuantity As Integer = 0
-        Const selectBatches = "SELECT batch_id, quantity_remaining FROM inventory_batch " &
-                              "WHERE product_ID = @productId AND quantity_remaining > 0 AND expiry_date >= CURDATE() " &
-                              "ORDER BY expiry_date, batch_id FOR UPDATE"
+        If Not allocationTrackingEnabled Then Throw New InvalidOperationException("Batch allocation controls are missing or incomplete; sale cannot be committed safely.")
+        Dim saleableQuantityExpression = "GREATEST(0, ib.quantity_remaining - " &
+                                     "COALESCE((SELECT SUM(q.quantity) FROM inventory_batch_quarantines q WHERE q.batch_id = ib.batch_id AND q.status = 'Active'), 0) - " &
+                                     "COALESCE((SELECT SUM(a.quantity) FROM inventory_batch_actions a WHERE a.batch_id = ib.batch_id AND a.status = 'Pending'), 0))"
+        Dim selectBatches = "SELECT ib.batch_id, " & saleableQuantityExpression & " AS available_quantity FROM inventory_batch ib " &
+                            "WHERE ib.product_ID = @productId AND ib.quantity_remaining > 0 AND ib.expiry_date > CURDATE() " &
+                            "ORDER BY ib.expiry_date, ib.batch_id FOR UPDATE"
         Using command As New MySqlCommand(selectBatches, connection, transaction)
             command.Parameters.AddWithValue("@productId", productId)
             Using reader = command.ExecuteReader()
                 While reader.Read()
                     Dim batchId = reader.GetInt64("batch_id")
-                    Dim batchQuantity = reader.GetInt32("quantity_remaining")
-                    batches.Add(New KeyValuePair(Of Long, Integer)(batchId, batchQuantity))
-                    availableQuantity += batchQuantity
+                    Dim batchQuantity = reader.GetInt32("available_quantity")
+                    If batchQuantity > 0 Then
+                        batches.Add(New KeyValuePair(Of Long, Integer)(batchId, batchQuantity))
+                        availableQuantity += batchQuantity
+                    End If
                 End While
             End Using
         End Using
 
         If availableQuantity < quantityToDeduct Then
-            Throw New InvalidOperationException("Not enough unexpired stock is available to complete this sale. Available: " &
+            Throw New InvalidOperationException("Insufficient Saleable Stock: Only " &
                                                 availableQuantity.ToString(Globalization.CultureInfo.InvariantCulture) &
-                                                "; requested: " & quantityToDeduct.ToString(Globalization.CultureInfo.InvariantCulture) & ".")
+                                                " eligible units of " & medicineName & " are available. Requested: " &
+                                                quantityToDeduct.ToString(Globalization.CultureInfo.InvariantCulture) & ".")
         End If
 
         Dim remainingToDeduct = quantityToDeduct
+        Dim allocations As New List(Of KeyValuePair(Of Long, Integer))()
         For Each batch In batches
             If remainingToDeduct = 0 Then Exit For
             Dim quantityFromBatch = Math.Min(remainingToDeduct, batch.Value)
@@ -181,8 +216,10 @@ Public Class SalesRepository
                     Throw New InvalidOperationException("Stock changed during checkout. Reload the transaction and try again.")
                 End If
             End Using
+            allocations.Add(New KeyValuePair(Of Long, Integer)(batch.Key, quantityFromBatch))
             remainingToDeduct -= quantityFromBatch
         Next
+        If remainingToDeduct <> 0 Then Throw New InvalidOperationException("Inventory allocation was incomplete; the sale has been rolled back.")
 
         Const synchronizeProductStock = "UPDATE product SET stock_quantity = " &
                                         "(SELECT COALESCE(SUM(quantity_remaining), 0) FROM inventory_batch WHERE product_ID = @productId) " &
@@ -193,6 +230,23 @@ Public Class SalesRepository
                 Throw New InvalidOperationException("Could not synchronize the product stock total.")
             End If
         End Using
+        Return allocations
+    End Function
+
+    Private Shared Sub RecordBatchAllocations(connection As MySqlConnection,
+                                              transaction As MySqlTransaction,
+                                              saleItemId As Long,
+                                              allocations As IEnumerable(Of KeyValuePair(Of Long, Integer)))
+        Const query As String = "INSERT INTO pharmacy_sale_item_batches (sale_item_id, batch_id, quantity) " &
+                                "VALUES (@saleItemId, @batchId, @quantity)"
+        For Each allocation In allocations
+            Using command As New MySqlCommand(query, connection, transaction)
+                command.Parameters.AddWithValue("@saleItemId", saleItemId)
+                command.Parameters.AddWithValue("@batchId", allocation.Key)
+                command.Parameters.AddWithValue("@quantity", allocation.Value)
+                command.ExecuteNonQuery()
+            End Using
+        Next
     End Sub
 
     Public Function GetSummary() As SaleSummary

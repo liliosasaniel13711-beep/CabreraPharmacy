@@ -1252,6 +1252,24 @@ Public Class Admin
             .Margin = New Padding(0)
         }
         clearButton.FlatAppearance.BorderColor = Color.FromArgb(80, 80, 80)
+        Dim expiryMonitorButton As New Button With {
+            .Text = "Expiry Monitor",
+            .Location = New Point(8, 128),
+            .Size = New Size(150, 30),
+            .FlatStyle = FlatStyle.Flat,
+            .BackColor = Color.FromArgb(20, 100, 60),
+            .ForeColor = Color.White,
+            .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
+            .UseVisualStyleBackColor = False,
+            .Cursor = Cursors.Hand
+        }
+        expiryMonitorButton.FlatAppearance.BorderColor = Color.FromArgb(20, 100, 60)
+        AddHandler expiryMonitorButton.Click,
+            Sub(sender, e)
+                Using monitor As New ExpiryManagementForm()
+                    monitor.ShowDialog(Me)
+                End Using
+            End Sub
         AddHandler clearButton.Click,
             Sub(sender, e)
                 inventorySearchBox.Clear()
@@ -1268,6 +1286,7 @@ Public Class Admin
         toolbar.Controls.Add(parentFilterPanel)
         toolbar.Controls.Add(inventorySearchBox)
         toolbar.Controls.Add(clearButton)
+        toolbar.Controls.Add(expiryMonitorButton)
 
         dgvInventory.Dock = DockStyle.Fill
         dgvInventory.BackgroundColor = Color.White
@@ -1436,7 +1455,7 @@ Public Class Admin
         If Not batches.Columns.Contains("Status") Then batches.Columns.Add("Status", GetType(String))
         For Each batch As DataRow In batches.Rows
             Dim expiry = Convert.ToDateTime(batch("Expiry Date")).Date
-            batch("Status") = If(expiry < Date.Today, "Expired", If(expiry <= Date.Today.AddMonths(6), "Near Expiry", "In Stock"))
+            batch("Status") = If(expiry <= Date.Today, "Expired", If(expiry <= Date.Today.AddMonths(6), "Near Expiry", "In Stock"))
         Next
         batchGrid.DataSource = batches
         If batchGrid.Columns.Contains("Batch ID") Then batchGrid.Columns("Batch ID").Visible = False
@@ -1455,32 +1474,18 @@ Public Class Admin
             Sub(sender, e)
                 If e.RowIndex < 0 OrElse e.ColumnIndex <> removeColumn.Index Then Return
                 Dim rowView = TryCast(batchGrid.Rows(e.RowIndex).DataBoundItem, DataRowView)
-                Dim isExpired = rowView IsNot Nothing AndAlso Not rowView.Row.IsNull("Expiry Date") AndAlso Convert.ToDateTime(rowView.Row("Expiry Date")).Date < Date.Today
-                e.Value = If(isExpired, "Remove", "—")
-                e.CellStyle.ForeColor = If(isExpired, Color.DarkRed, Color.Gray)
-                e.CellStyle.BackColor = If(isExpired, Color.FromArgb(255, 235, 235), Color.White)
+                Dim isExpired = rowView IsNot Nothing AndAlso Not rowView.Row.IsNull("Expiry Date") AndAlso Convert.ToDateTime(rowView.Row("Expiry Date")).Date <= Date.Today
+                e.Value = If(isExpired, "Retained", "—")
+                e.CellStyle.ForeColor = Color.Gray
+                e.CellStyle.BackColor = If(isExpired, Color.FromArgb(248, 248, 248), Color.White)
             End Sub
         AddHandler batchGrid.CellContentClick,
             Sub(sender, e)
                 If e.RowIndex < 0 OrElse e.ColumnIndex <> removeColumn.Index Then Return
                 Dim rowView = TryCast(batchGrid.Rows(e.RowIndex).DataBoundItem, DataRowView)
-                If rowView Is Nothing OrElse Convert.ToDateTime(rowView.Row("Expiry Date")).Date >= Date.Today Then Return
-                Dim batchId = Convert.ToInt64(rowView.Row("Batch ID"))
-                Dim batchNumber = Convert.ToString(rowView.Row("Batch No"))
-                Dim remaining = Convert.ToString(rowView.Row("Remaining"))
-                Dim prompt = "Remove expired batch " & batchNumber & " (" & remaining & " units) from inventory? This will permanently remove its remaining stock."
-                If MessageBox.Show(prompt, "Remove expired batch", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) <> DialogResult.Yes Then Return
-                Try
-                    If manager.RemoveExpiredBatch(batchId) Then
-                        MessageBox.Show("The expired batch was removed from inventory.", "Batch removed", MessageBoxButtons.OK, MessageBoxIcon.Information)
-                        details.Close()
-                        LoadInventoryData()
-                    Else
-                        MessageBox.Show("This batch could not be found. Refresh inventory and try again.", "Batch not found", MessageBoxButtons.OK, MessageBoxIcon.Information)
-                    End If
-                Catch ex As Exception
-                    MessageBox.Show("Could not remove the expired batch. " & ex.Message, "Remove failed", MessageBoxButtons.OK, MessageBoxIcon.Error)
-                End Try
+                If rowView Is Nothing OrElse Convert.ToDateTime(rowView.Row("Expiry Date")).Date > Date.Today Then Return
+                MessageBox.Show("Expired batches remain in inventory for historical tracking. No stock or batch record was changed.",
+                                "Batch retained", MessageBoxButtons.OK, MessageBoxIcon.Information)
             End Sub
         batchSection.Controls.Add(batchGrid)
         content.Controls.Add(batchSection)
@@ -1688,7 +1693,7 @@ Public Class Admin
         Dim isLowStock = stock <= reorderPoint
         Dim expiry As DateTime? = Nothing
         If Not row.IsNull("Expiry Date") Then expiry = Convert.ToDateTime(row("Expiry Date")).Date
-        Dim isExpired = expiry.HasValue AndAlso expiry.Value < Date.Today
+        Dim isExpired = expiry.HasValue AndAlso expiry.Value <= Date.Today
         Dim isNearExpiry = expiry.HasValue AndAlso Not isExpired AndAlso expiry.Value <= Date.Today.AddMonths(6)
         Dim labels As New List(Of String)
         If row.Table.Columns.Contains("Active") AndAlso Not row.IsNull("Active") AndAlso Not Convert.ToBoolean(row("Active")) Then labels.Add("Inactive")

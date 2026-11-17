@@ -82,6 +82,49 @@ Public Class ProductManager
         Return dt
     End Function
 
+    Public Function GetStaffInventorySummary(productId As Integer, nearExpiryDays As Integer) As DataTable
+        If productId <= 0 Then Throw New ArgumentOutOfRangeException(NameOf(productId))
+        If nearExpiryDays < 1 OrElse nearExpiryDays > 3650 Then Throw New ArgumentOutOfRangeException(NameOf(nearExpiryDays))
+
+        Dim summary As New DataTable()
+        Using connection = GetConnection()
+            connection.Open()
+            Dim allocationTrackingEnabled = BatchControlRepository.IsMigrationApplied(connection, Nothing)
+            Dim reservedQuantity = "0"
+            If allocationTrackingEnabled Then
+                reservedQuantity = "COALESCE((SELECT SUM(q.quantity) FROM inventory_batch_quarantines q WHERE q.batch_id = ib.batch_id AND q.status = 'Active'), 0) + " &
+                                   "COALESCE((SELECT SUM(a.quantity) FROM inventory_batch_actions a WHERE a.batch_id = ib.batch_id AND a.status = 'Pending'), 0)"
+            End If
+
+            Dim eligibleQuantity = "GREATEST(0, ib.quantity_remaining - (" & reservedQuantity & "))"
+            Dim saleableTotal = "COALESCE((SELECT SUM(" & eligibleQuantity & ") FROM inventory_batch ib " &
+                                 "WHERE ib.product_ID = p.product_ID AND ib.quantity_remaining > 0 AND ib.expiry_date > CURDATE()), 0)"
+            Dim expiredTotal = "COALESCE((SELECT SUM(ib.quantity_remaining) FROM inventory_batch ib " &
+                                "WHERE ib.product_ID = p.product_ID AND ib.quantity_remaining > 0 AND ib.expiry_date <= CURDATE()), 0)"
+            Dim batchEligibleQuantity = If(allocationTrackingEnabled, eligibleQuantity, "ib.quantity_remaining")
+            Dim query = "SELECT p.product_ID AS 'Product ID', p.brand_name AS 'Medicine Name', " &
+                        "p.reorder_point AS 'Reorder Point', " &
+                        "CASE WHEN p.is_active = 1 THEN " & saleableTotal & " ELSE 0 END AS 'Saleable Quantity', " &
+                        expiredTotal & " AS 'Expired Quantity', " &
+                        "ib.batch_no AS 'Batch Number', ib.expiry_date AS 'Expiry Date', " &
+                        "DATEDIFF(ib.expiry_date, CURDATE()) AS 'Days Remaining', " &
+                        batchEligibleQuantity & " AS 'Near-Expiry Quantity' " &
+                        "FROM product p LEFT JOIN inventory_batch ib ON ib.product_ID = p.product_ID " &
+                        "AND ib.quantity_remaining > 0 AND ib.expiry_date > CURDATE() " &
+                        "AND DATEDIFF(ib.expiry_date, CURDATE()) <= @days " &
+                        "AND " & batchEligibleQuantity & " > 0 " &
+                        "WHERE p.product_ID = @productId ORDER BY ib.expiry_date, ib.batch_id"
+            Using command As New MySqlCommand(query, connection)
+                command.Parameters.AddWithValue("@days", nearExpiryDays)
+                command.Parameters.AddWithValue("@productId", productId)
+                Using adapter As New MySqlDataAdapter(command)
+                    adapter.Fill(summary)
+                End Using
+            End Using
+        End Using
+        Return summary
+    End Function
+
     Public Sub UpdatePrices(productId As Integer, newRetailPrice As Decimal, newWholesalePrice As Decimal)
         Try
             Using conn = GetConnection()
@@ -134,47 +177,7 @@ Public Class ProductManager
     End Function
 
     Public Function RemoveExpiredBatch(batchId As Long) As Boolean
-        Using connection = GetConnection()
-            connection.Open()
-            Using transaction = connection.BeginTransaction()
-                Try
-                    Const checkQuery As String = "SELECT product_ID, expiry_date FROM inventory_batch WHERE batch_id = @batchId FOR UPDATE"
-                    Dim productId As Integer
-                    Using command As New MySqlCommand(checkQuery, connection, transaction)
-                        command.Parameters.AddWithValue("@batchId", batchId)
-                        Using reader = command.ExecuteReader()
-                            If Not reader.Read() Then Return False
-                            productId = reader.GetInt32("product_ID")
-                            If reader.GetDateTime("expiry_date").Date >= Date.Today Then
-                                Throw New InvalidOperationException("Only batches that are already expired can be removed here.")
-                            End If
-                        End Using
-                    End Using
-
-                    Const deleteQuery As String = "DELETE FROM inventory_batch WHERE batch_id = @batchId"
-                    Using command As New MySqlCommand(deleteQuery, connection, transaction)
-                        command.Parameters.AddWithValue("@batchId", batchId)
-                        If command.ExecuteNonQuery() <> 1 Then Return False
-                    End Using
-
-                    Const updateStock As String = "UPDATE product SET stock_quantity = " &
-                        "(SELECT COALESCE(SUM(quantity_remaining), 0) FROM inventory_batch WHERE product_ID = @productId) " &
-                        "WHERE product_ID = @productId"
-                    Using command As New MySqlCommand(updateStock, connection, transaction)
-                        command.Parameters.AddWithValue("@productId", productId)
-                        command.ExecuteNonQuery()
-                    End Using
-                    transaction.Commit()
-                    Return True
-                Catch
-                    Try
-                        transaction.Rollback()
-                    Catch
-                    End Try
-                    Throw
-                End Try
-            End Using
-        End Using
+        Throw New InvalidOperationException("Expired batches are retained for inventory history and cannot be permanently removed.")
     End Function
 
     Public Function VerifyUserPin(userId As Integer, pin As String) As Boolean

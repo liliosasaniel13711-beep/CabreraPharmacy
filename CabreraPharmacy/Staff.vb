@@ -50,6 +50,7 @@ Public Class Staff
 
     Private ReadOnly darkGreen As Color = Color.FromArgb(20, 100, 60)
     Private ReadOnly cart As New List(Of CartItem)()
+    Private inventoryWarningsLabel As Label
     Private products As DataTable
     Private currentProduct As DataRow
     Private isWholesale As Boolean
@@ -106,6 +107,7 @@ Public Class Staff
         AddHandler cashTextBox.KeyPress, AddressOf cashTextBox_KeyPress
         AddHandler resultsGrid.CellMouseDown, AddressOf resultsGrid_CellMouseDown
         AddHandler resultsGrid.CellClick, AddressOf resultsGrid_CellClick
+        InitializeInventoryWarningUi()
         QuantityPanel_Resize(quantityPanel, EventArgs.Empty)
         ModePanel_Resize(modePanel, EventArgs.Empty)
         ParentFilterPanel_Resize(parentFilterPanel, EventArgs.Empty)
@@ -482,6 +484,79 @@ Public Class Staff
         End Try
     End Sub
 
+    Private Sub InitializeInventoryWarningUi()
+        inventoryWarningsLabel = New Label With {
+            .AutoEllipsis = True,
+            .BackColor = Color.FromArgb(255, 248, 225),
+            .Dock = DockStyle.Bottom,
+            .Font = New Font("Segoe UI", 8.5F),
+            .ForeColor = Color.FromArgb(120, 75, 0),
+            .Height = 76,
+            .Padding = New Padding(8, 5, 8, 5),
+            .TextAlign = ContentAlignment.MiddleLeft,
+            .Visible = False
+        }
+        resultsPanel.Controls.Add(inventoryWarningsLabel)
+        inventoryWarningsLabel.BringToFront()
+    End Sub
+
+    Private Sub RefreshSelectedProductInventoryWarnings()
+        If inventoryWarningsLabel Is Nothing Then Return
+        inventoryWarningsLabel.Text = String.Empty
+        inventoryWarningsLabel.Visible = False
+        If currentProduct Is Nothing Then Return
+
+        Try
+            Dim productId = Convert.ToInt32(currentProduct("ID"))
+            Dim summary = New ProductManager().GetStaffInventorySummary(productId, ExpiryMonitorSettings.LoadNearExpiryDays())
+            If summary.Rows.Count = 0 Then Return
+
+            Dim first = summary.Rows(0)
+            Dim medicineName = Convert.ToString(first("Medicine Name"))
+            Dim saleable = Convert.ToInt32(first("Saleable Quantity"))
+            Dim reorderPoint = If(first.IsNull("Reorder Point"), 0, Convert.ToInt32(first("Reorder Point")))
+            Dim messages As New List(Of String)()
+            If saleable <= reorderPoint Then
+                messages.Add("Low Stock Warning: " & medicineName & " has only " & saleable.ToString(CultureInfo.InvariantCulture) & " units available for sale.")
+            End If
+
+            For Each row As DataRow In summary.Rows
+                If row.IsNull("Batch Number") OrElse row.IsNull("Expiry Date") Then Continue For
+                Dim quantity = Convert.ToInt32(row("Near-Expiry Quantity"))
+                Dim expiryDate = Convert.ToDateTime(row("Expiry Date"))
+                Dim daysRemaining = Convert.ToInt32(row("Days Remaining"))
+                messages.Add("Near-Expiry Warning: " & medicineName & " has " & quantity.ToString(CultureInfo.InvariantCulture) &
+                             " units expiring on " & expiryDate.ToString("MMM dd, yyyy", CultureInfo.CurrentCulture) &
+                             " (Batch " & Convert.ToString(row("Batch Number")) & ", " & daysRemaining.ToString(CultureInfo.InvariantCulture) & " days remaining).")
+            Next
+
+            Dim expiredQuantity = Convert.ToInt32(first("Expired Quantity"))
+            If expiredQuantity > 0 Then
+                messages.Add("Expired Stock Alert: " & medicineName & " has " & expiredQuantity.ToString(CultureInfo.InvariantCulture) &
+                             " expired units. These units are excluded from saleable inventory.")
+            End If
+
+            Dim hasNearExpiryStock = summary.AsEnumerable().Any(Function(row) Not row.IsNull("Batch Number") AndAlso
+                                                                  Not row.IsNull("Expiry Date") AndAlso
+                                                                  Convert.ToInt32(row("Near-Expiry Quantity")) > 0)
+            If messages.Count = 0 AndAlso saleable > 0 AndAlso Not hasNearExpiryStock AndAlso expiredQuantity = 0 Then
+                messages.Add("In Stock: " & medicineName & " has " & saleable.ToString(CultureInfo.InvariantCulture) &
+                             " eligible units. Stock is not expired or near expiry.")
+                inventoryWarningsLabel.BackColor = Color.FromArgb(232, 245, 233)
+                inventoryWarningsLabel.ForeColor = Color.FromArgb(27, 94, 32)
+            Else
+                inventoryWarningsLabel.BackColor = Color.FromArgb(255, 248, 225)
+                inventoryWarningsLabel.ForeColor = Color.FromArgb(120, 75, 0)
+            End If
+
+            inventoryWarningsLabel.Text = String.Join(Environment.NewLine, messages)
+            inventoryWarningsLabel.Visible = messages.Count > 0
+        Catch ex As Exception
+            inventoryWarningsLabel.Text = ex.Message
+            inventoryWarningsLabel.Visible = True
+        End Try
+    End Sub
+
     Private Sub PopulateCategoryDropdown()
         If products Is Nothing Then Return
 
@@ -593,6 +668,7 @@ Public Class Staff
     Private Sub resultsGrid_SelectionChanged(sender As Object, e As EventArgs) Handles resultsGrid.SelectionChanged
         If resultsGrid.SelectedRows.Count = 0 OrElse resultsGrid.CurrentRow Is Nothing OrElse resultsGrid.CurrentRow.IsNewRow Then
             currentProduct = Nothing
+            RefreshSelectedProductInventoryWarnings()
             UpdatePrescriptionEntryAvailability()
             Return
         End If
@@ -600,11 +676,13 @@ Public Class Staff
         Dim productId As Integer
         If Not Integer.TryParse(Convert.ToString(resultsGrid.CurrentRow.Cells("Product ID").Value), productId) OrElse products Is Nothing Then
             currentProduct = Nothing
+            RefreshSelectedProductInventoryWarnings()
             UpdatePrescriptionEntryAvailability()
             Return
         End If
 
         currentProduct = products.AsEnumerable().FirstOrDefault(Function(row) Convert.ToInt32(row("ID")) = productId)
+        RefreshSelectedProductInventoryWarnings()
         UpdatePrescriptionEntryAvailability()
     End Sub
 
@@ -624,6 +702,7 @@ Public Class Staff
                                        resultsGrid.ClearSelection()
                                        resultsGrid.CurrentCell = Nothing
                                        currentProduct = Nothing
+                                        RefreshSelectedProductInventoryWarnings()
                                        UpdatePrescriptionEntryAvailability()
                                    End If
                                End Sub))
@@ -740,12 +819,44 @@ Public Class Staff
             Return
         End If
 
+        Try
+            Dim physicalQuantity = quantity
+            If isWholesale Then
+                Dim quantityPerBox As Integer
+                If Not Integer.TryParse(Convert.ToString(currentProduct("Qty/Box")), quantityPerBox) OrElse quantityPerBox < 1 Then
+                    MessageBox.Show("The medicine has an invalid quantity per box and cannot be added.", "Inventory", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                    Return
+                End If
+                physicalQuantity *= quantityPerBox
+            End If
+
+            Dim inventory = New ProductManager().GetStaffInventorySummary(Convert.ToInt32(currentProduct("ID")), ExpiryMonitorSettings.LoadNearExpiryDays())
+            If inventory.Rows.Count = 0 Then Throw New InvalidOperationException("The selected medicine is no longer available.")
+            Dim saleableQuantity = Convert.ToInt32(inventory.Rows(0)("Saleable Quantity"))
+            Dim existingCartItem = cart.FirstOrDefault(Function(item) item.ProductID = Convert.ToInt32(currentProduct("ID")))
+            If existingCartItem IsNot Nothing Then
+                Dim existingPhysicalQuantity = existingCartItem.Quantity
+                If isWholesale Then existingPhysicalQuantity *= Convert.ToInt32(currentProduct("Qty/Box"))
+                physicalQuantity += existingPhysicalQuantity
+            End If
+            If physicalQuantity > saleableQuantity Then
+                MessageBox.Show("Insufficient Saleable Stock: Only " & saleableQuantity.ToString(CultureInfo.InvariantCulture) &
+                                " eligible units of " & Convert.ToString(inventory.Rows(0)("Medicine Name")) & " are available.",
+                                "Insufficient Saleable Stock", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                RefreshSelectedProductInventoryWarnings()
+                Return
+            End If
+        Catch ex As Exception
+            MessageBox.Show(ex.Message, "Inventory Check Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+            Return
+        End Try
+
         Dim price As Decimal
         Dim priceColumn = If(isWholesale, "Wholesale Price", "Retail Price")
         Decimal.TryParse(currentProduct(priceColumn).ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, price)
         Dim id = Convert.ToInt32(currentProduct("ID"))
-        Dim existing = cart.FirstOrDefault(Function(item) item.ProductID = id)
-        If existing Is Nothing Then
+        Dim cartItemToUpdate = cart.FirstOrDefault(Function(item) item.ProductID = id)
+        If cartItemToUpdate Is Nothing Then
             cart.Add(New CartItem With {
                 .ProductID = id,
                 .BrandName = currentProduct("Brand Name").ToString(),
@@ -757,7 +868,7 @@ Public Class Staff
                 .IsRx = isRx
             })
         Else
-            existing.Quantity += quantity
+            cartItemToUpdate.Quantity += quantity
         End If
 
         RenderCart()
@@ -2162,8 +2273,11 @@ Public Class Staff
         Try
             saleId = New SalesRepository().SaveSale(sale)
         Catch ex As Exception
+            Dim insufficientStock = ex.Message.StartsWith("Insufficient Saleable Stock:", StringComparison.OrdinalIgnoreCase)
             MessageBox.Show("The transaction was not saved, so the cart is still available. " & ex.Message,
-                            "Checkout failed", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                            If(insufficientStock, "Insufficient Saleable Stock", "Checkout failed"),
+                            MessageBoxButtons.OK,
+                            If(insufficientStock, MessageBoxIcon.Warning, MessageBoxIcon.Error))
             Return
         End Try
 
@@ -2182,6 +2296,8 @@ Public Class Staff
 
         cart.Clear()
         RenderCart()
+        LoadProducts()
+        RefreshSelectedProductInventoryWarnings()
         checkoutView.Visible = False
         transactionView.Visible = True
         titleLabel.Text = "Transaction"

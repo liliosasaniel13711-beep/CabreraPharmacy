@@ -75,7 +75,16 @@ Public Class SuperAdmin
         AddHandler salesTrendPlot.Paint, AddressOf DashboardSalesTrend_Paint
         AddHandler Panel12.Paint, AddressOf DashboardRevenue_Paint
         AddHandler inventoryViewAllLink.LinkClicked,
-            Sub(linkSender, linkEvent) inventoryViewReport_Click(linkSender, EventArgs.Empty)
+            AddressOf ExpiryAlert_Click
+        For Each expiryAlertControl As Control In {
+            inventoryAlertNearExpiry, inventoryAlertNearExpiryCount, inventoryAlertNearExpiryCaption,
+            inventoryAlertExpired, inventoryAlertExpiredCount, inventoryAlertExpiredCaption
+        }
+            expiryAlertControl.Cursor = Cursors.Hand
+            AddHandler expiryAlertControl.Click, AddressOf ExpiryAlert_Click
+        Next
+        inventoryAlertNearExpiryCaption.Text = "Near Expiry" & vbCrLf & "Open batch monitor"
+        inventoryAlertExpiredCaption.Text = "Expired" & vbCrLf & "Retained for tracking"
         AddHandler Panel9.Resize, AddressOf DashboardLowerPanels_Resize
         AddHandler Panel10.Resize, AddressOf DashboardLowerPanels_Resize
         dashboardDateLabel.Text = Date.Today.ToString("dddd, MMMM d, yyyy", CultureInfo.CurrentCulture)
@@ -1695,6 +1704,12 @@ Public Class SuperAdmin
         inventoryDataGrid.Columns(columnName).DataPropertyName = propertyName
     End Sub
 
+    Private Sub ExpiryAlert_Click(sender As Object, e As EventArgs)
+        Using monitor As New ExpiryManagementForm()
+            monitor.ShowDialog(Me)
+        End Using
+    End Sub
+
     Private Sub ShowReportPanel(reportPanel As Panel)
         LayoutAllReportDetails()
         HideAllPanels()
@@ -1766,7 +1781,7 @@ Public Class SuperAdmin
 
                 If Not row.IsNull("Expiry Date") Then
                     Dim expiry = Convert.ToDateTime(row("Expiry Date")).Date
-                    If expiry < Date.Today Then
+                    If expiry <= Date.Today Then
                         expiredCount += 1
                     ElseIf expiry <= Date.Today.AddMonths(6) Then
                         nearExpiryCount += 1
