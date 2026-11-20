@@ -148,6 +148,7 @@ Public Class ExpiryManagementForm
         Controls.Add(note)
         Controls.Add(toolbar)
         RefreshMigrationState()
+        UiSelectionStyler.ApplyToForm(Me)
         LoadBatches()
     End Sub
 

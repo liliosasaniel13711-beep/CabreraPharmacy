@@ -693,7 +693,7 @@ Partial Class SuperAdmin
         ' Panel11
         ' 
         Panel11.BackColor = Color.White
-        Panel11.BorderStyle = BorderStyle.FixedSingle
+        Panel11.BorderStyle = BorderStyle.None
         Panel11.Controls.Add(salesTrendPlot)
         Panel11.Controls.Add(trendFiltersPanel)
         Panel11.Controls.Add(salesTrendLegendLabel)
@@ -789,7 +789,7 @@ Partial Class SuperAdmin
         ' Panel12
         ' 
         Panel12.BackColor = Color.White
-        Panel12.BorderStyle = BorderStyle.FixedSingle
+        Panel12.BorderStyle = BorderStyle.None
         Panel12.Controls.Add(revenueNetIncomeLabel)
         Panel12.Controls.Add(revenueTitleLabel)
         Panel12.Dock = DockStyle.Fill
@@ -1239,7 +1239,7 @@ Partial Class SuperAdmin
         ' Panel9
         ' 
         Panel9.BackColor = Color.White
-        Panel9.BorderStyle = BorderStyle.FixedSingle
+        Panel9.BorderStyle = BorderStyle.None
         Panel9.Controls.Add(inventoryAlertsTitleLabel)
         Panel9.Controls.Add(inventoryViewAllLink)
         Panel9.Controls.Add(inventoryAlertLowStock)
@@ -1276,7 +1276,7 @@ Partial Class SuperAdmin
         ' inventoryAlertLowStock
         ' 
         inventoryAlertLowStock.BackColor = Color.FromArgb(CByte(255), CByte(249), CByte(218))
-        inventoryAlertLowStock.BorderStyle = BorderStyle.FixedSingle
+        inventoryAlertLowStock.BorderStyle = BorderStyle.None
         inventoryAlertLowStock.Controls.Add(inventoryAlertLowStockCount)
         inventoryAlertLowStock.Controls.Add(inventoryAlertLowStockCaption)
         inventoryAlertLowStock.Location = New Point(16, 42)
@@ -1311,7 +1311,7 @@ Partial Class SuperAdmin
         ' inventoryAlertNearExpiry
         ' 
         inventoryAlertNearExpiry.BackColor = Color.FromArgb(CByte(255), CByte(249), CByte(218))
-        inventoryAlertNearExpiry.BorderStyle = BorderStyle.FixedSingle
+        inventoryAlertNearExpiry.BorderStyle = BorderStyle.None
         inventoryAlertNearExpiry.Controls.Add(inventoryAlertNearExpiryCount)
         inventoryAlertNearExpiry.Controls.Add(inventoryAlertNearExpiryCaption)
         inventoryAlertNearExpiry.Location = New Point(184, 42)
@@ -1346,7 +1346,7 @@ Partial Class SuperAdmin
         ' inventoryAlertExpired
         ' 
         inventoryAlertExpired.BackColor = Color.FromArgb(CByte(255), CByte(232), CByte(232))
-        inventoryAlertExpired.BorderStyle = BorderStyle.FixedSingle
+        inventoryAlertExpired.BorderStyle = BorderStyle.None
         inventoryAlertExpired.Controls.Add(inventoryAlertExpiredCount)
         inventoryAlertExpired.Controls.Add(inventoryAlertExpiredCaption)
         inventoryAlertExpired.Location = New Point(352, 42)
@@ -1381,7 +1381,7 @@ Partial Class SuperAdmin
         ' Panel10
         ' 
         Panel10.BackColor = Color.White
-        Panel10.BorderStyle = BorderStyle.FixedSingle
+        Panel10.BorderStyle = BorderStyle.None
         Panel10.Controls.Add(quickOverviewTitleLabel)
         Panel10.Controls.Add(quickOverviewRestockLabel)
         Panel10.Controls.Add(quickOverviewRestockValue)

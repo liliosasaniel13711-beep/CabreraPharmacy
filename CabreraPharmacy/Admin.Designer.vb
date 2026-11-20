@@ -323,7 +323,7 @@ Partial Class Admin
         rightLayout.Margin = New Padding(0)
         rightLayout.Name = "rightLayout"
         rightLayout.RowCount = 2
-        rightLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 72.0F))
+        rightLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 108.0F))
         rightLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
         rightLayout.Size = New Size(1516, 791)
         rightLayout.TabIndex = 1
@@ -338,7 +338,7 @@ Partial Class Admin
         headerPanel.Location = New Point(0, 0)
         headerPanel.Margin = New Padding(0)
         headerPanel.Name = "headerPanel"
-        headerPanel.Size = New Size(1516, 72)
+        headerPanel.Size = New Size(1516, 108)
         headerPanel.TabIndex = 0
         ' 
         ' titleLabel
@@ -346,7 +346,7 @@ Partial Class Admin
         titleLabel.AutoSize = True
         titleLabel.Font = New Font("Segoe UI", 18.0F, FontStyle.Bold)
         titleLabel.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        titleLabel.Location = New Point(20, 6)
+        titleLabel.Location = New Point(20, 27)
         titleLabel.Name = "titleLabel"
         titleLabel.Size = New Size(138, 32)
         titleLabel.TabIndex = 0
@@ -357,7 +357,7 @@ Partial Class Admin
         subtitleLabel.AutoSize = True
         subtitleLabel.Font = New Font("Segoe UI", 8.0F)
         subtitleLabel.ForeColor = Color.Gray
-        subtitleLabel.Location = New Point(20, 43)
+        subtitleLabel.Location = New Point(20, 65)
         subtitleLabel.Name = "subtitleLabel"
         subtitleLabel.Size = New Size(287, 13)
         subtitleLabel.TabIndex = 1
@@ -379,10 +379,10 @@ Partial Class Admin
         ' 
         ' userAvatar
         ' 
-        userAvatar.BackColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        userAvatar.Location = New Point(185, 7)
+        userAvatar.BackColor = Color.FromArgb(CByte(224), CByte(247), CByte(236))
+        userAvatar.Location = New Point(0, 1)
         userAvatar.Name = "userAvatar"
-        userAvatar.Size = New Size(38, 38)
+        userAvatar.Size = New Size(46, 46)
         userAvatar.TabIndex = 0
         userAvatar.TabStop = False
         ' 
@@ -392,7 +392,7 @@ Partial Class Admin
         welcomeadmin_label.BackColor = Color.Transparent
         welcomeadmin_label.Font = New Font("Segoe UI", 11.0F, FontStyle.Bold)
         welcomeadmin_label.ForeColor = Color.Black
-        welcomeadmin_label.Location = New Point(0, 7)
+        welcomeadmin_label.Location = New Point(60, 6)
         welcomeadmin_label.Name = "welcomeadmin_label"
         welcomeadmin_label.Size = New Size(119, 20)
         welcomeadmin_label.TabIndex = 1
@@ -403,7 +403,7 @@ Partial Class Admin
         userRoleLabel.AutoSize = True
         userRoleLabel.Font = New Font("Segoe UI", 9.0F)
         userRoleLabel.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        userRoleLabel.Location = New Point(0, 29)
+        userRoleLabel.Location = New Point(60, 29)
         userRoleLabel.Name = "userRoleLabel"
         userRoleLabel.Size = New Size(160, 15)
         userRoleLabel.TabIndex = 2
@@ -417,11 +417,11 @@ Partial Class Admin
         bodyPanel.Controls.Add(inventoryView)
         bodyPanel.Controls.Add(reportsView)
         bodyPanel.Dock = DockStyle.Fill
-        bodyPanel.Location = New Point(0, 72)
+        bodyPanel.Location = New Point(0, 108)
         bodyPanel.Margin = New Padding(0)
         bodyPanel.Name = "bodyPanel"
         bodyPanel.Padding = New Padding(20, 12, 20, 12)
-        bodyPanel.Size = New Size(1516, 719)
+        bodyPanel.Size = New Size(1516, 683)
         bodyPanel.TabIndex = 1
         ' 
         ' dashboardView
@@ -908,7 +908,7 @@ Partial Class Admin
         ' salesTrendPanel
         ' 
         salesTrendPanel.BackColor = Color.White
-        salesTrendPanel.BorderStyle = BorderStyle.FixedSingle
+        salesTrendPanel.BorderStyle = BorderStyle.None
         salesTrendPanel.Controls.Add(salesTrendTitle)
         salesTrendPanel.Controls.Add(salesTrendLegend)
         salesTrendPanel.Controls.Add(trendFiltersPanel)
@@ -1014,7 +1014,7 @@ Partial Class Admin
         ' revenuePanel
         ' 
         revenuePanel.BackColor = Color.White
-        revenuePanel.BorderStyle = BorderStyle.FixedSingle
+        revenuePanel.BorderStyle = BorderStyle.None
         revenuePanel.Controls.Add(revenueNetIncomeLabel)
         revenuePanel.Controls.Add(revenueTitle)
         revenuePanel.Dock = DockStyle.Fill
@@ -1066,7 +1066,7 @@ Partial Class Admin
         ' inventoryAlertsPanel
         ' 
         inventoryAlertsPanel.BackColor = Color.White
-        inventoryAlertsPanel.BorderStyle = BorderStyle.FixedSingle
+        inventoryAlertsPanel.BorderStyle = BorderStyle.None
         inventoryAlertsPanel.Controls.Add(inventoryAlertsTitle)
         inventoryAlertsPanel.Controls.Add(inventoryViewAllLink)
         inventoryAlertsPanel.Controls.Add(inventoryAlertLowStock)
@@ -1104,7 +1104,7 @@ Partial Class Admin
         ' inventoryAlertLowStock
         ' 
         inventoryAlertLowStock.BackColor = Color.FromArgb(CByte(255), CByte(249), CByte(218))
-        inventoryAlertLowStock.BorderStyle = BorderStyle.FixedSingle
+        inventoryAlertLowStock.BorderStyle = BorderStyle.None
         inventoryAlertLowStock.Controls.Add(inventoryAlertLowStockCaption)
         inventoryAlertLowStock.Controls.Add(inventoryAlertLowStockCount)
         inventoryAlertLowStock.Controls.Add(inventoryAlertLowStockIcon)
@@ -1152,7 +1152,7 @@ Partial Class Admin
         ' inventoryAlertNearExpiry
         ' 
         inventoryAlertNearExpiry.BackColor = Color.FromArgb(CByte(255), CByte(249), CByte(218))
-        inventoryAlertNearExpiry.BorderStyle = BorderStyle.FixedSingle
+        inventoryAlertNearExpiry.BorderStyle = BorderStyle.None
         inventoryAlertNearExpiry.Controls.Add(inventoryAlertNearExpiryCaption)
         inventoryAlertNearExpiry.Controls.Add(inventoryAlertNearExpiryCount)
         inventoryAlertNearExpiry.Controls.Add(inventoryAlertNearExpiryIcon)
@@ -1199,7 +1199,7 @@ Partial Class Admin
         ' inventoryAlertExpired
         ' 
         inventoryAlertExpired.BackColor = Color.FromArgb(CByte(255), CByte(232), CByte(232))
-        inventoryAlertExpired.BorderStyle = BorderStyle.FixedSingle
+        inventoryAlertExpired.BorderStyle = BorderStyle.None
         inventoryAlertExpired.Controls.Add(inventoryAlertExpiredCaption)
         inventoryAlertExpired.Controls.Add(inventoryAlertExpiredCount)
         inventoryAlertExpired.Controls.Add(inventoryAlertExpiredIcon)
@@ -1246,7 +1246,7 @@ Partial Class Admin
         ' quickOverviewPanel
         ' 
         quickOverviewPanel.BackColor = Color.White
-        quickOverviewPanel.BorderStyle = BorderStyle.FixedSingle
+        quickOverviewPanel.BorderStyle = BorderStyle.None
         quickOverviewPanel.Controls.Add(quickOverviewTitle)
         quickOverviewPanel.Controls.Add(quickOverviewRestockIcon)
         quickOverviewPanel.Controls.Add(quickOverviewRestock)

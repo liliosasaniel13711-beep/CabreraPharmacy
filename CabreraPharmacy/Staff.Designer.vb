@@ -272,7 +272,7 @@ Partial Class Staff
         rightLayout.Margin = New Padding(3, 4, 3, 4)
         rightLayout.Name = "rightLayout"
         rightLayout.RowCount = 2
-        rightLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 133F))
+        rightLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 116F))
         rightLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 100F))
         rightLayout.Size = New Size(1919, 1317)
         rightLayout.TabIndex = 1
@@ -287,7 +287,7 @@ Partial Class Staff
         headerPanel.Location = New Point(3, 4)
         headerPanel.Margin = New Padding(3, 4, 3, 4)
         headerPanel.Name = "headerPanel"
-        headerPanel.Size = New Size(1913, 125)
+        headerPanel.Size = New Size(1913, 108)
         headerPanel.TabIndex = 0
         ' 
         ' titleLabel
@@ -295,7 +295,7 @@ Partial Class Staff
         titleLabel.AutoSize = True
         titleLabel.Font = New Font("Segoe UI", 24F, FontStyle.Bold)
         titleLabel.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        titleLabel.Location = New Point(23, 13)
+        titleLabel.Location = New Point(23, 27)
         titleLabel.Name = "titleLabel"
         titleLabel.Size = New Size(239, 54)
         titleLabel.TabIndex = 0
@@ -306,7 +306,7 @@ Partial Class Staff
         subtitleLabel.AutoSize = True
         subtitleLabel.Font = New Font("Segoe UI", 11F)
         subtitleLabel.ForeColor = Color.Gray
-        subtitleLabel.Location = New Point(23, 73)
+        subtitleLabel.Location = New Point(23, 65)
         subtitleLabel.Name = "subtitleLabel"
         subtitleLabel.Size = New Size(365, 25)
         subtitleLabel.TabIndex = 1
@@ -321,16 +321,16 @@ Partial Class Staff
         userPanel.Location = New Point(1685, 0)
         userPanel.Margin = New Padding(3, 4, 3, 4)
         userPanel.Name = "userPanel"
-        userPanel.Size = New Size(286, 87)
+        userPanel.Size = New Size(330, 56)
         userPanel.TabIndex = 2
         ' 
         ' userAvatar
         ' 
-        userAvatar.BackColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        userAvatar.Location = New Point(0, 13)
+        userAvatar.BackColor = Color.FromArgb(CByte(224), CByte(247), CByte(236))
+        userAvatar.Location = New Point(0, 5)
         userAvatar.Margin = New Padding(3, 4, 3, 4)
         userAvatar.Name = "userAvatar"
-        userAvatar.Size = New Size(57, 67)
+        userAvatar.Size = New Size(46, 46)
         userAvatar.TabIndex = 0
         userAvatar.TabStop = False
         ' 
@@ -338,7 +338,7 @@ Partial Class Staff
         ' 
         welcomestaff_label.AutoSize = True
         welcomestaff_label.Font = New Font("Segoe UI", 10F, FontStyle.Bold)
-        welcomestaff_label.Location = New Point(69, 13)
+        welcomestaff_label.Location = New Point(60, 6)
         welcomestaff_label.Name = "welcomestaff_label"
         welcomestaff_label.Size = New Size(134, 23)
         welcomestaff_label.TabIndex = 1
@@ -348,7 +348,7 @@ Partial Class Staff
         ' 
         userRoleLabel.AutoSize = True
         userRoleLabel.ForeColor = Color.FromArgb(CByte(20), CByte(100), CByte(60))
-        userRoleLabel.Location = New Point(69, 45)
+        userRoleLabel.Location = New Point(60, 29)
         userRoleLabel.Name = "userRoleLabel"
         userRoleLabel.Size = New Size(143, 20)
         userRoleLabel.TabIndex = 2
@@ -361,11 +361,11 @@ Partial Class Staff
         bodyPanel.Controls.Add(checkoutView)
         bodyPanel.Controls.Add(restockView)
         bodyPanel.Dock = DockStyle.Fill
-        bodyPanel.Location = New Point(3, 137)
+        bodyPanel.Location = New Point(3, 120)
         bodyPanel.Margin = New Padding(3, 4, 3, 4)
         bodyPanel.Name = "bodyPanel"
         bodyPanel.Padding = New Padding(23, 27, 23, 27)
-        bodyPanel.Size = New Size(1913, 1176)
+        bodyPanel.Size = New Size(1913, 1193)
         bodyPanel.TabIndex = 1
         ' 
         ' transactionView

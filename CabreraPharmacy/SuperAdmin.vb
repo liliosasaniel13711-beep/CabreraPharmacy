@@ -1,4 +1,4 @@
-﻿Imports MySql.Data.MySqlClient
+Imports MySql.Data.MySqlClient
 Imports System.Text.RegularExpressions
 Imports System.Data
 Imports System.Diagnostics
@@ -29,6 +29,8 @@ Public Class SuperAdmin
     Private salesReportTotalLabel As Label
     Private salesReportPageLayout As TableLayoutPanel
     Private salesReportBody As TableLayoutPanel
+    Private ReadOnly reportGridCards As New Dictionary(Of DataGridView, Panel)()
+    Private ReadOnly reportStyledToolbars As New HashSet(Of Panel)()
     Private salesReportPeriodButtons As New Dictionary(Of String, Button)(StringComparer.OrdinalIgnoreCase)
     Private salesReportModeButtons As New Dictionary(Of String, Button)(StringComparer.OrdinalIgnoreCase)
     Private dashboardTrendLabels As New List(Of String)
@@ -39,6 +41,10 @@ Public Class SuperAdmin
     Private dashboardNearExpiry As Integer
     Private dashboardExpired As Integer
     Private dashboardTrendPeriod As String = "7 Days"
+    Private accountDataView As DataView
+    Private accountListCard As Panel
+    Private accountSearchBox As TextBox
+    Private accountRoleFilter As ComboBox
 
     ' --- 1. INITIALIZATION & NAVIGATION ---
     Private Sub SuperAdmin_Load(sender As Object, e As EventArgs) Handles MyBase.Load
@@ -53,7 +59,7 @@ Public Class SuperAdmin
         btnReports.Tag = "Reports"
 
         ' Setup DataGridView Button Columns
-        usrName.Text = "Welcome, " & CurrentFullName & " (Super Admin)"
+        usrName.Text = CurrentFullName
         TextBox23.Text = usrName.Text
         TextBox24.Text = usrName.Text
         usrName.ReadOnly = True
@@ -65,6 +71,8 @@ Public Class SuperAdmin
         AddHandler pnlHeaderAccounts.Resize, AddressOf LayoutAccounts_Resize
         accountsDataGrid.Anchor = AnchorStyles.Top Or AnchorStyles.Bottom Or AnchorStyles.Left Or AnchorStyles.Right
         accountsDataGrid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
+        InitializeAccountsPresentation()
+        ApplySuperAdminVisualTheme()
 
         ' Set initial screen
         AddHandler pnlDashboard.Resize, AddressOf LayoutDashboardCards
@@ -85,11 +93,20 @@ Public Class SuperAdmin
         Next
         inventoryAlertNearExpiryCaption.Text = "Near Expiry" & vbCrLf & "Open batch monitor"
         inventoryAlertExpiredCaption.Text = "Expired" & vbCrLf & "Retained for tracking"
+        EnsureDashboardIcons()
+        For Each countLabel In {inventoryAlertLowStockCount, inventoryAlertNearExpiryCount, inventoryAlertExpiredCount}
+            countLabel.Font = New Font("Segoe UI", 16.0F, FontStyle.Bold)
+        Next
+        For Each captionLabel In {inventoryAlertLowStockCaption, inventoryAlertNearExpiryCaption, inventoryAlertExpiredCaption}
+            captionLabel.Font = New Font("Segoe UI", 7.0F)
+        Next
         AddHandler Panel9.Resize, AddressOf DashboardLowerPanels_Resize
         AddHandler Panel10.Resize, AddressOf DashboardLowerPanels_Resize
         dashboardDateLabel.Text = Date.Today.ToString("dddd, MMMM d, yyyy", CultureInfo.CurrentCulture)
         LoadDashboardTrend("7 Days")
         LayoutRootContent()
+        LayoutPrimaryHeaders()
+        LayoutAccounts()
         ShowPrimaryView(pnlDashboard, "Dashboard")
         LayoutDashboardCards(pnlDashboard, EventArgs.Empty)
         LayoutReports(pnlReports, EventArgs.Empty)
@@ -97,6 +114,7 @@ Public Class SuperAdmin
         ' Load the database data into the Accounts grid
         LoadAccounts()
         LoadSalesDashboardStats()
+        UiSelectionStyler.ApplyToForm(Me)
 
         expensesViewReport.Enabled = False
         purchasesViewReport.Enabled = False
@@ -114,6 +132,60 @@ Public Class SuperAdmin
         LayoutAccounts()
         LayoutReports(pnlReports, EventArgs.Empty)
         LayoutAllReportDetails()
+    End Sub
+
+    Private Sub ApplySuperAdminVisualTheme()
+        Dim green = Color.FromArgb(20, 100, 60)
+        Dim pageGray = Color.FromArgb(245, 245, 245)
+        sideBarSuperAdmin.BackColor = green
+        sideBarSuperAdmin.Width = 168
+        motherPanel.BackColor = pageGray
+
+        For Each button As Button In {btnDashboard, btnAccounts, btnReports}
+            button.FlatStyle = FlatStyle.Flat
+            button.FlatAppearance.BorderSize = 0
+            button.Font = New Font("Segoe UI", 9.0F, If(button Is btnDashboard, FontStyle.Bold, FontStyle.Regular))
+            button.SetBounds(19, If(button Is btnDashboard, 92, If(button Is btnAccounts, 138, 184)), 130, 38)
+            button.Padding = New Padding(10, 0, 0, 0)
+            button.TextAlign = ContentAlignment.MiddleLeft
+            button.UseVisualStyleBackColor = False
+            button.Cursor = Cursors.Hand
+        Next
+        btnLogin.SetBounds(19, sideBarSuperAdmin.ClientSize.Height - btnLogin.Height - 16, 130, 34)
+        btnLogin.Anchor = AnchorStyles.Bottom Or AnchorStyles.Left
+        btnLogin.BackColor = green
+        btnLogin.ForeColor = Color.White
+        btnLogin.FlatStyle = FlatStyle.Flat
+        btnLogin.FlatAppearance.BorderColor = Color.White
+        btnLogin.FlatAppearance.BorderSize = 1
+        btnLogin.UseVisualStyleBackColor = False
+
+        For Each header As Panel In {pnlHeaderDashboard, pnlHeaderAccounts, pnlHeaderReports}
+            header.BackColor = Color.White
+        Next
+        For Each page As Panel In {pnlDashboard, pnlAccounts, pnlReports}
+            page.BackColor = pageGray
+        Next
+        For Each title As Label In {hdrDashboard, hdrAccounts, Label6}
+            title.Font = New Font("Segoe UI", 24.0F, FontStyle.Bold)
+            title.ForeColor = green
+        Next
+        For Each subtitle As Label In {subtitleLabel, Label3, Label5}
+            subtitle.Font = New Font("Segoe UI", 9.0F)
+            subtitle.ForeColor = Color.Gray
+        Next
+        For Each userName As TextBox In {usrName, TextBox23, TextBox24}
+            userName.ReadOnly = True
+            userName.TabStop = False
+            userName.BorderStyle = BorderStyle.None
+            userName.BackColor = Color.White
+            userName.ForeColor = Color.FromArgb(25, 35, 45)
+            userName.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
+        Next
+        For Each role As Label In {usrSuperAdmin, Label2, Label4}
+            role.Font = New Font("Segoe UI", 9.0F)
+            role.ForeColor = green
+        Next
     End Sub
 
     Private Sub ReportPage_Resize(sender As Object, e As EventArgs)
@@ -135,33 +207,50 @@ Public Class SuperAdmin
         If motherPanel.ClientSize.Width <= 0 Then Return
 
         Dim headerWidth = motherPanel.ClientSize.Width
-        Dim headerHeight = 72
+        Dim headerHeight = 108
         pnlHeaderDashboard.SetBounds(0, 0, headerWidth, headerHeight)
         pnlHeaderAccounts.SetBounds(0, 0, headerWidth, headerHeight)
         pnlHeaderReports.SetBounds(0, 0, headerWidth, headerHeight)
 
-        hdrDashboard.SetBounds(20, 6, Math.Max(1, headerWidth - 280), 32)
-        subtitleLabel.SetBounds(20, 43, Math.Max(1, headerWidth - 280), 16)
+        ' Compensate for the title font's built-in left bearing so both lines align visually.
+        hdrDashboard.SetBounds(16, 27, Math.Max(1, headerWidth - 280), 32)
+        subtitleLabel.SetBounds(24, 65, Math.Max(1, headerWidth - 280), 16)
         hdrDashboard.Visible = True
 
-        hdrAccounts.SetBounds(20, 6, Math.Max(1, headerWidth - 280), 32)
-        Label3.SetBounds(20, 43, Math.Max(1, headerWidth - 280), 16)
-        Label6.SetBounds(20, 6, Math.Max(1, headerWidth - 280), 32)
-        Label5.SetBounds(20, 43, Math.Max(1, headerWidth - 280), 16)
+        hdrAccounts.SetBounds(16, 27, Math.Max(1, headerWidth - 280), 32)
+        Label3.SetBounds(24, 65, Math.Max(1, headerWidth - 280), 16)
+        Label6.SetBounds(16, 27, Math.Max(1, headerWidth - 280), 32)
+        Label5.SetBounds(24, 65, Math.Max(1, headerWidth - 280), 16)
 
-        LayoutHeaderUser(usrName, usrSuperAdmin, headerWidth)
-        LayoutHeaderUser(TextBox23, Label2, headerWidth)
-        LayoutHeaderUser(TextBox24, Label4, headerWidth)
+        LayoutHeaderUser(usrName, usrSuperAdmin, headerWidth, pnlHeaderDashboard)
+        LayoutHeaderUser(TextBox23, Label2, headerWidth, pnlHeaderAccounts)
+        LayoutHeaderUser(TextBox24, Label4, headerWidth, pnlHeaderReports)
     End Sub
 
-    Private Sub LayoutHeaderUser(userName As TextBox, role As Label, headerWidth As Integer)
+    Private Sub LayoutHeaderUser(userName As TextBox, role As Label, headerWidth As Integer, profilePanel As Control)
         Dim userWidth = Math.Min(300, Math.Max(180, headerWidth - 40))
-        userName.SetBounds(headerWidth - userWidth - 64, 12, userWidth, 20)
-        userName.TextAlign = HorizontalAlignment.Right
-        role.Location = New Point(headerWidth - userWidth - 64, 35)
+        Dim textLeft = headerWidth - userWidth - 24
+        userName.SetBounds(textLeft, 34, userWidth, 20)
+        userName.TextAlign = HorizontalAlignment.Left
+        role.Location = New Point(textLeft, 57)
         role.AutoSize = False
         role.Size = New Size(userWidth, 16)
-        role.TextAlign = ContentAlignment.MiddleRight
+        role.TextAlign = ContentAlignment.MiddleLeft
+        EnsureProfileAvatar(profilePanel, New Point(textLeft - 60, 31))
+    End Sub
+
+    Private Sub EnsureProfileAvatar(profilePanel As Control, location As Point)
+        If profilePanel Is Nothing Then Return
+
+        Dim avatar = TryCast(profilePanel.Controls("profileAvatar"), Panel)
+        If avatar Is Nothing Then
+            avatar = New Panel With {.Name = "profileAvatar", .Size = New Size(46, 46)}
+            profilePanel.Controls.Add(avatar)
+        End If
+
+        avatar.SetBounds(location.X, location.Y, 46, 46)
+        ProfileAvatarStyler.Apply(avatar)
+        avatar.BringToFront()
     End Sub
 
     Private Sub HideAllPanels()
@@ -472,11 +561,12 @@ Public Class SuperAdmin
         Next
 
         Dim left = 20
-        Dim dateTop = pnlHeaderDashboard.Height + 4
-        Dim firstCardsTop = dateTop + 26
+        Dim cardInset = 8
+        Dim dateTop = pnlHeaderDashboard.Height + 10
+        Dim firstCardsTop = dateTop + 36
         Dim rightMargin = 20
-        Dim summaryHeight = 104
-        Dim rowGap = 8
+        Dim summaryHeight = 118
+        Dim rowGap = 12
         Dim chartHeight = Math.Max(220, CInt(pnlDashboard.ClientSize.Height * 0.3))
         Dim bottomHeight = Math.Max(155, CInt(pnlDashboard.ClientSize.Height * 0.18))
         Dim availableWidth = Math.Max(1, pnlDashboard.ClientSize.Width - left - rightMargin)
@@ -488,12 +578,19 @@ Public Class SuperAdmin
         TableLayoutPanel1.Visible = True
         TableLayoutPanel2.Visible = True
         pnlDashboard.AutoScrollMinSize = If(pnlDashboard.AutoScroll, New Size(availableWidth, requiredHeight), Size.Empty)
-        dashboardDateLabel.SetBounds(left + availableWidth - dashboardDateLabel.Width, dateTop, dashboardDateLabel.Width, 24)
+        dashboardDateLabel.SetBounds(left + cardInset, dateTop, 244, 28)
+        ApplyDashboardRoundedCorners(dashboardDateLabel, 10)
         TableLayoutPanel1.SetBounds(left, firstCardsTop, availableWidth, summaryHeight)
         TableLayoutPanel2.SetBounds(left, secondCardsTop, availableWidth, summaryHeight)
         TableLayoutPanel4.SetBounds(left, chartTop, availableWidth, chartHeight)
         TableLayoutPanel3.SetBounds(left, bottomTop, availableWidth, bottomHeight)
-        salesTrendPlot.SetBounds(16, 62, Math.Max(1, Panel11.ClientSize.Width - 32), Math.Max(1, Panel11.ClientSize.Height - 78))
+        salesTrendTitleLabel.Font = New Font("Segoe UI", 10.0F, FontStyle.Bold)
+        salesTrendLegendLabel.Font = New Font("Segoe UI", 8.0F)
+        revenueTitleLabel.Font = New Font("Segoe UI", 10.0F, FontStyle.Bold)
+        inventoryAlertsTitleLabel.Font = New Font("Segoe UI", 10.0F, FontStyle.Bold)
+        quickOverviewTitleLabel.Font = New Font("Segoe UI", 10.0F, FontStyle.Bold)
+        salesTrendPlot.SetBounds(16, 58, Math.Max(1, Panel11.ClientSize.Width - 32), Math.Max(1, Panel11.ClientSize.Height - 78))
+        trendFiltersPanel.Top = 8
         trendFiltersPanel.Left = Panel11.ClientSize.Width - trendFiltersPanel.Width - 16
         revenueNetIncomeLabel.SetBounds(16, Math.Max(120, Panel12.ClientSize.Height - 52), Math.Max(1, Panel12.ClientSize.Width - 32), 36)
         LayoutDashboardAlertCards()
@@ -507,15 +604,31 @@ Public Class SuperAdmin
         FormatDashboardCard(Panel6, TextBox11, TextBox12, days)
         FormatDashboardCard(Panel7, TextBox17, TextBox19, requiresDisposal)
         FormatDashboardCard(Panel8, TextBox18, TextBox20, expensesRecorded)
+
+        For Each card In {Panel1, Panel2, Panel3, Panel4, Panel5, Panel6, Panel7, Panel8}
+            ApplyDashboardRoundedCorners(card, 12)
+        Next
+        For Each card In {Panel9, Panel10, Panel11, Panel12}
+            ApplyDashboardRoundedCorners(card, 14)
+        Next
+        For Each alertCard In {inventoryAlertLowStock, inventoryAlertNearExpiry, inventoryAlertExpired}
+            ApplyDashboardRoundedCorners(alertCard, 10)
+        Next
     End Sub
 
     Private Sub LayoutDashboardAlertCards()
-        Dim gap = 8
-        Dim width = Math.Max(1, (Panel9.ClientSize.Width - 32 - gap * 2) \ 3)
+        Dim inset = 16
+        Dim gap = 10
+        Dim width = Math.Max(1, (Panel9.ClientSize.Width - inset * 2 - gap * 2) \ 3)
         Dim height = Math.Max(60, Panel9.ClientSize.Height - 54)
-        inventoryAlertLowStock.SetBounds(16, 42, width, height)
-        inventoryAlertNearExpiry.SetBounds(24 + width, 42, width, height)
-        inventoryAlertExpired.SetBounds(32 + width * 2, 42, width, height)
+        inventoryAlertLowStock.SetBounds(inset, 42, width, height)
+        inventoryAlertNearExpiry.SetBounds(inset + width + gap, 42, width, height)
+        inventoryAlertExpired.SetBounds(inset + (width + gap) * 2, 42, width, height)
+        For Each alertCard In {inventoryAlertLowStock, inventoryAlertNearExpiry, inventoryAlertExpired}
+            ApplyDashboardRoundedCorners(alertCard, 10)
+            Dim icon = alertCard.Controls("dashboardAlertIcon")
+            If icon IsNot Nothing Then icon.SetBounds(8, 3, 28, 25)
+        Next
         inventoryViewAllLink.Left = Panel9.ClientSize.Width - inventoryViewAllLink.Width - 16
     End Sub
 
@@ -523,16 +636,48 @@ Public Class SuperAdmin
         Dim labels = {quickOverviewRestockLabel, quickOverviewExpiryLabel, quickOverviewTransactionsLabel}
         Dim values = {quickOverviewRestockValue, quickOverviewExpiryValue, quickOverviewTransactionsValue}
         For index = 0 To labels.Length - 1
-            Dim y = 42 + index * 32
-            labels(index).SetBounds(20, y, Math.Max(1, Panel10.ClientSize.Width - 224), 24)
-            values(index).SetBounds(Panel10.ClientSize.Width - 196, y, 176, 24)
+            Dim y = 38 + index * 28
+            Dim icon = Panel10.Controls("dashboardQuickIcon" & index.ToString(CultureInfo.InvariantCulture))
+            If icon IsNot Nothing Then icon.SetBounds(16, y, 24, 24)
+            labels(index).SetBounds(44, y, Math.Max(1, Panel10.ClientSize.Width - 170), 24)
+            values(index).SetBounds(Panel10.ClientSize.Width - 126, y, 110, 24)
         Next
-        quickOverviewSeparator1.SetBounds(16, 70, Math.Max(1, Panel10.ClientSize.Width - 32), 1)
-        quickOverviewSeparator2.SetBounds(16, 102, Math.Max(1, Panel10.ClientSize.Width - 32), 1)
+        quickOverviewSeparator1.SetBounds(16, 64, Math.Max(1, Panel10.ClientSize.Width - 32), 1)
+        quickOverviewSeparator2.SetBounds(16, 92, Math.Max(1, Panel10.ClientSize.Width - 32), 1)
+    End Sub
+
+    Private Sub EnsureDashboardIcons()
+        Dim alertPanels = {inventoryAlertLowStock, inventoryAlertNearExpiry, inventoryAlertExpired}
+        Dim alertGlyphs = {"⚠", "◷", "!"}
+        Dim alertColors = {Color.FromArgb(95, 75, 0), Color.FromArgb(140, 85, 20), Color.FromArgb(145, 45, 45)}
+        For index = 0 To alertPanels.Length - 1
+            EnsureDashboardIcon(alertPanels(index), "dashboardAlertIcon", alertGlyphs(index), alertColors(index), "Segoe UI Symbol", 12.0F)
+        Next
+
+        Dim quickGlyphs = {"▣", "◷", "↻"}
+        For index = 0 To quickGlyphs.Length - 1
+            EnsureDashboardIcon(Panel10, "dashboardQuickIcon" & index.ToString(CultureInfo.InvariantCulture), quickGlyphs(index), Color.FromArgb(20, 100, 60), "Segoe UI Symbol", 10.0F)
+        Next
+    End Sub
+
+    Private Sub EnsureDashboardIcon(host As Control, name As String, glyph As String, color As Color, fontFamily As String, fontSize As Single)
+        If host.Controls(name) IsNot Nothing Then Return
+        Dim icon As New Label With {
+            .Name = name,
+            .Text = glyph,
+            .BackColor = Color.Transparent,
+            .ForeColor = color,
+            .Font = New Font(fontFamily, fontSize, FontStyle.Bold),
+            .TextAlign = ContentAlignment.MiddleCenter,
+            .Size = New Size(28, 25)
+        }
+        host.Controls.Add(icon)
+        icon.BringToFront()
     End Sub
 
     Private Sub DashboardChartPanel_Resize(sender As Object, e As EventArgs)
-        salesTrendPlot.SetBounds(16, 62, Math.Max(1, Panel11.ClientSize.Width - 32), Math.Max(1, Panel11.ClientSize.Height - 78))
+        salesTrendPlot.SetBounds(16, 58, Math.Max(1, Panel11.ClientSize.Width - 32), Math.Max(1, Panel11.ClientSize.Height - 78))
+        trendFiltersPanel.Top = 8
         trendFiltersPanel.Left = Panel11.ClientSize.Width - trendFiltersPanel.Width - 16
         revenueNetIncomeLabel.SetBounds(16, Math.Max(120, Panel12.ClientSize.Height - 52), Math.Max(1, Panel12.ClientSize.Width - 32), 36)
     End Sub
@@ -540,6 +685,30 @@ Public Class SuperAdmin
     Private Sub DashboardLowerPanels_Resize(sender As Object, e As EventArgs)
         LayoutDashboardAlertCards()
         LayoutDashboardQuickOverview()
+        For Each card In {Panel9, Panel10}
+            ApplyDashboardRoundedCorners(card, 14)
+        Next
+        For Each alertCard In {inventoryAlertLowStock, inventoryAlertNearExpiry, inventoryAlertExpired}
+            ApplyDashboardRoundedCorners(alertCard, 10)
+        Next
+    End Sub
+
+    Private Sub ApplyDashboardRoundedCorners(control As Control, radius As Integer)
+        If control Is Nothing OrElse control.Width <= 0 OrElse control.Height <= 0 Then Return
+
+        Dim diameter = Math.Min(radius * 2, Math.Min(control.Width, control.Height))
+        Dim bounds As New Rectangle(0, 0, control.Width, control.Height)
+        Using path As New Drawing.Drawing2D.GraphicsPath()
+            path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90)
+            path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90)
+            path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90)
+            path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90)
+            path.CloseFigure()
+
+            Dim previousRegion = control.Region
+            control.Region = New Region(path)
+            If previousRegion IsNot Nothing Then previousRegion.Dispose()
+        End Using
     End Sub
 
     Private Sub DashboardTrendFilter_Click(sender As Object, e As EventArgs)
@@ -635,17 +804,17 @@ Public Class SuperAdmin
         Dim panel = TryCast(sender, Panel)
         If panel Is Nothing Then Return
         e.Graphics.SmoothingMode = Drawing.Drawing2D.SmoothingMode.AntiAlias
-        Dim center = New Point(90, Math.Min(132, panel.ClientSize.Height \ 2 - 12))
-        Using ringPen As New Pen(Color.FromArgb(225, 230, 226), 18.0F), font As New Font("Segoe UI", 9.0F, FontStyle.Bold), smallFont As New Font("Segoe UI", 8.0F), textBrush As New SolidBrush(Color.FromArgb(35, 45, 40)), grayBrush As New SolidBrush(Color.DimGray)
-            Dim ring As New Rectangle(center.X - 46, center.Y - 46, 92, 92)
+        Dim center = New Point(86, Math.Min(111, panel.ClientSize.Height \ 2 - 9))
+        Using ringPen As New Pen(Color.FromArgb(225, 230, 226), 15.0F), font As New Font("Segoe UI", 8.0F, FontStyle.Bold), smallFont As New Font("Segoe UI", 7.5F), textBrush As New SolidBrush(Color.FromArgb(25, 25, 25)), grayBrush As New SolidBrush(Color.DimGray)
+            Dim ring As New Rectangle(center.X - 34, center.Y - 34, 68, 68)
             e.Graphics.DrawArc(ringPen, ring, -90, 359)
             Dim centerLabel = "N/A"
             Dim size = e.Graphics.MeasureString(centerLabel, font)
             e.Graphics.DrawString(centerLabel, font, grayBrush, center.X - size.Width / 2.0F, center.Y - 7)
-            e.Graphics.DrawString("Revenue", smallFont, grayBrush, 160, 74)
-            e.Graphics.DrawString("₱" & dashboardTodaySales.ToString("N2", CultureInfo.CurrentCulture) & " today", font, textBrush, 160, 92)
-            e.Graphics.DrawString("Expenses", smallFont, grayBrush, 160, 126)
-            e.Graphics.DrawString("Unavailable — no expense records", smallFont, grayBrush, 160, 144)
+            e.Graphics.DrawString("Revenue", smallFont, grayBrush, 140, 62)
+            e.Graphics.DrawString("₱" & dashboardTodaySales.ToString("N2", CultureInfo.CurrentCulture) & " today", font, textBrush, 140, 77)
+            e.Graphics.DrawString("Expenses", smallFont, grayBrush, 140, 103)
+            e.Graphics.DrawString("Unavailable — no expense records", smallFont, grayBrush, 140, 118)
         End Using
     End Sub
 
@@ -657,31 +826,203 @@ Public Class SuperAdmin
         title.TabStop = False
         title.BorderStyle = BorderStyle.None
         title.BackColor = Color.White
-        If title.Font.Size <> 11.0F OrElse title.Font.Style <> FontStyle.Bold Then title.Font = New Font("Segoe UI", 11.0F, FontStyle.Bold)
-        title.Location = New Point(16, 10)
+        If title.Font.Size <> 10.0F OrElse title.Font.Style <> FontStyle.Bold Then title.Font = New Font("Segoe UI", 10.0F, FontStyle.Bold)
+        title.Location = New Point(16, 12)
         title.Size = New Size(Math.Max(80, card.ClientSize.Width - 32), 22)
 
         value.ReadOnly = True
         value.TabStop = False
         value.BorderStyle = BorderStyle.None
         value.BackColor = Color.White
-        If value.Font.Size <> 24.0F OrElse value.Font.Style <> FontStyle.Regular Then value.Font = New Font("Segoe UI", 24.0F)
-        value.Location = New Point(16, 36)
-        value.Size = New Size(Math.Max(80, card.ClientSize.Width - 32), 32)
+        If value.Font.Size <> 17.0F OrElse value.Font.Style <> FontStyle.Regular Then value.Font = New Font("Segoe UI", 17.0F)
+        value.Location = New Point(16, 40)
+        value.Size = New Size(Math.Max(80, card.ClientSize.Width - 32), 36)
 
         footer.ReadOnly = True
         footer.TabStop = False
         footer.BorderStyle = BorderStyle.None
         footer.BackColor = Color.White
-        If footer.Font.Size <> 9.0F OrElse footer.Font.Style <> FontStyle.Regular Then footer.Font = New Font("Segoe UI", 9.0F)
+        If footer.Font.Size <> 8.0F OrElse footer.Font.Style <> FontStyle.Regular Then footer.Font = New Font("Segoe UI", 8.0F)
         footer.ForeColor = Color.Gray
-        footer.Location = New Point(16, 72)
+        footer.Location = New Point(16, 74)
         footer.Size = New Size(Math.Max(80, card.ClientSize.Width - 32), 18)
     End Sub
 
     Private Sub btnAccounts_Click(sender As Object, e As EventArgs) Handles btnAccounts.Click
         ShowPrimaryView(pnlAccounts, "Accounts")
         LoadAccounts() ' Refresh data when opened
+    End Sub
+
+    Private Sub InitializeAccountsPresentation()
+        accountListCard = New Panel With {.Name = "accountListCard", .BackColor = Color.White, .BorderStyle = BorderStyle.None}
+
+        accountSearchBox = New TextBox With {
+            .Name = "accountSearchBox",
+            .PlaceholderText = "Search users...",
+            .Font = New Font("Segoe UI", 9.0F),
+            .BorderStyle = BorderStyle.None,
+            .BackColor = Color.FromArgb(247, 250, 248)
+        }
+        accountRoleFilter = New ComboBox With {
+            .Name = "accountRoleFilter",
+            .DropDownStyle = ComboBoxStyle.DropDownList,
+            .Font = New Font("Segoe UI", 9.0F),
+            .FlatStyle = FlatStyle.Flat
+        }
+        accountRoleFilter.Items.AddRange(New Object() {"All Roles", "Super Admin", "Admin", "Staff"})
+        accountRoleFilter.SelectedIndex = 0
+        AddHandler accountSearchBox.TextChanged, AddressOf AccountFilters_Changed
+        AddHandler accountRoleFilter.SelectedIndexChanged, AddressOf AccountFilters_Changed
+
+        numberTotalUsersRegistered.ReadOnly = True
+        numberTotalUsersRegistered.TabStop = False
+        numberTotalUsersRegistered.BackColor = Color.White
+        numberTotalUsersRegistered.ForeColor = Color.FromArgb(95, 105, 100)
+        numberTotalUsersRegistered.Font = New Font("Segoe UI", 9.0F)
+        btnAddAccount.Text = "+  Add Account"
+        btnAddAccount.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
+        btnAddAccount.Size = New Size(132, 34)
+        btnAddAccount.BackColor = Color.FromArgb(18, 101, 54)
+        btnAddAccount.FlatAppearance.BorderSize = 0
+        AddHandler btnAddAccount.Resize, Sub(sender, e) ApplyDashboardRoundedCorners(btnAddAccount, 8)
+        ApplyDashboardRoundedCorners(btnAddAccount, 8)
+
+        pnlAccounts.Controls.Remove(accountsDataGrid)
+        pnlAccounts.Controls.Remove(numberTotalUsersRegistered)
+        pnlAccounts.Controls.Remove(btnAddAccount)
+        accountListCard.Controls.Add(numberTotalUsersRegistered)
+        accountListCard.Controls.Add(accountSearchBox)
+        accountListCard.Controls.Add(accountRoleFilter)
+        accountListCard.Controls.Add(btnAddAccount)
+        accountListCard.Controls.Add(accountsDataGrid)
+        pnlAccounts.Controls.Add(accountListCard)
+
+        accountsDataGrid.BackgroundColor = Color.White
+        accountsDataGrid.BorderStyle = BorderStyle.None
+        accountsDataGrid.AllowUserToAddRows = False
+        accountsDataGrid.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal
+        accountsDataGrid.GridColor = Color.FromArgb(229, 234, 231)
+        accountsDataGrid.RowHeadersVisible = False
+        accountsDataGrid.EnableHeadersVisualStyles = False
+        accountsDataGrid.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None
+        accountsDataGrid.ColumnHeadersHeight = 38
+        accountsDataGrid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(239, 247, 243)
+        accountsDataGrid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(65, 78, 70)
+        accountsDataGrid.ColumnHeadersDefaultCellStyle.Font = New Font("Segoe UI", 8.0F, FontStyle.Bold)
+        accountsDataGrid.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft
+        accountsDataGrid.DefaultCellStyle.Font = New Font("Segoe UI", 9.0F)
+        accountsDataGrid.DefaultCellStyle.ForeColor = Color.FromArgb(35, 45, 40)
+        accountsDataGrid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(235, 247, 240)
+        accountsDataGrid.DefaultCellStyle.SelectionForeColor = Color.FromArgb(35, 45, 40)
+        accountsDataGrid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(250, 252, 251)
+        accountsDataGrid.RowTemplate.Height = 44
+        accountsDataGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect
+        accountsDataGrid.MultiSelect = False
+        accountUserID.FillWeight = 8
+        accountFullName.FillWeight = 22
+        accountUsername.FillWeight = 15
+        accountRole.FillWeight = 14
+        accountStatus.FillWeight = 12
+        accountEdit.FillWeight = 10
+        accountResetPassword.FillWeight = 12
+        accountEnableDisable.FillWeight = 10
+        accountEdit.HeaderText = "ACTIONS"
+        accountEdit.FlatStyle = FlatStyle.Flat
+        accountResetPassword.HeaderText = String.Empty
+        accountResetPassword.FlatStyle = FlatStyle.Flat
+        accountEnableDisable.HeaderText = String.Empty
+        accountEdit.DefaultCellStyle.BackColor = Color.White
+        accountEdit.DefaultCellStyle.ForeColor = Color.FromArgb(25, 95, 65)
+        accountResetPassword.DefaultCellStyle.BackColor = Color.White
+        accountResetPassword.DefaultCellStyle.ForeColor = Color.FromArgb(45, 55, 50)
+        AddHandler accountsDataGrid.CellFormatting, AddressOf AccountsGrid_CellFormatting
+
+        StyleAccountSummaryCard(panelSuperAdmin, titleSuperAdmin, numberSuperAdmin, "Administrative privileges", "shield")
+        StyleAccountSummaryCard(panelAdmin, titleAdmin, numberAdmin, "Pharmacist accounts", "user")
+        StyleAccountSummaryCard(panelAssistant, titleAssistant, numberAssistant, "Assistant accounts", "users")
+    End Sub
+
+    Private Sub StyleAccountSummaryCard(card As Panel, title As TextBox, value As TextBox, footerText As String, iconKind As String)
+        card.BackColor = Color.White
+        card.BorderStyle = BorderStyle.None
+        card.Margin = New Padding(7)
+        card.Controls.Add(New Label With {
+            .Name = "accountSummaryFooter",
+            .Text = footerText,
+            .AutoSize = False,
+            .Font = New Font("Segoe UI", 8.0F),
+            .ForeColor = Color.FromArgb(105, 115, 110),
+            .Location = New Point(18, 91),
+            .Size = New Size(240, 18)
+        })
+        Dim divider As New Panel With {.Name = "accountSummaryDivider", .BackColor = Color.FromArgb(225, 231, 228), .Location = New Point(18, 82), .Size = New Size(Math.Max(1, card.ClientSize.Width - 36), 1), .Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right}
+        card.Controls.Add(divider)
+
+        Dim icon As New Panel With {.Name = "accountSummaryIcon", .BackColor = Color.FromArgb(236, 248, 242), .Size = New Size(32, 32), .Tag = iconKind}
+        AddHandler icon.Paint, AddressOf AccountRoleIcon_Paint
+        card.Controls.Add(icon)
+        icon.BringToFront()
+
+        title.ReadOnly = True
+        title.TabStop = False
+        title.BorderStyle = BorderStyle.None
+        title.BackColor = Color.White
+        title.ForeColor = Color.FromArgb(45, 55, 50)
+        title.Font = New Font("Segoe UI", 10.0F)
+        value.ReadOnly = True
+        value.TabStop = False
+        value.BorderStyle = BorderStyle.None
+        value.BackColor = Color.White
+        value.ForeColor = Color.FromArgb(18, 101, 54)
+        value.Font = New Font("Segoe UI", 21.0F, FontStyle.Bold)
+    End Sub
+
+    Private Sub AccountRoleIcon_Paint(sender As Object, e As PaintEventArgs)
+        Dim icon = TryCast(sender, Panel)
+        If icon Is Nothing Then Return
+        e.Graphics.SmoothingMode = Drawing.Drawing2D.SmoothingMode.AntiAlias
+        Using pen As New Pen(Color.FromArgb(18, 101, 54), 1.6F)
+            Dim centerX = icon.ClientSize.Width / 2.0F
+            e.Graphics.DrawEllipse(pen, centerX - 3.2F, 6.0F, 6.4F, 6.4F)
+            e.Graphics.DrawArc(pen, centerX - 7.0F, 14.0F, 14.0F, 12.0F, 180.0F, 180.0F)
+            If String.Equals(Convert.ToString(icon.Tag), "users", StringComparison.Ordinal) Then
+                e.Graphics.DrawArc(pen, centerX - 12.0F, 16.0F, 10.0F, 9.0F, 185.0F, 170.0F)
+                e.Graphics.DrawEllipse(pen, centerX - 10.0F, 7.0F, 4.4F, 4.4F)
+            ElseIf String.Equals(Convert.ToString(icon.Tag), "shield", StringComparison.Ordinal) Then
+                Dim shield = {New PointF(centerX - 8.0F, 4.0F), New PointF(centerX + 8.0F, 4.0F), New PointF(centerX + 7.0F, 14.0F), New PointF(centerX, 20.0F), New PointF(centerX - 7.0F, 14.0F)}
+                e.Graphics.DrawPolygon(pen, shield)
+            End If
+        End Using
+    End Sub
+
+    Private Sub AccountFilters_Changed(sender As Object, e As EventArgs)
+        If accountDataView Is Nothing Then Return
+        Dim query = accountSearchBox.Text.Trim().Replace("'", "''").Replace("[", "[[]").Replace("]", "[]]").Replace("%", "[%]").Replace("*", "[*]")
+        Dim filters As New List(Of String)
+        If query.Length > 0 Then
+            filters.Add("([FullName] LIKE '%" & query & "%' OR [Username] LIKE '%" & query & "%')")
+        End If
+        If accountRoleFilter.SelectedIndex > 0 Then
+            Dim role = Convert.ToString(accountRoleFilter.SelectedItem, CultureInfo.InvariantCulture).Replace("'", "''")
+            filters.Add("[Role] = '" & role & "'")
+        End If
+        accountDataView.RowFilter = String.Join(" AND ", filters)
+    End Sub
+
+    Private Sub AccountsGrid_CellFormatting(sender As Object, e As DataGridViewCellFormattingEventArgs)
+        If e.RowIndex < 0 OrElse e.ColumnIndex < 0 Then Return
+        Select Case accountsDataGrid.Columns(e.ColumnIndex).Name
+            Case "accountRole"
+                e.CellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter
+                e.CellStyle.ForeColor = Color.FromArgb(55, 70, 62)
+                e.CellStyle.BackColor = Color.FromArgb(244, 247, 245)
+            Case "accountStatus"
+                Dim active = String.Equals(Convert.ToString(e.Value), "Active", StringComparison.OrdinalIgnoreCase)
+                e.CellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter
+                e.CellStyle.ForeColor = If(active, Color.FromArgb(24, 126, 76), Color.FromArgb(170, 65, 65))
+                e.CellStyle.BackColor = If(active, Color.FromArgb(232, 248, 240), Color.FromArgb(253, 238, 238))
+                e.CellStyle.Font = New Font("Segoe UI", 8.0F, FontStyle.Bold)
+        End Select
     End Sub
 
     Private Sub LayoutAccounts_Resize(sender As Object, e As EventArgs)
@@ -691,24 +1032,54 @@ Public Class SuperAdmin
     Private Sub LayoutAccounts()
         If pnlAccounts.ClientSize.Width <= 0 OrElse pnlAccounts.ClientSize.Height <= 0 Then Return
 
-        Dim horizontalPadding = 14
-        Dim top = pnlHeaderAccounts.Height + 14
+        Dim horizontalPadding = 34
+        Dim top = pnlHeaderAccounts.Height + 16
         Dim availableWidth = Math.Max(1, pnlAccounts.ClientSize.Width - horizontalPadding * 2)
-        Dim summaryHeight = 112
-        Dim gap = 12
-        Dim summaryRowTop = top + summaryHeight + gap
-        Dim gridTop = summaryRowTop + btnAddAccount.Height + 8
+        Dim summaryHeight = 132
+        Dim gap = 14
+        Dim listTop = top + summaryHeight + gap
 
         accountTableLayout.SetBounds(horizontalPadding, top, availableWidth, summaryHeight)
-        numberTotalUsersRegistered.SetBounds(horizontalPadding, summaryRowTop + (btnAddAccount.Height - numberTotalUsersRegistered.Height) \ 2, Math.Max(1, availableWidth - btnAddAccount.Width - gap), numberTotalUsersRegistered.Height)
-        btnAddAccount.SetBounds(pnlAccounts.ClientSize.Width - horizontalPadding - btnAddAccount.Width,
-                                summaryRowTop,
-                                btnAddAccount.Width,
-                                btnAddAccount.Height)
-        accountsDataGrid.SetBounds(horizontalPadding,
-                                   gridTop,
-                                   availableWidth,
-                                   Math.Max(1, pnlAccounts.ClientSize.Height - gridTop - horizontalPadding))
+        accountTableLayout.Margin = Padding.Empty
+        accountTableLayout.Padding = Padding.Empty
+        accountTableLayout.ColumnCount = 3
+        accountTableLayout.ColumnStyles.Clear()
+        For index = 0 To 2
+            accountTableLayout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 33.3333F))
+        Next
+
+        For Each card In {panelSuperAdmin, panelAdmin, panelAssistant}
+            card.Margin = New Padding(7)
+            ApplyDashboardRoundedCorners(card, 14)
+            Dim title = TryCast(card.Controls.OfType(Of TextBox)().FirstOrDefault(Function(control) control.Name.StartsWith("title", StringComparison.Ordinal)), TextBox)
+            Dim value = TryCast(card.Controls.OfType(Of TextBox)().FirstOrDefault(Function(control) control.Name.StartsWith("number", StringComparison.Ordinal)), TextBox)
+            If title IsNot Nothing Then title.SetBounds(18, 16, Math.Max(120, card.ClientSize.Width - 68), 22)
+            If value IsNot Nothing Then value.SetBounds(18, 43, 120, 30)
+            Dim divider = card.Controls("accountSummaryDivider")
+            If divider IsNot Nothing Then divider.SetBounds(18, 80, Math.Max(1, card.ClientSize.Width - 36), 1)
+            Dim footerLabel = card.Controls("accountSummaryFooter")
+            If footerLabel IsNot Nothing Then footerLabel.SetBounds(18, 88, Math.Max(120, card.ClientSize.Width - 36), 18)
+            Dim icon = card.Controls("accountSummaryIcon")
+            If icon IsNot Nothing Then
+                icon.SetBounds(card.ClientSize.Width - 50, 14, 32, 32)
+                ApplyDashboardRoundedCorners(icon, 8)
+            End If
+        Next
+
+        accountListCard.SetBounds(horizontalPadding,
+                                  listTop,
+                                  availableWidth,
+                                  Math.Max(220, pnlAccounts.ClientSize.Height - listTop - horizontalPadding))
+        ApplyDashboardRoundedCorners(accountListCard, 14)
+        numberTotalUsersRegistered.SetBounds(18, 14, Math.Max(150, availableWidth - 36), 20)
+        accountSearchBox.SetBounds(18, 44, 240, 32)
+        accountRoleFilter.SetBounds(270, 44, 142, 32)
+        btnAddAccount.SetBounds(accountListCard.ClientSize.Width - btnAddAccount.Width - 18, 43, btnAddAccount.Width, btnAddAccount.Height)
+        ApplyDashboardRoundedCorners(btnAddAccount, 8)
+        accountsDataGrid.SetBounds(18,
+                                   90,
+                                   Math.Max(1, accountListCard.ClientSize.Width - 36),
+                                   Math.Max(1, accountListCard.ClientSize.Height - 108))
     End Sub
 
     Private Sub btnReports_Click(sender As Object, e As EventArgs) Handles btnReports.Click
@@ -719,11 +1090,21 @@ Public Class SuperAdmin
     Private Sub LayoutReports(sender As Object, e As EventArgs)
         If pnlReports.ClientSize.Width <= 0 OrElse pnlReports.ClientSize.Height <= 0 Then Return
 
-        Dim horizontalPadding = 14
+        Dim horizontalPadding = 34
         Dim rowGap = 12
-        Dim cardHeight = 110
+        ' The Admin report cards are 136px tall with a 14px bottom gap.
+        ' Give each table row that full card height plus its visual gap.
+        Dim cardHeight = 150
         Dim availableWidth = Math.Max(1, pnlReports.ClientSize.Width - horizontalPadding * 2)
-        Panel16.SetBounds(horizontalPadding, pnlHeaderReports.Height + rowGap, availableWidth, 76)
+        Panel16.SetBounds(horizontalPadding, pnlHeaderReports.Height + rowGap, availableWidth, 64)
+        Panel16.BackColor = Color.White
+        Panel16.BorderStyle = BorderStyle.None
+        titleBusinessReports.SetBounds(18, 10, Math.Max(180, availableWidth - 36), 25)
+        SetReportFont(titleBusinessReports, 14.0F, FontStyle.Bold)
+        titleBusinessReports.ForeColor = Color.FromArgb(35, 45, 40)
+        reportsDescription.SetBounds(18, 37, Math.Max(240, availableWidth - 36), 18)
+        SetReportFont(reportsDescription, 9.0F, FontStyle.Regular)
+        reportsDescription.ForeColor = Color.Gray
         Dim top = Panel16.Bottom + rowGap
 
         For Each cardLayout As TableLayoutPanel In {TableLayoutPanel8, TableLayoutPanel6, TableLayoutPanel7, TableLayoutPanel9}
@@ -743,7 +1124,9 @@ Public Class SuperAdmin
 
         For Each card As Panel In {Panel20, Panel21, Panel17, Panel18, Panel19, Panel22, Panel23}
             card.Dock = DockStyle.Fill
-            card.Margin = New Padding(6)
+            card.Margin = New Padding(0, 0, 14, 14)
+            card.BackColor = Color.White
+            card.BorderStyle = BorderStyle.None
         Next
 
         LayoutReportCard(Panel20, inventoryTitle, inventoryDescriptions, inventoryViewReport)
@@ -753,6 +1136,13 @@ Public Class SuperAdmin
         LayoutReportCard(Panel19, expensesTitle, expensesDescriptions, expensesViewReport)
         LayoutReportCard(Panel22, financialTitle, financialDescriptions, financialViewReport)
         LayoutReportCard(Panel23, employeeTitle, employeeDescription, employeeViewReport)
+        ApplyDashboardRoundedCorners(Panel16, 12)
+        For Each card In {Panel20, Panel21, Panel17, Panel18, Panel19, Panel22, Panel23}
+            ApplyDashboardRoundedCorners(card, 12)
+        Next
+        For Each reportButton In {inventoryViewReport, retailViewReport, wholesaleViewReport, purchasesViewReport, expensesViewReport, financialViewReport, employeeViewReport}
+            ApplyDashboardRoundedCorners(reportButton, 8)
+        Next
 
         pnlReports.AutoScrollMinSize = New Size(0, top + horizontalPadding)
     End Sub
@@ -760,11 +1150,29 @@ Public Class SuperAdmin
     Private Sub LayoutReportCard(card As Panel, title As TextBox, description As TextBox, viewButton As Button)
         If card.ClientSize.Width <= 0 OrElse card.ClientSize.Height <= 0 Then Return
 
-        Dim inset = 6
+        Dim inset = 16
         Dim textWidth = Math.Max(1, card.ClientSize.Width - inset * 2)
-        title.SetBounds(inset, 10, textWidth, 26)
-        description.SetBounds(inset, 38, textWidth, 22)
-        viewButton.SetBounds(inset, 68, Math.Min(150, textWidth), 30)
+        title.SetBounds(inset, 14, textWidth, 24)
+        SetReportFont(title, 11.0F, FontStyle.Bold)
+        title.ForeColor = Color.FromArgb(35, 45, 40)
+        description.SetBounds(inset, 44, textWidth, 36)
+        SetReportFont(description, 9.0F, FontStyle.Regular)
+        description.ForeColor = Color.Gray
+        viewButton.SetBounds(inset, 88, Math.Min(132, textWidth), 34)
+        SetReportFont(viewButton, 9.0F, FontStyle.Bold)
+        viewButton.BackColor = Color.FromArgb(25, 120, 75)
+        viewButton.ForeColor = Color.White
+        viewButton.FlatStyle = FlatStyle.Flat
+        viewButton.FlatAppearance.BorderSize = 0
+    End Sub
+
+    Private Sub SetReportFont(control As Control, size As Single, style As FontStyle)
+        If control.Font IsNot Nothing AndAlso
+           String.Equals(control.Font.Name, "Segoe UI", StringComparison.OrdinalIgnoreCase) AndAlso
+           Math.Abs(control.Font.Size - size) < 0.1F AndAlso
+           control.Font.Style = style Then Return
+
+        control.Font = New Font("Segoe UI", size, style)
     End Sub
 
     Private Sub LayoutAllReportDetails()
@@ -806,41 +1214,47 @@ Public Class SuperAdmin
             pageHeader.Dock = DockStyle.Fill
             headerTitle.AutoSize = False
             headerTitle.Text = "Reports"
-            headerTitle.SetBounds(20, 6, Math.Max(1, reportPage.ClientSize.Width - 360), 30)
-            headerTitle.Font = New Font("Segoe UI", 21.0F, FontStyle.Bold)
+            headerTitle.SetBounds(24, 27, Math.Max(1, reportPage.ClientSize.Width - 380), 36)
+            headerTitle.Font = New Font("Segoe UI", 24.0F, FontStyle.Bold)
             headerTitle.ForeColor = Color.FromArgb(20, 100, 60)
             headerStore.AutoSize = False
             headerStore.Text = "Sales and inventory reports"
-            headerStore.SetBounds(20, 37, Math.Max(1, reportPage.ClientSize.Width - 360), 18)
+            headerStore.SetBounds(24, 65, Math.Max(1, reportPage.ClientSize.Width - 380), 18)
             headerStore.Font = New Font("Segoe UI", 9.0F)
             headerStore.ForeColor = Color.Gray
 
             If headerUserName IsNot Nothing Then
-                headerUserName.SetBounds(reportPage.ClientSize.Width - 310, 10, 280, 20)
-                headerUserName.TextAlign = HorizontalAlignment.Right
-                headerUserName.Text = "Welcome, " & CurrentFullName & " (Super Admin)"
+                headerUserName.Text = CurrentFullName
             End If
             If headerRole IsNot Nothing Then
-                headerRole.SetBounds(reportPage.ClientSize.Width - 310, 32, 280, 16)
                 headerRole.Text = "Super Admin / Owner"
-                headerRole.TextAlign = ContentAlignment.MiddleRight
             End If
 
-            Dim avatar = TryCast(pageHeader.Controls("reportHeaderAvatar"), Panel)
-            If avatar Is Nothing Then
-                avatar = New Panel With {.Name = "reportHeaderAvatar", .BackColor = Color.FromArgb(20, 100, 60)}
-                pageHeader.Controls.Add(avatar)
-            End If
-            avatar.SetBounds(reportPage.ClientSize.Width - 350, 8, 36, 36)
-            avatar.BringToFront()
+            LayoutHeaderUser(headerUserName, headerRole, reportPage.ClientSize.Width, pageHeader)
             If headerUserName IsNot Nothing Then headerUserName.BringToFront()
             If headerRole IsNot Nothing Then headerRole.BringToFront()
 
             If salesReportPageLayout IsNot Nothing Then salesReportPageLayout.Dock = DockStyle.Fill
             toolbar.Dock = DockStyle.Fill
+            StyleSuperAdminReportToolbar(toolbar)
             LayoutReportToolbar(reportPage, toolbar)
             salesReportFilterPanel.Dock = DockStyle.Fill
             salesReportDetailsPanel.Dock = DockStyle.Fill
+            salesReportFilterPanel.BackColor = Color.White
+            salesReportDetailsPanel.BackColor = Color.White
+            salesReportDetailsPanel.Padding = New Padding(8)
+            salesReportFilterPanel.Margin = New Padding(0, 0, 12, 0)
+            salesReportDetailsPanel.Margin = Padding.Empty
+            If Not String.Equals(Convert.ToString(salesReportFilterPanel.Tag), "ReportCard", StringComparison.Ordinal) Then
+                AddHandler salesReportFilterPanel.Resize, Sub(sender, e) ApplyDashboardRoundedCorners(DirectCast(sender, Control), 16)
+                salesReportFilterPanel.Tag = "ReportCard"
+            End If
+            If Not String.Equals(Convert.ToString(salesReportDetailsPanel.Tag), "ReportCard", StringComparison.Ordinal) Then
+                AddHandler salesReportDetailsPanel.Resize, Sub(sender, e) ApplyDashboardRoundedCorners(DirectCast(sender, Control), 16)
+                salesReportDetailsPanel.Tag = "ReportCard"
+            End If
+            ApplyDashboardRoundedCorners(salesReportFilterPanel, 16)
+            ApplyDashboardRoundedCorners(salesReportDetailsPanel, 16)
             salesDateFilterLabel.SetBounds(14, 14, Math.Max(1, salesReportFilterPanel.ClientSize.Width - 28), 24)
             salesDateCaption.SetBounds(14, 60, 80, 18)
             salesTransactionDate.SetBounds(14, 82, Math.Max(1, salesReportFilterPanel.ClientSize.Width - 28), 28)
@@ -849,40 +1263,144 @@ Public Class SuperAdmin
             salesYearCaption.SetBounds(14, If(String.Equals(Convert.ToString(ComboBox4.SelectedItem), "Monthly", StringComparison.Ordinal), 145, 60), 80, 18)
             salesReportYearCombo.SetBounds(14, If(String.Equals(Convert.ToString(ComboBox4.SelectedItem), "Monthly", StringComparison.Ordinal), 167, 82), Math.Max(1, salesReportFilterPanel.ClientSize.Width - 28), 28)
             transactionDetailsTitle.Dock = DockStyle.Top
-            transactionDetailsTitle.Height = 34
+            transactionDetailsTitle.Height = 42
             transactionDetailsTitle.Padding = New Padding(14, 8, 0, 0)
             retailDataGrid.Dock = DockStyle.Fill
+            StyleSuperAdminReportGrid(retailDataGrid)
             salesReportTotalLabel.Dock = DockStyle.Bottom
             salesReportTotalLabel.Height = 44
             Return
         End If
 
-        Dim headerHeight = 72
-        Dim toolbarTop = headerHeight + 14
-        Dim toolbarHeight = 100
-        Dim gridTop = toolbarTop + toolbarHeight + 14
+        Dim headerHeight = 100
+        Dim toolbarTop = headerHeight + 26
+        Dim toolbarHeight = 178
+        Dim gridTop = toolbarTop + toolbarHeight + 12
 
         pageHeader.SetBounds(0, 0, reportPage.ClientSize.Width, headerHeight)
         toolbar.SetBounds(horizontalPadding, toolbarTop, contentWidth, toolbarHeight)
         LayoutReportHeader(pageHeader, headerTitle, headerStore, headerUserName, headerRole)
+        StyleSuperAdminReportToolbar(toolbar)
         LayoutReportToolbar(reportPage, toolbar)
 
         If gridContainer Is Nothing Then
-            grid.SetBounds(horizontalPadding,
+            Dim card = GetReportGridCard(reportPage, grid)
+            card.SetBounds(horizontalPadding,
                            gridTop,
                            contentWidth,
                            Math.Max(1, reportPage.ClientSize.Height - gridTop - horizontalPadding))
+            ApplyDashboardRoundedCorners(card, 14)
         Else
             gridContainer.SetBounds(horizontalPadding,
                                      gridTop,
                                      contentWidth,
                                      Math.Max(1, reportPage.ClientSize.Height - gridTop - horizontalPadding))
-            employeeName.SetBounds(horizontalPadding, 14, Math.Max(1, gridContainer.ClientSize.Width - horizontalPadding * 2), 26)
-            grid.SetBounds(horizontalPadding,
+            gridContainer.BackColor = Color.White
+            gridContainer.BorderStyle = BorderStyle.None
+            ApplyDashboardRoundedCorners(gridContainer, 14)
+            employeeName.SetBounds(14, 14, Math.Max(1, gridContainer.ClientSize.Width - 28), 26)
+            grid.SetBounds(14,
                            employeeName.Bottom + 10,
-                           Math.Max(1, gridContainer.ClientSize.Width - horizontalPadding * 2),
+                           Math.Max(1, gridContainer.ClientSize.Width - 28),
                            Math.Max(1, gridContainer.ClientSize.Height - employeeName.Bottom - 24))
         End If
+        StyleSuperAdminReportGrid(grid)
+        pageHeader.BringToFront()
+        toolbar.BringToFront()
+    End Sub
+
+    Private Function GetReportGridCard(reportPage As Panel, grid As DataGridView) As Panel
+        Dim card As Panel = Nothing
+        If reportGridCards.TryGetValue(grid, card) Then Return card
+        If grid.Parent IsNot Nothing Then grid.Parent.Controls.Remove(grid)
+        card = New Panel With {.Name = grid.Name & "Card", .BackColor = Color.White, .BorderStyle = BorderStyle.None, .Padding = New Padding(8)}
+        AddHandler card.Resize, Sub(sender, e) ApplyDashboardRoundedCorners(DirectCast(sender, Control), 14)
+        reportPage.Controls.Add(card)
+        card.Controls.Add(grid)
+        grid.Dock = DockStyle.Fill
+        reportGridCards(grid) = card
+        Return card
+    End Function
+
+    Private Sub StyleSuperAdminReportToolbar(toolbar As Panel)
+        toolbar.BackColor = Color.FromArgb(235, 249, 242)
+        If reportStyledToolbars.Add(toolbar) Then
+            AddHandler toolbar.Paint,
+                Sub(sender, e)
+                    Dim panel = DirectCast(sender, Panel)
+                    Using brush As New Drawing.Drawing2D.LinearGradientBrush(panel.ClientRectangle, Color.White, Color.FromArgb(214, 246, 230), 0.0F)
+                        e.Graphics.FillRectangle(brush, panel.ClientRectangle)
+                    End Using
+                End Sub
+            AddHandler toolbar.Resize, Sub(sender, e) ApplyDashboardRoundedCorners(DirectCast(sender, Control), 16)
+        End If
+
+        Dim backButton As Button
+        If toolbar Is panelRetailSalesReport Then
+            backButton = salesBackToReports
+            backButton.Text = ""
+            backButton.AccessibleName = "Back to Reports"
+            RemoveHandler backButton.Paint, AddressOf SuperAdminReportBackButton_Paint
+            AddHandler backButton.Paint, AddressOf SuperAdminReportBackButton_Paint
+        Else
+            backButton = TryCast(toolbar.Controls("reportBackButton"), Button)
+            If backButton Is Nothing Then
+                backButton = New Button With {.Name = "reportBackButton", .Text = "", .AccessibleName = "Back to Reports", .Size = New Size(42, 40), .FlatStyle = FlatStyle.Flat, .Cursor = Cursors.Hand, .UseVisualStyleBackColor = False}
+                AddHandler backButton.Click, Sub(sender, e) ShowPrimaryView(pnlReports, "Reports")
+                AddHandler backButton.Paint, AddressOf SuperAdminReportBackButton_Paint
+                AddHandler backButton.Resize, Sub(sender, e) ApplyDashboardRoundedCorners(DirectCast(sender, Control), 8)
+                toolbar.Controls.Add(backButton)
+            End If
+        End If
+        backButton.SetBounds(18, 18, 42, 40)
+        backButton.BackColor = Color.FromArgb(20, 100, 60)
+        backButton.ForeColor = Color.White
+        backButton.FlatStyle = FlatStyle.Flat
+        backButton.FlatAppearance.BorderSize = 0
+        backButton.UseVisualStyleBackColor = False
+        ApplyDashboardRoundedCorners(backButton, 8)
+        ApplyDashboardRoundedCorners(toolbar, 16)
+    End Sub
+
+    Private Sub SuperAdminReportBackButton_Paint(sender As Object, e As PaintEventArgs)
+        Dim button = TryCast(sender, Button)
+        If button Is Nothing Then Return
+        e.Graphics.SmoothingMode = Drawing.Drawing2D.SmoothingMode.AntiAlias
+        Dim cx = button.ClientSize.Width \ 2
+        Dim cy = button.ClientSize.Height \ 2
+        Using pen As New Pen(Color.White, 2.2F)
+            pen.StartCap = Drawing.Drawing2D.LineCap.Round
+            pen.EndCap = Drawing.Drawing2D.LineCap.Round
+            e.Graphics.DrawLine(pen, cx + 7, cy, cx - 7, cy)
+            e.Graphics.DrawLine(pen, cx - 7, cy, cx + 1, cy - 6)
+            e.Graphics.DrawLine(pen, cx - 7, cy, cx + 1, cy + 6)
+        End Using
+    End Sub
+
+    Private Sub StyleSuperAdminReportGrid(grid As DataGridView)
+        If grid Is Nothing Then Return
+        grid.BackgroundColor = Color.White
+        grid.BorderStyle = BorderStyle.None
+        grid.EnableHeadersVisualStyles = False
+        grid.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single
+        grid.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal
+        grid.GridColor = Color.FromArgb(225, 235, 230)
+        grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing
+        grid.ColumnHeadersHeight = 42
+        grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(225, 245, 235)
+        grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(25, 55, 45)
+        grid.ColumnHeadersDefaultCellStyle.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
+        grid.ColumnHeadersDefaultCellStyle.Padding = New Padding(8, 0, 0, 0)
+        grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = Color.FromArgb(225, 245, 235)
+        grid.ColumnHeadersDefaultCellStyle.SelectionForeColor = Color.FromArgb(25, 55, 45)
+        grid.DefaultCellStyle.Font = New Font("Segoe UI", 9.0F)
+        grid.DefaultCellStyle.ForeColor = Color.FromArgb(35, 45, 40)
+        grid.DefaultCellStyle.Padding = New Padding(8, 0, 0, 0)
+        grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(225, 245, 230)
+        grid.DefaultCellStyle.SelectionForeColor = Color.FromArgb(25, 45, 35)
+        grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248, 250, 249)
+        grid.RowTemplate.Height = 40
+        grid.RowTemplate.MinimumHeight = 40
     End Sub
 
     Private Sub LayoutReportHeader(pageHeader As Panel,
@@ -892,15 +1410,15 @@ Public Class SuperAdmin
                                    headerRole As Label)
         Dim width = pageHeader.ClientSize.Width
         headerTitle.AutoSize = False
-        headerTitle.SetBounds(20, 6, Math.Max(1, width - 340), 32)
-        If headerTitle.Font.Size <> 18.0F OrElse headerTitle.Font.Style <> FontStyle.Bold Then
-            headerTitle.Font = New Font("Segoe UI", 18.0F, FontStyle.Bold)
+        headerTitle.SetBounds(24, 27, Math.Max(1, width - 380), 36)
+        If headerTitle.Font.Size <> 24.0F OrElse headerTitle.Font.Style <> FontStyle.Bold Then
+            headerTitle.Font = New Font("Segoe UI", 24.0F, FontStyle.Bold)
         End If
         headerTitle.ForeColor = Color.FromArgb(20, 100, 60)
         headerStore.AutoSize = False
-        headerStore.SetBounds(20, 43, Math.Max(1, width - 340), 16)
-        If headerStore.Font.Size <> 8.0F OrElse headerStore.Font.Style <> FontStyle.Regular Then
-            headerStore.Font = New Font("Segoe UI", 8.0F)
+        headerStore.SetBounds(24, 65, Math.Max(1, width - 380), 18)
+        If headerStore.Font.Size <> 9.0F OrElse headerStore.Font.Style <> FontStyle.Regular Then
+            headerStore.Font = New Font("Segoe UI", 9.0F)
         End If
         headerStore.ForeColor = Color.Gray
 
@@ -934,8 +1452,8 @@ Public Class SuperAdmin
             End If
         End If
 
-        LayoutHeaderUser(headerUserName, headerRole, width)
-        headerUserName.Text = "Welcome, " & CurrentFullName & " (Super Admin)"
+        headerUserName.Text = CurrentFullName
+        LayoutHeaderUser(headerUserName, headerRole, width, pageHeader)
     End Sub
 
     Private Sub LayoutReportToolbar(reportPage As Panel, toolbar As Panel)
@@ -949,22 +1467,43 @@ Public Class SuperAdmin
         If printButton Is Nothing Then printButton = TryCast(toolbar.Controls("employeePrintReport"), Button)
 
         If printButton IsNot Nothing Then
-            printButton.SetBounds(right - buttonWidth, 12, buttonWidth, 34)
+            printButton.Text = "▣  Print Report"
+            printButton.BackColor = Color.FromArgb(20, 100, 60)
+            printButton.ForeColor = Color.White
+            printButton.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
+            printButton.FlatStyle = FlatStyle.Flat
+            printButton.FlatAppearance.BorderSize = 0
+            printButton.UseVisualStyleBackColor = False
+            printButton.SetBounds(right - buttonWidth, 18, buttonWidth, 40)
+            ApplyDashboardRoundedCorners(printButton, 8)
         End If
 
         If toolbar Is panelRetailSalesReport Then
-            titleRetailSalesReport.Font = New Font("Segoe UI", 14.0F, FontStyle.Bold)
-            titleRetailSalesReport.SetBounds(inset, 7, Math.Max(1, toolbar.ClientSize.Width - 390), 24)
+            titleRetailSalesReport.Font = New Font("Segoe UI", 17.0F, FontStyle.Bold)
+            titleRetailSalesReport.BorderStyle = BorderStyle.None
+            titleRetailSalesReport.BackColor = Color.FromArgb(239, 250, 244)
+            titleRetailSalesReport.ForeColor = Color.FromArgb(20, 30, 55)
+            Dim retailTitleWidth = TextRenderer.MeasureText(titleRetailSalesReport.Text, titleRetailSalesReport.Font).Width + 12
+            titleRetailSalesReport.SetBounds(82, 18, retailTitleWidth, 26)
             retailGenerated.Font = New Font("Segoe UI", 8.5F)
-            retailGenerated.SetBounds(inset, 31, Math.Max(1, toolbar.ClientSize.Width - 390), 18)
+            retailGenerated.BorderStyle = BorderStyle.None
+            retailGenerated.BackColor = Color.FromArgb(239, 250, 244)
+            retailGenerated.ForeColor = Color.FromArgb(90, 105, 125)
+            Dim retailGeneratedWidth = TextRenderer.MeasureText(retailGenerated.Text, retailGenerated.Font).Width + 12
+            retailGenerated.SetBounds(82, 51, Math.Min(retailGeneratedWidth, Math.Max(1, toolbar.ClientSize.Width - 260)), 18)
             retailGenerated.Visible = True
-            retailPrintReport.Font = New Font("Segoe UI", 9.0F)
-            retailPrintReport.SetBounds(right - 126 - 10 - 112, 7, 112, 32)
+            retailPrintReport.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
+            retailPrintReport.Text = "▣  Print Report"
+            retailPrintReport.BackColor = Color.FromArgb(20, 100, 60)
+            retailPrintReport.ForeColor = Color.White
+            retailPrintReport.FlatStyle = FlatStyle.Flat
+            retailPrintReport.FlatAppearance.BorderSize = 0
+            retailPrintReport.UseVisualStyleBackColor = False
+            retailPrintReport.Cursor = Cursors.Hand
+            retailPrintReport.SetBounds(right - 150, 18, 150, 40)
+            ApplyDashboardRoundedCorners(retailPrintReport, 8)
             salesBackToReports.Font = New Font("Segoe UI", 9.0F)
-            salesBackToReports.BackColor = Color.White
-            salesBackToReports.ForeColor = Color.FromArgb(20, 100, 60)
-            salesBackToReports.FlatAppearance.BorderSize = 1
-            salesBackToReports.SetBounds(right - 126, 7, 126, 32)
+            salesBackToReports.SetBounds(18, 18, 42, 40)
             ComboBox4.Visible = False
             salesTransactionFilter.Visible = False
             LayoutSalesReportFilterButtons(toolbar)
@@ -974,42 +1513,60 @@ Public Class SuperAdmin
         Dim generated = toolbar.Controls.OfType(Of TextBox)().FirstOrDefault(Function(textBox) textBox.Name.ToLowerInvariant().Contains("generated"))
         If toolbar Is panelEmployeeSalesReport Then generated = TextBox67
         If generated IsNot Nothing Then
-            generated.SetBounds(inset, 56, Math.Max(1, toolbar.ClientSize.Width - buttonWidth - inset * 3), 22)
+            generated.BorderStyle = BorderStyle.None
+            generated.BackColor = Color.FromArgb(239, 250, 244)
+            generated.ForeColor = Color.FromArgb(90, 105, 125)
+            generated.Font = New Font("Segoe UI", 9.0F)
+            Dim generatedWidth = TextRenderer.MeasureText(generated.Text, generated.Font).Width + 12
+            generated.SetBounds(82, 51, Math.Min(generatedWidth, Math.Max(1, toolbar.ClientSize.Width - buttonWidth - 110)), 20)
         End If
 
         Dim toolbarTitle = toolbar.Controls.OfType(Of TextBox)().FirstOrDefault(Function(textBox) textBox.Name.StartsWith("title", StringComparison.OrdinalIgnoreCase))
         If toolbarTitle IsNot Nothing Then
-            toolbarTitle.SetBounds(inset, 12, Math.Max(1, toolbar.ClientSize.Width - buttonWidth - inset * 3), 28)
+            toolbarTitle.Font = New Font("Segoe UI", 17.0F, FontStyle.Bold)
+            toolbarTitle.ForeColor = Color.FromArgb(20, 30, 55)
+            toolbarTitle.BorderStyle = BorderStyle.None
+            toolbarTitle.BackColor = Color.FromArgb(239, 250, 244)
+            Dim titleWidth = TextRenderer.MeasureText(toolbarTitle.Text, toolbarTitle.Font).Width + 12
+            toolbarTitle.SetBounds(82, 18, Math.Min(titleWidth, Math.Max(1, toolbar.ClientSize.Width - buttonWidth - 110)), 28)
         End If
 
         Dim selector = toolbar.Controls.OfType(Of ComboBox)().FirstOrDefault()
         If selector IsNot Nothing AndAlso selector.Visible Then
-            selector.SetBounds(right - selector.Width, 54, selector.Width, selector.Height)
+            selector.SetBounds(right - selector.Width, 88, selector.Width, selector.Height)
+            selector.Font = New Font("Segoe UI", 10.0F)
             If generated IsNot Nothing Then
-                generated.Width = Math.Max(1, selector.Left - inset * 2)
+                generated.Width = Math.Min(TextRenderer.MeasureText(generated.Text, generated.Font).Width + 12,
+                                           Math.Max(1, selector.Left - generated.Left - inset))
             End If
         End If
 
         If toolbar Is panelEmployeeSalesReport Then
-            employeeNamesDropdown.SetBounds(right - employeeNamesDropdown.Width, 54, employeeNamesDropdown.Width, employeeNamesDropdown.Height)
-            employeeScheduleDropdown.SetBounds(inset, 54, employeeScheduleDropdown.Width, employeeScheduleDropdown.Height)
+            employeeNamesDropdown.SetBounds(right - employeeNamesDropdown.Width, 88, employeeNamesDropdown.Width, employeeNamesDropdown.Height)
+            employeeScheduleDropdown.SetBounds(76, 88, employeeScheduleDropdown.Width, employeeScheduleDropdown.Height)
         ElseIf toolbar Is panelExpenseReport Then
-            titleExpensesReport.SetBounds(inset, 12, Math.Max(1, toolbar.ClientSize.Width - inset * 2), 28)
+            titleExpensesReport.SetBounds(82, 18, Math.Max(1, toolbar.ClientSize.Width - buttonWidth - 110), 28)
             Dim periodWidth = expensesPeriodDropdown.Width
             Dim dateWidth = expensesDateTime.Width
-            expensesPeriodDropdown.SetBounds(right - periodWidth, 54, periodWidth, expensesPeriodDropdown.Height)
-            expensesDateTime.SetBounds(right - periodWidth - 10 - dateWidth, 54, dateWidth, expensesDateTime.Height)
-            expensesSearchBar.SetBounds(inset, 52, Math.Max(1, expensesDateTime.Left - inset * 2), 28)
-            btnAddExpenses.SetBounds(right - buttonWidth, 10, buttonWidth, 34)
+            expensesPeriodDropdown.SetBounds(right - periodWidth, 135, periodWidth, expensesPeriodDropdown.Height)
+            expensesDateTime.SetBounds(right - periodWidth - 10 - dateWidth, 135, dateWidth, expensesDateTime.Height)
+            expensesSearchBar.SetBounds(76, 88, Math.Max(1, expensesDateTime.Left - 88), 32)
+            btnAddExpenses.SetBounds(right - buttonWidth, 18, buttonWidth, 40)
+            btnAddExpenses.BackColor = Color.FromArgb(20, 100, 60)
+            btnAddExpenses.ForeColor = Color.White
+            btnAddExpenses.FlatStyle = FlatStyle.Flat
+            btnAddExpenses.FlatAppearance.BorderSize = 0
+            btnAddExpenses.UseVisualStyleBackColor = False
+            ApplyDashboardRoundedCorners(btnAddExpenses, 8)
             ComboBox6.Visible = False
             Button15.Visible = False
         ElseIf toolbar Is panelPurchasesReport Then
-            titlePurchasesReport.SetBounds(inset, 12, Math.Max(1, toolbar.ClientSize.Width - inset * 2), 28)
+            titlePurchasesReport.SetBounds(82, 18, Math.Max(1, toolbar.ClientSize.Width - buttonWidth - 110), 28)
             Dim periodWidth = ComboBox5.Width
             Dim dateWidth = purchasesDateTime.Width
-            ComboBox5.SetBounds(right - periodWidth, 54, periodWidth, ComboBox5.Height)
-            purchasesDateTime.SetBounds(right - periodWidth - 10 - dateWidth, 54, dateWidth, purchasesDateTime.Height)
-            purchasesSearchBar.SetBounds(inset, 52, Math.Max(1, purchasesDateTime.Left - inset * 2), 28)
+            ComboBox5.SetBounds(right - periodWidth, 135, periodWidth, ComboBox5.Height)
+            purchasesDateTime.SetBounds(right - periodWidth - 10 - dateWidth, 135, dateWidth, purchasesDateTime.Height)
+            purchasesSearchBar.SetBounds(76, 88, Math.Max(1, purchasesDateTime.Left - 88), 32)
             Button14.Visible = False
         End If
     End Sub
@@ -1082,14 +1639,15 @@ Public Class SuperAdmin
                                                                                                   throughDateExclusive:=throughDateExclusive))
             grid.Columns(dateColumn).DefaultCellStyle.Format = "g"
             grid.Columns(totalColumn).DefaultCellStyle.Format = "₱#,##0.00"
-            grid.Columns(idColumn).HeaderText = "TransactionID"
-            grid.Columns(dateColumn).HeaderText = "SaleDate"
+            grid.Columns(idColumn).HeaderText = "Transaction ID"
+            grid.Columns(dateColumn).HeaderText = "Sale Date"
             grid.Columns(customerColumn).HeaderText = "Customer"
             grid.Columns(cashierColumn).HeaderText = "Cashier"
-            grid.Columns(typeColumn).HeaderText = "SaleType"
+            grid.Columns(typeColumn).HeaderText = "Sale Type"
             grid.Columns(totalColumn).HeaderText = "Total"
             grid.Columns(statusColumn).HeaderText = "Status"
             generatedLabel.Text = "Generated: " & DateTime.Now.ToString("MMMM dd, yyyy, h:mm tt") & " | By: " & CurrentFullName
+            StyleSuperAdminReportGrid(grid)
 
             If useSalesReportFilters Then
                 Dim startDate As DateTime
@@ -1197,6 +1755,7 @@ Public Class SuperAdmin
             .Text = "TOTAL SALES: ₱0.00",
             .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold),
             .ForeColor = Color.FromArgb(20, 100, 60),
+            .BackColor = Color.FromArgb(225, 245, 235),
             .TextAlign = ContentAlignment.MiddleRight,
             .Padding = New Padding(0, 0, 18, 0)
         }
@@ -1218,10 +1777,11 @@ Public Class SuperAdmin
         salesReportFilterPanel.Padding = New Padding(14)
         salesReportFilterPanel.Margin = New Padding(0, 0, 12, 0)
         salesReportDetailsPanel.Dock = DockStyle.Fill
+        salesReportDetailsPanel.Padding = New Padding(8)
         salesReportDetailsPanel.Margin = Padding.Empty
         transactionDetailsTitle.Dock = DockStyle.Top
         transactionDetailsTitle.AutoSize = False
-        transactionDetailsTitle.Height = 34
+        transactionDetailsTitle.Height = 42
         transactionDetailsTitle.Padding = New Padding(14, 8, 0, 0)
         retailDataGrid.Dock = DockStyle.Fill
         retailDataGrid.RowTemplate.Height = 36
@@ -1234,10 +1794,10 @@ Public Class SuperAdmin
             .ColumnCount = 2,
             .RowCount = 1,
             .BackColor = Color.FromArgb(245, 245, 245),
-            .Margin = New Padding(14, 0, 14, 14),
+            .Margin = New Padding(34, 0, 24, 14),
             .Padding = Padding.Empty
         }
-        salesReportBody.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 225))
+        salesReportBody.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 270))
         salesReportBody.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100.0F))
         salesReportBody.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
 
@@ -1251,16 +1811,16 @@ Public Class SuperAdmin
             .Padding = Padding.Empty
         }
         salesReportPageLayout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100.0F))
-        salesReportPageLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 66))
-        salesReportPageLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 23))
-        salesReportPageLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 142))
-        salesReportPageLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 9))
+        salesReportPageLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 100))
+        salesReportPageLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 26))
+        salesReportPageLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 178))
+        salesReportPageLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 12))
         salesReportPageLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
 
         ComboBox4.Visible = False
         salesTransactionFilter.Visible = False
-        AddSalesReportFilterButtonGroup(panelRetailSalesReport, {"Daily", "Monthly", "Yearly"}, salesReportPeriodButtons, 18, 66, AddressOf SelectSalesReportPeriod, 94, 29)
-        AddSalesReportFilterButtonGroup(panelRetailSalesReport, {"All", "Retail", "Wholesale"}, salesReportModeButtons, 18, 101, AddressOf SelectSalesReportMode, 82, 25)
+        AddSalesReportFilterButtonGroup(panelRetailSalesReport, {"Daily", "Monthly", "Yearly"}, salesReportPeriodButtons, 76, 88, AddressOf SelectSalesReportPeriod, 100, 38)
+        AddSalesReportFilterButtonGroup(panelRetailSalesReport, {"All", "Retail", "Wholesale"}, salesReportModeButtons, 76, 135, AddressOf SelectSalesReportMode, 100, 34)
         UpdateSalesReportFilterButtonStyles()
         panelRetailSalesReport.Controls.Add(salesBackToReports)
         salesReportFilterPanel.Controls.Add(salesDateFilterLabel)
@@ -1279,7 +1839,7 @@ Public Class SuperAdmin
         Panel24.Dock = DockStyle.Fill
         Panel24.Margin = Padding.Empty
         panelRetailSalesReport.Dock = DockStyle.Fill
-        panelRetailSalesReport.Margin = New Padding(14, 0, 14, 0)
+        panelRetailSalesReport.Margin = New Padding(34, 0, 24, 0)
         pnlRetailSalesReport.Controls.Clear()
         salesReportPageLayout.Controls.Add(Panel24, 0, 0)
         salesReportPageLayout.Controls.Add(panelRetailSalesReport, 0, 2)
@@ -1325,15 +1885,15 @@ Public Class SuperAdmin
     End Sub
 
     Private Sub LayoutSalesReportFilterButtons(toolbar As Control)
-        Dim periodX = 18
+        Dim periodX = 76
         For Each pair In salesReportPeriodButtons
-            pair.Value.SetBounds(periodX, 66, 94, 29)
+            pair.Value.SetBounds(periodX, 88, 100, 38)
             periodX += pair.Value.Width + 8
         Next
 
-        Dim modeX = 18
+        Dim modeX = 76
         For Each pair In salesReportModeButtons
-            pair.Value.SetBounds(modeX, 101, 82, 25)
+            pair.Value.SetBounds(modeX, 135, 100, 34)
             modeX += pair.Value.Width + 8
         Next
     End Sub
@@ -1817,7 +2377,7 @@ Public Class SuperAdmin
     End Sub
 
     Private Sub LogoutBtn_Click(sender As Object, e As EventArgs) Handles btnLogin.Click
-        If MessageBox.Show("Are you sure you want to log out?", "Confirm Logout", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) <> DialogResult.Yes Then Return
+        If Not LogoutConfirmationDialog.Confirm(Me) Then Return
         Me.Close()
     End Sub
 
@@ -1839,7 +2399,9 @@ Public Class SuperAdmin
                 accountRole.DataPropertyName = "Role"
                 accountStatus.DataPropertyName = "Status"
 
-                accountsDataGrid.DataSource = table
+                accountDataView = table.DefaultView
+                accountsDataGrid.DataSource = accountDataView
+                AccountFilters_Changed(accountSearchBox, EventArgs.Empty)
                 accountsDataGrid.ClearSelection()
 
                 ' Update Summary Cards
@@ -1914,7 +2476,42 @@ Public Class SuperAdmin
     ' Custom drawing for the toggle switch in the grid
     Private Sub accountsDataGrid_CellPainting(sender As Object, e As DataGridViewCellPaintingEventArgs) Handles accountsDataGrid.CellPainting
         If e.RowIndex < 0 OrElse e.ColumnIndex < 0 Then Return
-        If accountsDataGrid.Columns(e.ColumnIndex).Name <> "accountEnableDisable" Then Return
+        Dim columnName = accountsDataGrid.Columns(e.ColumnIndex).Name
+        If columnName = "accountRole" OrElse columnName = "accountStatus" Then
+            e.PaintBackground(e.CellBounds, True)
+            Dim text = Convert.ToString(e.FormattedValue, CultureInfo.CurrentCulture)
+            Dim isStatus = columnName = "accountStatus"
+            Dim active = String.Equals(text, "Active", StringComparison.OrdinalIgnoreCase)
+            Dim fillColor = If(isStatus, If(active, Color.FromArgb(232, 248, 240), Color.FromArgb(253, 238, 238)), Color.FromArgb(244, 247, 245))
+            Dim textColor = If(isStatus, If(active, Color.FromArgb(24, 126, 76), Color.FromArgb(170, 65, 65)), Color.FromArgb(55, 70, 62))
+            Dim contentWidth = TextRenderer.MeasureText(text, accountsDataGrid.Font).Width + If(isStatus, 26, 18)
+            Dim pillWidth = Math.Min(e.CellBounds.Width - 12, Math.Max(54, contentWidth))
+            Dim pillBounds As New Rectangle(e.CellBounds.Left + (e.CellBounds.Width - pillWidth) \ 2, e.CellBounds.Top + 10, pillWidth, e.CellBounds.Height - 20)
+            DrawAccountPill(e.Graphics, pillBounds, fillColor, Color.Transparent, 10)
+            If isStatus Then
+                Using dotBrush As New SolidBrush(textColor)
+                    e.Graphics.FillEllipse(dotBrush, pillBounds.Left + 9, pillBounds.Top + (pillBounds.Height - 6) \ 2, 6, 6)
+                End Using
+                TextRenderer.DrawText(e.Graphics, text, accountsDataGrid.Font, New Rectangle(pillBounds.Left + 19, pillBounds.Top, pillBounds.Width - 22, pillBounds.Height), textColor, TextFormatFlags.VerticalCenter Or TextFormatFlags.Left)
+            Else
+                TextRenderer.DrawText(e.Graphics, text, accountsDataGrid.Font, pillBounds, textColor, TextFormatFlags.HorizontalCenter Or TextFormatFlags.VerticalCenter)
+            End If
+            e.Handled = True
+            Return
+        End If
+        If columnName = "accountEdit" OrElse columnName = "accountResetPassword" Then
+            e.PaintBackground(e.CellBounds, True)
+            Dim buttonText = Convert.ToString(e.FormattedValue, CultureInfo.CurrentCulture)
+            Dim buttonWidth = Math.Min(e.CellBounds.Width - 12, If(columnName = "accountEdit", 76, 92))
+            Dim buttonBounds As New Rectangle(e.CellBounds.Left + (e.CellBounds.Width - buttonWidth) \ 2, e.CellBounds.Top + 8, buttonWidth, e.CellBounds.Height - 16)
+            DrawAccountPill(e.Graphics, buttonBounds, Color.White, Color.FromArgb(210, 218, 214), 7)
+            Dim glyph = If(columnName = "accountEdit", "✎", "↻")
+            TextRenderer.DrawText(e.Graphics, glyph, accountsDataGrid.Font, New Rectangle(buttonBounds.Left + 6, buttonBounds.Top, 16, buttonBounds.Height), Color.FromArgb(55, 70, 62), TextFormatFlags.HorizontalCenter Or TextFormatFlags.VerticalCenter)
+            TextRenderer.DrawText(e.Graphics, buttonText, accountsDataGrid.Font, New Rectangle(buttonBounds.Left + 22, buttonBounds.Top, buttonBounds.Width - 24, buttonBounds.Height), Color.FromArgb(35, 45, 40), TextFormatFlags.HorizontalCenter Or TextFormatFlags.VerticalCenter)
+            e.Handled = True
+            Return
+        End If
+        If columnName <> "accountEnableDisable" Then Return
         If accountsDataGrid.Rows(e.RowIndex).Cells("accountStatus").Value Is Nothing Then Return
 
         Dim statusValue = accountsDataGrid.Rows(e.RowIndex).Cells("accountStatus").Value
@@ -1924,7 +2521,7 @@ Public Class SuperAdmin
 
         Dim switchWidth = 44.0F
         Dim switchHeight = 22
-        Dim switchLeft = e.CellBounds.Left + (e.CellBounds.Width - switchWidth) \ 2 - 20
+        Dim switchLeft = e.CellBounds.Left + (e.CellBounds.Width - switchWidth) \ 2
         Dim switchTop = e.CellBounds.Top + (e.CellBounds.Height - switchHeight) \ 2
         Dim knobSize = 16
         Dim knobLeft As Integer = If(isActive, switchLeft + switchWidth - knobSize - 3, switchLeft + 3)
@@ -1939,11 +2536,27 @@ Public Class SuperAdmin
             e.Graphics.DrawEllipse(borderPen, knobLeft, knobTop, knobSize, knobSize)
         End Using
 
-        Dim statusText = If(isActive, "Active", "Disabled")
-        Dim textColor = If(isActive, Color.ForestGreen, Color.Firebrick)
-        TextRenderer.DrawText(e.Graphics, statusText, accountsDataGrid.Font, New Point(switchLeft + switchWidth + 7, switchTop + 2), textColor)
-
         e.Handled = True
+    End Sub
+
+    Private Sub DrawAccountPill(graphics As Graphics, bounds As Rectangle, fillColor As Color, borderColor As Color, radius As Integer)
+        If bounds.Width <= 0 OrElse bounds.Height <= 0 Then Return
+        Using path As New Drawing.Drawing2D.GraphicsPath()
+            Dim diameter = Math.Min(radius * 2, Math.Min(bounds.Width, bounds.Height))
+            path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90)
+            path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90)
+            path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90)
+            path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90)
+            path.CloseFigure()
+            Using fill As New SolidBrush(fillColor)
+                graphics.FillPath(fill, path)
+            End Using
+            If borderColor <> Color.Transparent Then
+                Using border As New Pen(borderColor)
+                    graphics.DrawPath(border, path)
+                End Using
+            End If
+        End Using
     End Sub
 
     ' --- 4. DATA MODELS & QUERIES ---

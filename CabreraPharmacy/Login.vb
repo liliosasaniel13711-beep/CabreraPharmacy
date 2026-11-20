@@ -45,6 +45,7 @@ Public Class Login
 
         NavBar.Scale(New SizeF(scale, scale))
         loginDesignScaled = True
+        LayoutPasswordVisibilityIcons()
         CenterLoginDesign()
     End Sub
 
@@ -55,6 +56,17 @@ Public Class Login
     Private Sub CenterLoginDesign()
         NavBar.Left = Math.Max(0, (ClientSize.Width - NavBar.Width) \ 2)
         NavBar.Top = Math.Max(0, (ClientSize.Height - NavBar.Height) \ 2)
+    End Sub
+
+    Private Sub LayoutPasswordVisibilityIcons()
+        If PasswordField Is Nothing OrElse hidepass Is Nothing OrElse passvisible Is Nothing Then Return
+        Dim iconLeft = Math.Min(hidepass.Left, passvisible.Left)
+        PasswordField.Width = Math.Max(1, iconLeft - PasswordField.Left)
+        Dim iconTop = PasswordField.Top + (PasswordField.Height - hidepass.Height) \ 2
+        hidepass.SetBounds(iconLeft, iconTop, hidepass.Width, hidepass.Height)
+        passvisible.SetBounds(iconLeft, iconTop, passvisible.Width, passvisible.Height)
+        If hidepass.Visible Then hidepass.BringToFront()
+        If passvisible.Visible Then passvisible.BringToFront()
     End Sub
 
     Private Sub LoginBtn_Click(sender As Object, e As EventArgs) Handles LoginBtn.Click

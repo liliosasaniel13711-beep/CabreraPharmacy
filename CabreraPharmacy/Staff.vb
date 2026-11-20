@@ -1,5 +1,6 @@
 Imports System.Data
 Imports System.Drawing
+Imports System.Drawing.Drawing2D
 Imports System.Globalization
 Imports System.Drawing.Printing
 Imports System.Windows.Forms
@@ -50,6 +51,7 @@ Public Class Staff
 
     Private ReadOnly darkGreen As Color = Color.FromArgb(20, 100, 60)
     Private ReadOnly cart As New List(Of CartItem)()
+    Private transactionFiltersPanel As Panel
     Private inventoryWarningsLabel As Label
     Private products As DataTable
     Private currentProduct As DataRow
@@ -84,9 +86,13 @@ Public Class Staff
     Private Sub Staff_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         Me.WindowState = FormWindowState.Maximized
         Me.FormBorderStyle = FormBorderStyle.None
-        PositionLogoutButton()
-        welcomestaff_label.Text = "Welcome, " & CurrentFullName & " (Staff)"
-        userPanel.Location = New Point(headerPanel.ClientSize.Width - userPanel.Width - 20, 10)
+        ApplyStaffVisualTheme()
+        CombineTransactionFilterPanels()
+        welcomestaff_label.Text = CurrentFullName
+        userRoleLabel.Text = If(String.IsNullOrWhiteSpace(CurrentRole), "Staff", CurrentRole)
+        ProfileAvatarStyler.Apply(userAvatar)
+        userPanel.Location = New Point(headerPanel.ClientSize.Width - userPanel.Width - 20,
+                                       Math.Max(0, (headerPanel.ClientSize.Height - userPanel.Height) \ 2))
         searchFilterCombo.SelectedIndex = 0
         AddHandler quantityPanel.Resize, AddressOf QuantityPanel_Resize
         AddHandler modePanel.Resize, AddressOf ModePanel_Resize
@@ -108,6 +114,7 @@ Public Class Staff
         AddHandler resultsGrid.CellMouseDown, AddressOf resultsGrid_CellMouseDown
         AddHandler resultsGrid.CellClick, AddressOf resultsGrid_CellClick
         InitializeInventoryWarningUi()
+        ApplyStaffSurfaceTheme()
         QuantityPanel_Resize(quantityPanel, EventArgs.Empty)
         ModePanel_Resize(modePanel, EventArgs.Empty)
         ParentFilterPanel_Resize(parentFilterPanel, EventArgs.Empty)
@@ -117,10 +124,13 @@ Public Class Staff
         checkoutView.Visible = False
         restockView.Visible = False
         transactionView.Visible = True
+        SetStaffActiveNavigation("Transaction")
         SetTransactionMode(False)
         UpdateTransactionScrollLayout()
         RenderCart()
         LoadProducts()
+        UiSelectionStyler.ApplyToForm(Me)
+        ApplyStaffGridSelectionColors(Me)
     End Sub
 
     Private Sub sidebar_Resize(sender As Object, e As EventArgs) Handles sidebar.Resize
@@ -131,8 +141,184 @@ Public Class Staff
         If sidebar Is Nothing OrElse logoutstaff_button Is Nothing Then Return
         logoutstaff_button.Visible = True
         logoutstaff_button.BringToFront()
-        logoutstaff_button.Location = New Point(20, Math.Max(20, sidebar.ClientSize.Height - logoutstaff_button.Height - 30))
-        logoutstaff_button.Width = Math.Max(100, sidebar.ClientSize.Width - 40)
+        logoutstaff_button.SetBounds(19,
+                                     Math.Max(20, sidebar.ClientSize.Height - logoutstaff_button.Height - 24),
+                                     Math.Max(100, sidebar.ClientSize.Width - 38),
+                                     34)
+    End Sub
+
+    Private Sub ApplyStaffVisualTheme()
+        Dim green = darkGreen
+        sidebar.BackColor = green
+        mainLayout.ColumnStyles(0).SizeType = SizeType.Absolute
+        mainLayout.ColumnStyles(0).Width = 168
+        rightLayout.RowStyles(0).Height = 108
+
+        logoBox.SetBounds(12, 23, 62, 50)
+        PharName.AutoSize = False
+        PharName.SetBounds(80, 16, 80, 68)
+        PharName.Font = New Font("Segoe UI", 8.0F, FontStyle.Bold)
+        PharName.ForeColor = Color.White
+
+        For Each button As Button In {navTransaction, navRestock}
+            button.SetBounds(19, If(button Is navTransaction, 92, 138), 130, 38)
+            button.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
+            button.Padding = New Padding(10, 0, 0, 0)
+            button.TextAlign = ContentAlignment.MiddleLeft
+            button.FlatStyle = FlatStyle.Flat
+            button.FlatAppearance.BorderSize = 0
+            button.UseVisualStyleBackColor = False
+        Next
+
+        titleLabel.AutoSize = False
+        titleLabel.Font = New Font("Segoe UI", 24.0F, FontStyle.Bold)
+        titleLabel.ForeColor = green
+        titleLabel.SetBounds(16, 27, 400, 36)
+        subtitleLabel.AutoSize = False
+        subtitleLabel.Font = New Font("Segoe UI", 9.0F)
+        subtitleLabel.ForeColor = Color.Gray
+        subtitleLabel.SetBounds(24, 65, 520, 16)
+        headerPanel.BackColor = Color.White
+        bodyPanel.BackColor = Color.FromArgb(245, 245, 245)
+        bodyPanel.Padding = New Padding(20, 12, 20, 12)
+
+        logoutstaff_button.FlatStyle = FlatStyle.Flat
+        logoutstaff_button.BackColor = green
+        logoutstaff_button.ForeColor = Color.White
+        logoutstaff_button.Font = New Font("Segoe UI", 9.0F)
+        logoutstaff_button.UseVisualStyleBackColor = False
+        logoutstaff_button.FlatAppearance.BorderColor = Color.White
+        logoutstaff_button.FlatAppearance.BorderSize = 1
+        PositionLogoutButton()
+    End Sub
+
+    Private Sub ApplyStaffSurfaceTheme()
+        transactionLeftPanel.BackColor = Color.FromArgb(245, 245, 245)
+        transactionLeftLayout.BackColor = Color.FromArgb(245, 245, 245)
+        For Each card As Panel In {transactionFiltersPanel, resultsPanel,
+                                   quantityPanel, transactionDetailsPanel, cartCard,
+                                   orderReviewCard, paymentCard, restockCard,
+                                   wholesaleDetailsPanel, prescriptionPanel}
+            card.BackColor = Color.White
+            card.BorderStyle = BorderStyle.None
+            Dim radius = If(card Is cartCard OrElse card Is orderReviewCard OrElse card Is paymentCard OrElse card Is restockCard, 14, 10)
+            Dim currentCard = card
+            Dim currentRadius = radius
+            AddHandler currentCard.Resize, Sub(sender, e) ApplyStaffRoundedCorners(currentCard, currentRadius)
+            ApplyStaffRoundedCorners(currentCard, currentRadius)
+        Next
+        For Each button As Button In {addToCartButton, customerSearchButton, checkoutButton,
+                                      backToPosButton, cancelButton, confirmButton, searchButton}
+            button.FlatStyle = FlatStyle.Flat
+            button.UseVisualStyleBackColor = False
+            button.Cursor = Cursors.Hand
+            button.FlatAppearance.BorderSize = If(button.BackColor = darkGreen, 0, 1)
+            button.FlatAppearance.BorderColor = Color.FromArgb(215, 224, 219)
+            AddHandler button.Resize, Sub(sender, e) ApplyStaffRoundedCorners(DirectCast(sender, Control), 8)
+            ApplyStaffRoundedCorners(button, 8)
+        Next
+        PositionLogoutButton()
+    End Sub
+
+    Private Sub CombineTransactionFilterPanels()
+        Dim filterLayout As New TableLayoutPanel With {
+            .Dock = DockStyle.Fill,
+            .ColumnCount = 1,
+            .RowCount = 3,
+            .BackColor = Color.Transparent,
+            .Padding = New Padding(8),
+            .Margin = Padding.Empty
+        }
+        filterLayout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100.0F))
+        filterLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 55.0F))
+        filterLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 55.0F))
+        filterLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 48.0F))
+
+        For Each panel As Panel In {modePanel, parentFilterPanel, searchPanel}
+            panel.BackColor = Color.Transparent
+            panel.BorderStyle = BorderStyle.None
+            panel.Dock = DockStyle.Fill
+            panel.Margin = Padding.Empty
+        Next
+        filterLayout.Controls.Add(modePanel, 0, 0)
+        filterLayout.Controls.Add(parentFilterPanel, 0, 1)
+        filterLayout.Controls.Add(searchPanel, 0, 2)
+
+        transactionFiltersPanel = New Panel With {
+            .Name = "transactionFiltersPanel",
+            .Dock = DockStyle.Fill,
+            .BackColor = Color.White,
+            .BorderStyle = BorderStyle.None,
+            .Padding = Padding.Empty,
+            .Margin = New Padding(3, 4, 3, 4)
+        }
+        transactionFiltersPanel.Controls.Add(filterLayout)
+
+        transactionLeftLayout.SuspendLayout()
+        transactionLeftLayout.Controls.Clear()
+        transactionLeftLayout.RowCount = 4
+        transactionLeftLayout.RowStyles.Clear()
+        transactionLeftLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 174.0F))
+        transactionLeftLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 380.0F))
+        transactionLeftLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 76.0F))
+        transactionLeftLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 160.0F))
+        transactionLeftLayout.Controls.Add(transactionFiltersPanel, 0, 0)
+        transactionLeftLayout.Controls.Add(resultsPanel, 0, 1)
+        transactionLeftLayout.Controls.Add(quantityPanel, 0, 2)
+        transactionLeftLayout.Controls.Add(transactionDetailsPanel, 0, 3)
+        transactionLeftLayout.ResumeLayout(True)
+    End Sub
+
+    Private Sub ApplyStaffGridSelectionColors(root As Control)
+        If root Is Nothing Then Return
+        Dim grid = TryCast(root, DataGridView)
+        If grid IsNot Nothing Then
+            Dim selectionColor = Color.FromArgb(218, 240, 229)
+            Dim selectedTextColor = Color.FromArgb(20, 70, 48)
+            grid.DefaultCellStyle.SelectionBackColor = selectionColor
+            grid.DefaultCellStyle.SelectionForeColor = selectedTextColor
+            grid.RowsDefaultCellStyle.SelectionBackColor = selectionColor
+            grid.RowsDefaultCellStyle.SelectionForeColor = selectedTextColor
+            grid.AlternatingRowsDefaultCellStyle.SelectionBackColor = selectionColor
+            grid.AlternatingRowsDefaultCellStyle.SelectionForeColor = selectedTextColor
+            grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = grid.ColumnHeadersDefaultCellStyle.BackColor
+            grid.ColumnHeadersDefaultCellStyle.SelectionForeColor = grid.ColumnHeadersDefaultCellStyle.ForeColor
+            grid.RowHeadersDefaultCellStyle.SelectionBackColor = grid.RowHeadersDefaultCellStyle.BackColor
+            grid.RowHeadersDefaultCellStyle.SelectionForeColor = grid.RowHeadersDefaultCellStyle.ForeColor
+        End If
+        AddHandler root.ControlAdded, AddressOf StaffGridSelection_ControlAdded
+        For Each child As Control In root.Controls
+            ApplyStaffGridSelectionColors(child)
+        Next
+    End Sub
+
+    Private Sub StaffGridSelection_ControlAdded(sender As Object, e As ControlEventArgs)
+        ApplyStaffGridSelectionColors(e.Control)
+    End Sub
+
+    Private Sub SetStaffActiveNavigation(activePage As String)
+        For Each button As Button In {navTransaction, navRestock}
+            Dim isActive = String.Equals(Convert.ToString(button.Tag), activePage, StringComparison.OrdinalIgnoreCase)
+            button.BackColor = If(isActive, Color.White, darkGreen)
+            button.ForeColor = If(isActive, darkGreen, Color.White)
+            button.UseVisualStyleBackColor = False
+        Next
+    End Sub
+
+    Private Sub ApplyStaffRoundedCorners(control As Control, radius As Integer)
+        If control Is Nothing OrElse control.Width <= 0 OrElse control.Height <= 0 Then Return
+        Dim diameter = Math.Min(radius * 2, Math.Min(control.Width, control.Height))
+        Dim bounds As New Rectangle(0, 0, control.Width, control.Height)
+        Using path As New GraphicsPath()
+            path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90)
+            path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90)
+            path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90)
+            path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90)
+            path.CloseFigure()
+            Dim previousRegion = control.Region
+            control.Region = New Region(path)
+            If previousRegion IsNot Nothing Then previousRegion.Dispose()
+        End Using
     End Sub
 
     Private Sub InitializeWholesaleCheckoutUi()
@@ -204,7 +390,8 @@ Public Class Staff
     End Sub
 
     Private Sub HeaderPanel_Layout(sender As Object, e As LayoutEventArgs) Handles headerPanel.Layout
-        userPanel.Location = New Point(headerPanel.ClientSize.Width - userPanel.Width - 20, 10)
+        userPanel.Location = New Point(headerPanel.ClientSize.Width - userPanel.Width - 20,
+                                       Math.Max(0, (headerPanel.ClientSize.Height - userPanel.Height) \ 2))
     End Sub
 
     Private Sub searchFilterCombo_DrawItem(sender As Object, e As DrawItemEventArgs) Handles searchFilterCombo.DrawItem
@@ -355,14 +542,11 @@ Public Class Staff
         restockView.Visible = (CStr(button.Tag) = "Restock")
         titleLabel.Text = CStr(button.Tag)
         subtitleLabel.Text = "Cabrera's Drugstore and Medical Supplies"
-        navTransaction.BackColor = If(transactionView.Visible, darkGreen, Color.White)
-        navTransaction.ForeColor = If(transactionView.Visible, Color.White, darkGreen)
-        navRestock.BackColor = If(restockView.Visible, darkGreen, Color.White)
-        navRestock.ForeColor = If(restockView.Visible, Color.White, darkGreen)
+        SetStaffActiveNavigation(Convert.ToString(button.Tag))
     End Sub
 
     Private Sub logoutstaff_button_Click(sender As Object, e As EventArgs) Handles logoutstaff_button.Click
-        If MessageBox.Show("Are you sure you want to log out?", "Confirm Logout", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) <> DialogResult.Yes Then Return
+        If Not LogoutConfirmationDialog.Confirm(Me) Then Return
         Me.DialogResult = DialogResult.OK
         Me.Close()
     End Sub
@@ -407,8 +591,8 @@ Public Class Staff
 
     Private Sub ModePanel_Resize(sender As Object, e As EventArgs)
         Dim buttonTop = Math.Max(0, (modePanel.ClientSize.Height - retailModeButton.Height) \ 2)
-        retailModeButton.Top = buttonTop
-        wholesaleModeButton.Top = buttonTop
+        retailModeButton.SetBounds(11, buttonTop, 137, retailModeButton.Height)
+        wholesaleModeButton.SetBounds(retailModeButton.Right + 10, buttonTop, 137, wholesaleModeButton.Height)
     End Sub
 
     Private Sub SetTransactionMode(wholesale As Boolean)
@@ -461,12 +645,12 @@ Public Class Staff
     Private Sub UpdateTransactionScrollLayout()
         If transactionView Is Nothing OrElse transactionLayout Is Nothing OrElse transactionLeftLayout Is Nothing OrElse transactionLeftPanel Is Nothing Then Return
 
+        transactionLeftLayout.RowStyles(1).SizeType = SizeType.Absolute
+        transactionLeftLayout.RowStyles(1).Height = 380.0F
         transactionLeftLayout.RowStyles(3).SizeType = SizeType.Absolute
-        transactionLeftLayout.RowStyles(3).Height = 380.0F
-        transactionLeftLayout.RowStyles(5).SizeType = SizeType.Absolute
-        transactionLeftLayout.RowStyles(5).Height = If(isWholesale, 380.0F, 160.0F)
+        transactionLeftLayout.RowStyles(3).Height = If(isWholesale, 380.0F, 160.0F)
 
-        Dim contentHeight = 56 + 56 + 48 + 380 + 76 + CInt(transactionLeftLayout.RowStyles(5).Height) + 36
+        Dim contentHeight = 174 + 380 + 76 + CInt(transactionLeftLayout.RowStyles(3).Height) + 32
         If transactionLeftPanel.ClientSize.Width > 0 Then transactionLeftLayout.Width = transactionLeftPanel.ClientSize.Width
         transactionLeftLayout.Height = contentHeight
         transactionLeftPanel.AutoScrollMinSize = New Size(0, contentHeight)

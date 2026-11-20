@@ -41,6 +41,8 @@ Public Class Admin
     Private salesReportYearCombo As ComboBox
     Private salesReportFilterPanel As Panel
     Private salesReportGrid As DataGridView
+    ' CHANGE: Holds the no-transactions illustration shown over the report grid.
+    Private salesReportEmptyState As Panel
     Private salesReportTotalLabel As Label
     Private salesReportDetailsLabel As Label
     Private empSalesReportPeriod As String = "Daily"
@@ -50,6 +52,7 @@ Public Class Admin
     Private empSalesReportYearCombo As ComboBox
     Private empSalesReportFilterPanel As Panel
     Private empSalesReportTotalLabel As Label
+    Private empSalesReportEmptyState As Panel
     Private WithEvents dgvExpenses As DataGridView
     Private expReportPeriod As String = "Daily"
     Private expReportPeriodButtons As New Dictionary(Of String, Button)(StringComparer.OrdinalIgnoreCase)
@@ -58,6 +61,7 @@ Public Class Admin
     Private expReportYearCombo As ComboBox
     Private expReportFilterPanel As Panel
     Private expReportTotalLabel As Label
+    Private expReportEmptyState As Panel
     Private trendButtons As New Dictionary(Of String, Button)(StringComparer.OrdinalIgnoreCase)
     Private trendLabels As New List(Of String)
     Private trendValues As New List(Of Decimal)
@@ -75,6 +79,11 @@ Public Class Admin
         welcomeadmin_label.Text = CurrentFullName
         userRoleLabel.Text = If(String.IsNullOrWhiteSpace(CurrentRole), "Admin", CurrentRole)
         ApplyRoundedRegion(userAvatar, userAvatar.Width \ 2)
+        titleLabel.AutoSize = False
+        titleLabel.Font = New Font("Segoe UI", 24.0F, FontStyle.Bold)
+        titleLabel.SetBounds(16, 27, 400, 36)
+        subtitleLabel.AutoSize = False
+        subtitleLabel.SetBounds(24, 65, 520, 16)
 
         ' Map nav buttons and views
         navButtons = {navDashboard, navPriceManager, navInventory, navReports}
@@ -92,13 +101,55 @@ Public Class Admin
         InitializeInventoryUi()
         InitializePriceManagerUi()
         InitializeReportsUi()
+        UiSelectionStyler.ApplyToForm(Me)
         ShowView("Dashboard")
         LoadSalesTrend("7 Days")
     End Sub
 
     ' Keep the user info panel pinned to the top-right corner
     Private Sub HeaderPanel_Layout(sender As Object, e As LayoutEventArgs) Handles headerPanel.Layout
-        userPanel.Location = New Point(headerPanel.ClientSize.Width - userPanel.Width - 20, 10)
+        userPanel.Location = New Point(headerPanel.ClientSize.Width - userPanel.Width - 20,
+                                       Math.Max(0, (headerPanel.ClientSize.Height - userPanel.Height) \ 2))
+    End Sub
+
+    Private Sub UserAvatar_Paint(sender As Object, e As PaintEventArgs) Handles userAvatar.Paint
+        Dim graphics = e.Graphics
+        graphics.SmoothingMode = SmoothingMode.AntiAlias
+
+        Dim scale = Math.Min(userAvatar.ClientSize.Width, userAvatar.ClientSize.Height) / 38.0F
+        If scale <= 0 Then Return
+
+        Dim headSize = 10.0F * scale
+        Dim centerX = userAvatar.ClientSize.Width / 2.0F
+        Using iconBrush As New SolidBrush(Color.FromArgb(20, 100, 60))
+            graphics.FillEllipse(iconBrush,
+                                 centerX - headSize / 2.0F,
+                                 6.0F * scale,
+                                 headSize,
+                                 headSize)
+
+            Using shoulders As New GraphicsPath()
+                Dim bodyLeft = centerX - 12.0F * scale
+                Dim bodyTop = 18.0F * scale
+                Dim bodyWidth = 24.0F * scale
+                Dim bodyHeight = 22.0F * scale
+                shoulders.AddArc(bodyLeft, bodyTop, bodyWidth, bodyHeight, 180.0F, 180.0F)
+                shoulders.AddLine(bodyLeft + bodyWidth, bodyTop + bodyHeight / 2.0F,
+                                  bodyLeft + bodyWidth, userAvatar.ClientSize.Height - 4.0F * scale)
+                shoulders.AddLine(bodyLeft + bodyWidth, userAvatar.ClientSize.Height - 4.0F * scale,
+                                  bodyLeft, userAvatar.ClientSize.Height - 4.0F * scale)
+                shoulders.AddLine(bodyLeft, userAvatar.ClientSize.Height - 4.0F * scale,
+                                  bodyLeft, bodyTop + bodyHeight / 2.0F)
+                shoulders.CloseFigure()
+                graphics.FillPath(iconBrush, shoulders)
+            End Using
+        End Using
+
+        Using outline As New Pen(Color.FromArgb(176, 222, 198), 1.0F)
+            graphics.DrawEllipse(outline, 0.5F, 0.5F,
+                                 userAvatar.ClientSize.Width - 1.0F,
+                                 userAvatar.ClientSize.Height - 1.0F)
+        End Using
     End Sub
 
     Private Sub NavButton_Click(sender As Object, e As EventArgs) Handles navDashboard.Click, navPriceManager.Click, navInventory.Click, navReports.Click
@@ -121,12 +172,15 @@ Public Class Admin
     End Sub
 
     Private Sub logoutadmin_button_Click(sender As Object, e As EventArgs) Handles logoutadmin_button.Click
-        If MessageBox.Show("Are you sure you want to log out?", "Confirm Logout", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) <> DialogResult.Yes Then Return
+        If Not LogoutConfirmationDialog.Confirm(Me) Then Return
         Me.Close()
     End Sub
 
     ' Switch the visible view and highlight the active nav button
     Private Sub ShowView(viewName As String)
+        bodyPanel.Padding = If(String.Equals(viewName, "Dashboard", StringComparison.Ordinal),
+                               New Padding(20, 0, 20, 12),
+                               New Padding(20, 12, 20, 12))
         For Each kvp In contentPanels
             kvp.Value.Visible = (kvp.Key = viewName)
         Next
@@ -183,10 +237,33 @@ Public Class Admin
         AddHandler quickOverviewPanel.Resize, AddressOf DashboardPanels_Resize
         AddHandler revenuePanel.Resize, AddressOf RevenuePanel_Resize
         dashboardDateLabel.Text = Date.Today.ToString("dddd, MMMM d, yyyy", CultureInfo.CurrentCulture)
+        summaryArea.RowStyles(0).SizeType = SizeType.Absolute
+        summaryArea.RowStyles(0).Height = 46
+        dashboardDateLabel.Dock = DockStyle.None
+        dashboardDateLabel.Margin = New Padding(8, 2, 0, 0)
+        dashboardDateLabel.BackColor = Color.FromArgb(226, 238, 231)
+        dashboardDateLabel.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
+        dashboardDateLabel.TextAlign = ContentAlignment.MiddleCenter
+        dashboardView.Padding = Padding.Empty
+        For Each control As Control In {card1, card2, card3, card4, card5, card6, card7, card8,
+                                       dashboardDateLabel, salesTrendPanel, revenuePanel,
+                                       inventoryAlertsPanel, quickOverviewPanel}
+            MoveDashboardControlToSurface(control)
+        Next
+        dashboardLayout.Visible = False
         quickOverviewRestock.Text = "Products to Restock"
         quickOverviewExpiry.Text = "Expiring Products"
         quickOverviewTransactions.Text = "Today's Transactions"
-        ResizeDashboardPanels()
+        LayoutAdminDashboardSurface()
+        RefreshDashboardRegions()
+    End Sub
+
+    Private Sub MoveDashboardControlToSurface(control As Control)
+        If control.Parent IsNot Nothing Then control.Parent.Controls.Remove(control)
+        dashboardView.Controls.Add(control)
+        control.Dock = DockStyle.None
+        control.Anchor = AnchorStyles.Top Or AnchorStyles.Left
+        control.Visible = True
     End Sub
 
     Private Sub RevenuePanel_Resize(sender As Object, e As EventArgs)
@@ -214,6 +291,37 @@ Public Class Admin
         End Using
     End Sub
 
+    Private Sub StyleReportBackButton(button As Button)
+        button.Text = String.Empty
+        button.AccessibleName = "Back to Reports"
+        button.TextAlign = ContentAlignment.MiddleCenter
+        button.BackColor = darkGreen
+        button.ForeColor = Color.White
+        button.FlatStyle = FlatStyle.Flat
+        button.FlatAppearance.BorderSize = 0
+        button.FlatAppearance.MouseOverBackColor = activeGreen
+        AddHandler button.Paint,
+            Sub(sender, e)
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+                Dim centerX = button.ClientSize.Width \ 2
+                Dim centerY = button.ClientSize.Height \ 2
+                Using arrowPen As New Pen(Color.White, 2.0F)
+                    arrowPen.StartCap = LineCap.Round
+                    arrowPen.EndCap = LineCap.Round
+                    e.Graphics.DrawLine(arrowPen, centerX + 7, centerY, centerX - 7, centerY)
+                    e.Graphics.DrawLine(arrowPen, centerX - 7, centerY, centerX + 1, centerY - 6)
+                    e.Graphics.DrawLine(arrowPen, centerX - 7, centerY, centerX + 1, centerY + 6)
+                End Using
+            End Sub
+        AddHandler button.Resize, Sub(sender, e) ApplyRoundedRegion(button, 8)
+        ApplyRoundedRegion(button, 8)
+    End Sub
+
+    Private Sub StyleReportActionButton(button As Button)
+        AddHandler button.Resize, Sub(sender, e) ApplyRoundedRegion(button, 8)
+        ApplyRoundedRegion(button, 8)
+    End Sub
+
     Private Sub FormatSummaryCard(card As Panel)
         Dim title = TryCast(card.Controls.OfType(Of Label)().FirstOrDefault(Function(control) control.Name.EndsWith("Title", StringComparison.Ordinal)), Label)
         Dim value = TryCast(card.Controls.OfType(Of Label)().FirstOrDefault(Function(control) control.Name.EndsWith("Value", StringComparison.Ordinal)), Label)
@@ -224,6 +332,19 @@ Public Class Admin
         title.SetBounds(16, 12, width, 22)
         value.SetBounds(16, 40, width, 32)
         footer.SetBounds(16, 74, width, 18)
+    End Sub
+
+    Private Sub RefreshDashboardRegions()
+        ApplyRoundedRegion(dashboardDateLabel, 10)
+        For Each card As Panel In {card1, card2, card3, card4, card5, card6, card7, card8}
+            ApplyRoundedRegion(card, 12)
+        Next
+        For Each panel As Panel In {salesTrendPanel, revenuePanel, inventoryAlertsPanel, quickOverviewPanel}
+            ApplyRoundedRegion(panel, 14)
+        Next
+        For Each alertCard As Panel In {inventoryAlertLowStock, inventoryAlertNearExpiry, inventoryAlertExpired}
+            ApplyRoundedRegion(alertCard, 10)
+        Next
     End Sub
 
     Private Sub UpdateQuickOverviewRows()
@@ -242,9 +363,59 @@ Public Class Admin
 
 
     Private Sub DashboardView_Resize(sender As Object, e As EventArgs)
+        LayoutAdminDashboardSurface()
         For Each card As Panel In {card1, card2, card3, card4, card5, card6, card7, card8}
             FormatSummaryCard(card)
         Next
+        ResizeDashboardPanels()
+        RefreshDashboardRegions()
+    End Sub
+
+    Private Sub LayoutAdminDashboardSurface()
+        If dashboardView.ClientSize.Width <= 0 OrElse dashboardView.ClientSize.Height <= 0 Then Return
+
+        Dim left = 0
+        Dim rightMargin = 0
+        Dim cardInset = 8
+        Dim dateTop = 10
+        Dim firstCardsTop = dateTop + 36
+        Dim summaryHeight = 118
+        Dim rowGap = 12
+        Dim chartHeight = Math.Max(220, CInt(Me.ClientSize.Height * 0.3))
+        Dim bottomHeight = Math.Max(155, CInt(Me.ClientSize.Height * 0.18))
+        Dim availableWidth = Math.Max(1, dashboardView.ClientSize.Width - left - rightMargin)
+        Dim secondCardsTop = firstCardsTop + summaryHeight + rowGap
+        Dim chartTop = secondCardsTop + summaryHeight + rowGap
+        Dim bottomTop = chartTop + chartHeight + rowGap
+        Dim requiredHeight = bottomTop + bottomHeight + 20
+
+        dashboardView.AutoScroll = dashboardView.ClientSize.Height < requiredHeight
+        dashboardView.AutoScrollMinSize = If(dashboardView.AutoScroll, New Size(availableWidth + left + rightMargin, requiredHeight), Size.Empty)
+        dashboardDateLabel.SetBounds(left + cardInset, dateTop, 244, 28)
+
+        Dim cellWidth = availableWidth / 4.0R
+        Dim cards = {card1, card2, card3, card4, card5, card6, card7, card8}
+        For index = 0 To cards.Length - 1
+            Dim row = index \ 4
+            Dim column = index Mod 4
+            Dim rowTop = If(row = 0, firstCardsTop, secondCardsTop)
+            Dim cardX = left + CInt(Math.Round(column * cellWidth)) + cardInset
+            Dim cardWidth = Math.Max(1, CInt(Math.Round(cellWidth)) - cardInset * 2)
+            cards(index).Margin = Padding.Empty
+            cards(index).SetBounds(cardX, rowTop + cardInset, cardWidth, summaryHeight - cardInset * 2)
+        Next
+
+        Dim chartLeftWidth = CInt(availableWidth * 0.6) - 10
+        Dim chartRightWidth = Math.Max(1, availableWidth - chartLeftWidth - 10)
+        salesTrendPanel.SetBounds(left, chartTop, chartLeftWidth, chartHeight)
+        revenuePanel.SetBounds(left + chartLeftWidth + 10, chartTop, chartRightWidth, chartHeight)
+        inventoryAlertsPanel.SetBounds(left, bottomTop, chartLeftWidth, bottomHeight)
+        quickOverviewPanel.SetBounds(left + chartLeftWidth + 10, bottomTop, chartRightWidth, bottomHeight)
+
+        salesTrendPlot.SetBounds(16, 58, Math.Max(1, salesTrendPanel.ClientSize.Width - 32), Math.Max(1, salesTrendPanel.ClientSize.Height - 78))
+        trendFiltersPanel.Top = 8
+        trendFiltersPanel.Left = salesTrendPanel.ClientSize.Width - trendFiltersPanel.Width - 16
+        RevenuePanel_Resize(revenuePanel, EventArgs.Empty)
         ResizeDashboardPanels()
     End Sub
 
@@ -368,13 +539,14 @@ Public Class Admin
 
     Private Sub ResizeDashboardPanels()
         If dashboardLayout Is Nothing OrElse inventoryAlertsPanel Is Nothing OrElse quickOverviewPanel Is Nothing Then Return
-        Dim alertWidth = Math.Max(1, (inventoryAlertsPanel.ClientSize.Width - 32 - 16) \ 3)
+        Dim alertWidth = Math.Max(1, (inventoryAlertsPanel.ClientSize.Width - 52) \ 3)
         Dim alertHeight = Math.Max(54, inventoryAlertsPanel.ClientSize.Height - 54)
         inventoryAlertLowStock.SetBounds(16, 42, alertWidth, alertHeight)
-        inventoryAlertNearExpiry.SetBounds(24 + alertWidth, 42, alertWidth, alertHeight)
-        inventoryAlertExpired.SetBounds(32 + alertWidth * 2, 42, alertWidth, alertHeight)
+        inventoryAlertNearExpiry.SetBounds(26 + alertWidth, 42, alertWidth, alertHeight)
+        inventoryAlertExpired.SetBounds(36 + alertWidth * 2, 42, alertWidth, alertHeight)
         inventoryViewAllLink.Left = inventoryAlertsPanel.ClientSize.Width - inventoryViewAllLink.Width - 16
         UpdateQuickOverviewRows()
+        RefreshDashboardRegions()
     End Sub
 
     Private Sub InitializeReportsUi()
@@ -391,6 +563,7 @@ Public Class Admin
         layout.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
 
         Dim heading As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = New Padding(0, 0, 0, 12), .Padding = New Padding(18, 12, 18, 10)}
+        AddHandler heading.Resize, Sub(sender, e) ApplyRoundedRegion(heading, 12)
         heading.Controls.Add(New Label With {.Text = "Select reports to view.", .AutoSize = True, .Font = New Font("Segoe UI", 9.0F), .ForeColor = Color.Gray, .Location = New Point(18, 42)})
         heading.Controls.Add(New Label With {.Text = "Business Reports", .AutoSize = True, .Font = New Font("Segoe UI", 14.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(35, 55, 45), .Location = New Point(18, 12)})
 
@@ -411,6 +584,7 @@ Public Class Admin
         layout.Controls.Add(heading, 0, 0)
         layout.Controls.Add(reportList, 0, 1)
         reportsView.Controls.Add(layout)
+        ApplyRoundedRegion(heading, 12)
     End Sub
 
     Private Sub ReportsList_Resize(sender As Object, e As EventArgs)
@@ -420,19 +594,27 @@ Public Class Admin
         For Each reportCard As Control In reportList.Controls
             reportCard.Width = cardWidth
             If reportCard.Controls.Count > 1 Then reportCard.Controls(1).Width = cardWidth - 32
+            ApplyRoundedRegion(reportCard, 12)
+            If reportCard.Controls.Count > 2 Then ApplyRoundedRegion(reportCard.Controls(2), 8)
         Next
     End Sub
 
     Private Function CreateReportCard(title As String, description As String, availableWidth As Integer) As Panel
         Dim cardWidth = If(availableWidth > 0, Math.Max(300, (availableWidth - 30) \ 2), 440)
-        Dim card As New Panel With {.Width = cardWidth, .Height = 124, .BackColor = Color.White, .Margin = New Padding(0, 0, 14, 14), .Padding = New Padding(16), .BorderStyle = BorderStyle.FixedSingle}
-        Dim titleLabel As New Label With {.Text = title, .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(35, 45, 40), .Location = New Point(16, 12)}
-        Dim descriptionLabel As New Label With {.Text = description, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(16, 39), .Size = New Size(card.Width - 32, 34), .Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right}
-        Dim viewButton As New Button With {.Text = "View Report", .Size = New Size(116, 34), .Location = New Point(16, 80), .BackColor = activeGreen, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat, .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold), .Cursor = Cursors.Hand}
+        Dim card As New Panel With {.Width = cardWidth, .Height = 136, .BackColor = Color.White, .Margin = New Padding(0, 0, 14, 14), .Padding = New Padding(16), .BorderStyle = BorderStyle.None}
+        Dim titleLabel As New Label With {.Text = title, .AutoSize = True, .Font = New Font("Segoe UI", 11.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(35, 45, 40), .Location = New Point(16, 14)}
+        Dim descriptionLabel As New Label With {.Text = description, .Font = New Font("Segoe UI", 9.0F), .ForeColor = Color.Gray, .Location = New Point(16, 44), .Size = New Size(card.Width - 32, 36), .Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right}
+        Dim viewButton As New Button With {.Text = "View Report", .Size = New Size(132, 34), .Location = New Point(16, 88), .BackColor = activeGreen, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat, .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold), .Cursor = Cursors.Hand}
         viewButton.FlatAppearance.BorderSize = 0
         card.Controls.Add(titleLabel)
         card.Controls.Add(descriptionLabel)
         card.Controls.Add(viewButton)
+        AddHandler card.Resize, Sub(sender, e)
+                                    ApplyRoundedRegion(card, 12)
+                                    ApplyRoundedRegion(viewButton, 8)
+                                End Sub
+        ApplyRoundedRegion(card, 12)
+        ApplyRoundedRegion(viewButton, 8)
 
         ' --- NEW: Wired up the new reports ---
         If String.Equals(title, "Sales Report", StringComparison.Ordinal) Then
@@ -446,6 +628,7 @@ Public Class Admin
         Return card
     End Function
 
+    ' CHANGE: Reworked the sales report banner and body to match the reference image.
     Private Sub ShowSalesReport()
         reportsView.Controls.Clear()
         reportsView.Padding = New Padding(14)
@@ -453,37 +636,54 @@ Public Class Admin
 
         Dim layout As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 1, .RowCount = 2, .BackColor = lightGray, .Margin = New Padding(0)}
         layout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
-        layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 142))
+        layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 190))
         layout.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
 
         Dim header As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = New Padding(0, 0, 0, 12)}
-        header.Controls.Add(New Label With {.Text = "Sales Report", .AutoSize = True, .Font = New Font("Segoe UI", 14.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(35, 45, 40), .Location = New Point(18, 12)})
-        header.Controls.Add(New Label With {.Text = "Generated: " & DateTime.Now.ToString("MMMM dd, yyyy, h:mm tt", CultureInfo.CurrentCulture) & " | By: " & CurrentFullName, .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(20, 42)})
-        Dim backButton As New Button With {.Text = "Back to Reports", .Size = New Size(126, 32), .Anchor = AnchorStyles.Top Or AnchorStyles.Right, .BackColor = Color.White, .ForeColor = darkGreen, .FlatStyle = FlatStyle.Flat}
-        backButton.Location = New Point(header.ClientSize.Width - backButton.Width - 16, 12)
-        AddHandler header.Resize, Sub(sender, e) backButton.Left = header.ClientSize.Width - backButton.Width - 16
+        AddHandler header.Resize, Sub(sender, e) ApplyRoundedRegion(header, 16)
+        AddHandler header.Paint, Sub(sender, e)
+                                     Using brush As New LinearGradientBrush(header.ClientRectangle, Color.White, Color.FromArgb(214, 246, 230), 0.0F)
+                                         e.Graphics.FillRectangle(brush, header.ClientRectangle)
+                                     End Using
+                                 End Sub
+
+        header.Controls.Add(New Label With {.Text = "Sales Report", .AutoSize = True, .Font = New Font("Segoe UI", 17.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(20, 30, 55), .Location = New Point(76, 18)})
+        header.Controls.Add(New Label With {.Text = "Generated: " & DateTime.Now.ToString("MMMM dd, yyyy, h:mm tt", CultureInfo.CurrentCulture) & "  |  By: " & CurrentFullName, .AutoSize = True, .Font = New Font("Segoe UI", 9.0F), .ForeColor = Color.FromArgb(90, 105, 125), .Location = New Point(78, 51)})
+
+        Dim backButton As New Button With {.Text = String.Empty, .Size = New Size(42, 40), .Anchor = AnchorStyles.Top Or AnchorStyles.Left, .BackColor = Color.White, .ForeColor = darkGreen, .FlatStyle = FlatStyle.Flat, .Cursor = Cursors.Hand}
+        backButton.Location = New Point(18, 18)
+        StyleReportBackButton(backButton)
         AddHandler backButton.Click, Sub(sender, e) InitializeReportsUi()
         header.Controls.Add(backButton)
-        Dim printReportButton As New Button With {.Text = "Print Report", .Size = New Size(112, 32), .Anchor = AnchorStyles.Top Or AnchorStyles.Right, .BackColor = darkGreen, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat}
+
+        Dim printReportButton As New Button With {.Text = "▣  Print Report", .Size = New Size(150, 40), .Anchor = AnchorStyles.Top Or AnchorStyles.Right, .BackColor = darkGreen, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat, .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold), .Cursor = Cursors.Hand}
         printReportButton.FlatAppearance.BorderSize = 0
-        printReportButton.Location = New Point(backButton.Left - printReportButton.Width - 10, 12)
-        AddHandler header.Resize, Sub(sender, e) printReportButton.Left = backButton.Left - printReportButton.Width - 10
+        StyleReportActionButton(printReportButton)
+        printReportButton.Location = New Point(header.ClientSize.Width - printReportButton.Width - 18, 18)
+        AddHandler header.Resize, Sub(sender, e) printReportButton.Left = header.ClientSize.Width - printReportButton.Width - 18
         AddHandler printReportButton.Click, AddressOf PrintSalesReport
         header.Controls.Add(printReportButton)
 
+        ' CHANGE: Period and sale type filters appear in separate rows.
         salesReportPeriodButtons.Clear()
         salesReportTypeButtons.Clear()
-        AddSalesReportButtonGroup(header, {"Daily", "Monthly", "Yearly"}, salesReportPeriodButtons, 18, 66, AddressOf SelectSalesReportPeriod)
-        AddSalesReportButtonGroup(header, {"All", "Retail", "Wholesale"}, salesReportTypeButtons, 18, 101, AddressOf SelectSalesReportType, 82, 25)
+        AddSalesReportButtonGroup(header, {"Daily", "Monthly", "Yearly"}, salesReportPeriodButtons, 76, 88, AddressOf SelectSalesReportPeriod, 100, 38)
+        AddSalesReportButtonGroup(header, {"All", "Retail", "Wholesale"}, salesReportTypeButtons, 76, 135, AddressOf SelectSalesReportType, 100, 34)
         UpdateSalesReportButtonStyles()
 
+        ' CHANGE: Side-by-side date filter and transaction card.
         Dim body As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 2, .RowCount = 1, .BackColor = lightGray, .Margin = New Padding(0)}
-        body.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 225))
+        body.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 270))
         body.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
 
         salesReportFilterPanel = New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(14), .Margin = New Padding(0, 0, 12, 0)}
-        salesReportDetailsLabel = New Label With {.Text = "Transaction Details", .Dock = DockStyle.Top, .Height = 42, .Font = New Font("Segoe UI", 11.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(35, 45, 40), .Padding = New Padding(16, 10, 0, 0)}
-        Dim reportPanel As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(0), .Margin = New Padding(0)}
+        AddHandler salesReportFilterPanel.Resize, Sub(sender, e) ApplyRoundedRegion(salesReportFilterPanel, 16)
+        salesReportDetailsLabel = New Label With {.Text = "▤  Transaction Details", .Dock = DockStyle.Top, .Height = 42, .Font = New Font("Segoe UI", 11.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(25, 40, 55), .Padding = New Padding(12, 10, 0, 0)}
+
+        Dim reportPanel As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(8), .Margin = New Padding(0)}
+        AddHandler reportPanel.Resize, Sub(sender, e) ApplyRoundedRegion(reportPanel, 16)
+
+        ' CHANGE: Mint header row, larger rows, and softer selection colors.
         salesReportGrid = New DataGridView With {
             .Dock = DockStyle.Fill,
             .ReadOnly = True,
@@ -496,22 +696,37 @@ Public Class Admin
             .RowHeadersVisible = False,
             .BackgroundColor = Color.White,
             .BorderStyle = BorderStyle.None,
-            .GridColor = Color.FromArgb(230, 234, 231),
-            .EnableHeadersVisualStyles = False
+            .GridColor = Color.FromArgb(225, 235, 230),
+            .EnableHeadersVisualStyles = False,
+            .CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
+            .ColumnHeadersHeight = 42,
+            .ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing
         }
-        salesReportGrid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(245, 247, 246)
-        salesReportGrid.ColumnHeadersDefaultCellStyle.ForeColor = Color.Gray
-        salesReportGrid.ColumnHeadersDefaultCellStyle.Font = New Font("Segoe UI", 8.5F, FontStyle.Bold)
+        salesReportGrid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(225, 245, 235)
+        salesReportGrid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(25, 55, 45)
+        salesReportGrid.ColumnHeadersDefaultCellStyle.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
+        salesReportGrid.ColumnHeadersDefaultCellStyle.Padding = New Padding(8, 0, 0, 0)
         salesReportGrid.DefaultCellStyle.Font = New Font("Segoe UI", 9.0F)
+        salesReportGrid.DefaultCellStyle.Padding = New Padding(8, 0, 0, 0)
         salesReportGrid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(225, 245, 230)
         salesReportGrid.DefaultCellStyle.SelectionForeColor = Color.Black
-        salesReportGrid.RowTemplate.Height = 36
+        salesReportGrid.RowTemplate.Height = 40
         AddHandler salesReportGrid.CellClick, AddressOf SalesReportGrid_CellClick
-        salesReportTotalLabel = New Label With {.Text = "TOTAL SALES: ₱0.00", .Dock = DockStyle.Bottom, .Height = 44, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = darkGreen, .TextAlign = ContentAlignment.MiddleRight, .Padding = New Padding(0, 0, 18, 0)}
+
+        ' CHANGE: Mint-green sales total strip.
+        salesReportTotalLabel = New Label With {.Text = "TOTAL SALES: ₱0.00", .Dock = DockStyle.Bottom, .Height = 46, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = darkGreen, .BackColor = Color.FromArgb(225, 245, 235), .TextAlign = ContentAlignment.MiddleRight, .Padding = New Padding(0, 0, 18, 0)}
+
+        ' CHANGE: Empty state is displayed when the selected date/filter has no sales.
+        salesReportEmptyState = New Panel With {.BackColor = Color.White, .Visible = False}
+        salesReportEmptyState.Controls.Add(New Label With {.Name = "emptyMessage", .Text = "Try selecting a different date or filter.", .Font = New Font("Segoe UI", 10.0F), .ForeColor = Color.FromArgb(40, 50, 70), .TextAlign = ContentAlignment.MiddleCenter})
+        salesReportEmptyState.Controls.Add(New Label With {.Name = "emptyTitle", .Text = "No transactions found", .Font = New Font("Segoe UI", 13.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(20, 30, 55), .TextAlign = ContentAlignment.MiddleCenter})
+        salesReportEmptyState.Controls.Add(New Label With {.Name = "emptyIcon", .Text = "▤", .Font = New Font("Segoe UI Symbol", 54.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(57, 165, 125), .TextAlign = ContentAlignment.BottomCenter})
+        AddHandler salesReportGrid.SizeChanged, Sub(sender, e) PositionSalesReportEmptyState()
+        salesReportGrid.Controls.Add(salesReportEmptyState)
+
         reportPanel.Controls.Add(salesReportGrid)
         reportPanel.Controls.Add(salesReportTotalLabel)
         reportPanel.Controls.Add(salesReportDetailsLabel)
-
         body.Controls.Add(salesReportFilterPanel, 0, 0)
         body.Controls.Add(reportPanel, 1, 0)
         layout.Controls.Add(header, 0, 0)
@@ -519,6 +734,59 @@ Public Class Admin
         reportsView.Controls.Add(layout)
 
         ConfigureSalesReportFilters()
+        ApplyRoundedRegion(header, 16)
+        PositionSalesReportEmptyState()
+    End Sub
+
+    ' CHANGE: Centers the empty-state message under the table headers.
+    Private Sub PositionSalesReportEmptyState()
+        If salesReportGrid Is Nothing OrElse salesReportEmptyState Is Nothing Then Return
+        Dim stateHeight = Math.Max(0, salesReportGrid.ClientSize.Height - salesReportGrid.ColumnHeadersHeight)
+        salesReportEmptyState.SetBounds(0, salesReportGrid.ColumnHeadersHeight, salesReportGrid.ClientSize.Width, stateHeight)
+        Dim contentHeight = 176
+        Dim top = Math.Max(8, (stateHeight - contentHeight) \ 2)
+        Dim center = salesReportEmptyState.ClientSize.Width \ 2
+        salesReportEmptyState.Controls("emptyIcon").SetBounds(center - 60, top, 120, 94)
+        salesReportEmptyState.Controls("emptyTitle").SetBounds(0, top + 98, salesReportEmptyState.ClientSize.Width, 36)
+        salesReportEmptyState.Controls("emptyMessage").SetBounds(0, top + 138, salesReportEmptyState.ClientSize.Width, 30)
+        UpdateSalesReportEmptyState()
+    End Sub
+
+    Private Function CreateReportEmptyState(grid As DataGridView, heading As String, description As String) As Panel
+        Dim state As New Panel With {.BackColor = Color.White, .Visible = False}
+        state.Controls.Add(New Label With {.Name = "emptyIcon", .Text = "▤", .Font = New Font("Segoe UI Symbol", 48.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(57, 165, 125), .TextAlign = ContentAlignment.BottomCenter})
+        state.Controls.Add(New Label With {.Name = "emptyTitle", .Text = heading, .Font = New Font("Segoe UI", 12.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(20, 30, 55), .TextAlign = ContentAlignment.MiddleCenter})
+        state.Controls.Add(New Label With {.Name = "emptyMessage", .Text = description, .Font = New Font("Segoe UI", 9.0F), .ForeColor = Color.FromArgb(75, 85, 100), .TextAlign = ContentAlignment.MiddleCenter})
+        grid.Controls.Add(state)
+        AddHandler grid.SizeChanged, Sub(sender, e) PositionReportEmptyState(grid, state)
+        AddHandler grid.DataSourceChanged, Sub(sender, e) UpdateReportEmptyState(grid, state)
+        PositionReportEmptyState(grid, state)
+        Return state
+    End Function
+
+    Private Sub PositionReportEmptyState(grid As DataGridView, state As Panel)
+        If grid Is Nothing OrElse state Is Nothing Then Return
+        Dim stateHeight = Math.Max(0, grid.ClientSize.Height - grid.ColumnHeadersHeight)
+        state.SetBounds(0, grid.ColumnHeadersHeight, grid.ClientSize.Width, stateHeight)
+        Dim contentHeight = 146
+        Dim top = Math.Max(8, (stateHeight - contentHeight) \ 2)
+        Dim center = state.ClientSize.Width \ 2
+        state.Controls("emptyIcon").SetBounds(center - 48, top, 96, 76)
+        state.Controls("emptyTitle").SetBounds(0, top + 78, state.ClientSize.Width, 30)
+        state.Controls("emptyMessage").SetBounds(0, top + 111, state.ClientSize.Width, 26)
+        UpdateReportEmptyState(grid, state)
+    End Sub
+
+    Private Sub UpdateReportEmptyState(grid As DataGridView, state As Panel)
+        If grid Is Nothing OrElse state Is Nothing Then Return
+        state.Visible = grid.Rows.Count = 0
+        If state.Visible Then state.BringToFront()
+    End Sub
+
+    ' CHANGE: Refreshes empty-state visibility after loading report rows.
+    Private Sub UpdateSalesReportEmptyState()
+        If salesReportGrid Is Nothing OrElse salesReportEmptyState Is Nothing Then Return
+        salesReportEmptyState.Visible = salesReportGrid.Rows.Count = 0
     End Sub
 
     Private Sub AddSalesReportButtonGroup(parent As Control, options As String(), buttons As Dictionary(Of String, Button), left As Integer, top As Integer, onSelect As Action(Of String), Optional buttonWidth As Integer = 94, Optional buttonHeight As Integer = 29)
@@ -533,8 +801,10 @@ Public Class Admin
                 .Cursor = Cursors.Hand,
                 .UseVisualStyleBackColor = False
             }
-            button.FlatAppearance.BorderColor = activeGreen
+            ' CHANGE: Use the light outline color shown in the reference.
+            button.FlatAppearance.BorderColor = Color.FromArgb(210, 220, 230)
             button.FlatAppearance.BorderSize = 1
+
             AddHandler button.Click, Sub(sender, e) onSelect(optionText)
             buttons(optionText) = button
             parent.Controls.Add(button)
@@ -556,19 +826,23 @@ Public Class Admin
         LoadSalesReportRows()
     End Sub
 
+    ' CHANGE: Apply the green active states to the period and sale type filters.
     Private Sub UpdateSalesReportButtonStyles()
         For Each pair In salesReportPeriodButtons
             Dim isSelected = String.Equals(pair.Key, salesReportPeriod, StringComparison.OrdinalIgnoreCase)
             pair.Value.BackColor = If(isSelected, darkGreen, Color.White)
             pair.Value.ForeColor = If(isSelected, Color.White, darkGreen)
+            pair.Value.FlatAppearance.BorderColor = If(isSelected, darkGreen, Color.FromArgb(210, 220, 230))
         Next
         For Each pair In salesReportTypeButtons
             Dim isSelected = String.Equals(pair.Key, salesReportType, StringComparison.OrdinalIgnoreCase)
             pair.Value.BackColor = If(isSelected, Color.FromArgb(218, 240, 229), Color.White)
             pair.Value.ForeColor = darkGreen
+            pair.Value.FlatAppearance.BorderColor = If(isSelected, Color.FromArgb(190, 230, 210), Color.FromArgb(210, 220, 230))
         Next
     End Sub
 
+    ' CHANGE: Build a wider, styled date filter panel for the selected report period.
     Private Sub ConfigureSalesReportFilters()
         If salesReportFilterPanel Is Nothing Then Return
         salesReportFilterPanel.Controls.Clear()
@@ -576,22 +850,23 @@ Public Class Admin
         salesReportMonthCombo = Nothing
         salesReportYearCombo = Nothing
         Dim period = salesReportPeriod
-        AddFilterHeader("Filter by " & period.ToLowerInvariant())
+        AddFilterHeader(If(String.Equals(period, "Daily", StringComparison.Ordinal), "Filter by date", "Filter by " & period.ToLowerInvariant()))
 
         If String.Equals(period, "Daily", StringComparison.Ordinal) Then
             Dim firstAvailableDate As New DateTime(2026, 9, 1)
             Dim lastAvailableDate As New DateTime(2026, 10, 31)
             If Date.Today < lastAvailableDate Then lastAvailableDate = Date.Today
-            salesReportFilterPanel.Controls.Add(New Label With {.Text = "Date", .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(14, 60)})
+            salesReportFilterPanel.Controls.Add(New Label With {.Text = "Date", .AutoSize = True, .Font = New Font("Segoe UI", 9.0F), .ForeColor = Color.FromArgb(75, 90, 115), .Location = New Point(14, 60)})
             salesReportDatePicker = New DateTimePicker With {
                 .Format = DateTimePickerFormat.Custom,
                 .CustomFormat = "MMMM dd, yyyy",
                 .MinDate = firstAvailableDate,
                 .MaxDate = lastAvailableDate,
                 .Value = lastAvailableDate,
-                .Location = New Point(14, 82),
-                .Width = 190,
-                .Font = New Font("Segoe UI", 9.0F)
+                .Location = New Point(14, 84),
+                .Width = Math.Max(190, salesReportFilterPanel.ClientSize.Width - 28),
+                .Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right,
+                .Font = New Font("Segoe UI", 10.0F)
             }
             salesReportFilterPanel.Controls.Add(salesReportDatePicker)
         ElseIf String.Equals(period, "Monthly", StringComparison.Ordinal) Then
@@ -607,8 +882,9 @@ Public Class Admin
         LoadSalesReportRows()
     End Sub
 
+    ' CHANGE: Add a small filter icon before the heading.
     Private Sub AddFilterHeader(text As String)
-        salesReportFilterPanel.Controls.Add(New Label With {.Text = text, .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(14, 14)})
+        salesReportFilterPanel.Controls.Add(New Label With {.Text = "▼  " & text, .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(14, 14)})
     End Sub
 
     Private Function AddFilterCombo(labelText As String, items As String(), selected As String, top As Integer) As ComboBox
@@ -658,12 +934,33 @@ Public Class Admin
                 rows.ImportRow(row)
             Next
 
+            ' CHANGE: Format the transaction table columns to match the reference layout.
             salesReportGrid.DataSource = rows
-            If salesReportGrid.Columns.Contains("SaleDate") Then salesReportGrid.Columns("SaleDate").DefaultCellStyle.Format = "yyyy-MM-dd HH:mm"
-            If salesReportGrid.Columns.Contains("Total") Then salesReportGrid.Columns("Total").DefaultCellStyle.Format = "₱#,##0.00"
+            If salesReportGrid.Columns.Contains("SaleDate") Then
+                salesReportGrid.Columns("SaleDate").DefaultCellStyle.Format = "MMMM dd, yyyy h:mm tt"
+                salesReportGrid.Columns("SaleDate").HeaderText = "Sale Date"
+                salesReportGrid.Columns("SaleDate").FillWeight = 135
+            End If
+            If salesReportGrid.Columns.Contains("Total") Then
+                salesReportGrid.Columns("Total").DefaultCellStyle.Format = "₱#,##0.00"
+                salesReportGrid.Columns("Total").FillWeight = 90
+            End If
+            If salesReportGrid.Columns.Contains("TransactionID") Then
+                salesReportGrid.Columns("TransactionID").HeaderText = "Transaction ID"
+                salesReportGrid.Columns("TransactionID").FillWeight = 90
+            End If
+            If salesReportGrid.Columns.Contains("Customer") Then salesReportGrid.Columns("Customer").FillWeight = 120
+            If salesReportGrid.Columns.Contains("Cashier") Then salesReportGrid.Columns("Cashier").FillWeight = 120
+            If salesReportGrid.Columns.Contains("SaleType") Then
+                salesReportGrid.Columns("SaleType").HeaderText = "Sale Type"
+                salesReportGrid.Columns("SaleType").FillWeight = 90
+            End If
+            If salesReportGrid.Columns.Contains("Status") Then salesReportGrid.Columns("Status").FillWeight = 80
+
             Dim total As Decimal = rows.AsEnumerable().Sum(Function(row) If(row.IsNull("Total"), 0D, Convert.ToDecimal(row("Total"))))
             salesReportDetailsLabel.Text = "Transaction Details — " & periodCaption
             salesReportTotalLabel.Text = "TOTAL SALES: ₱" & total.ToString("N2", CultureInfo.CurrentCulture)
+            UpdateSalesReportEmptyState()
         Catch ex As Exception
             MessageBox.Show("Could not load the sales report. " & ex.Message, "Sales Report", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
@@ -1150,27 +1447,28 @@ Public Class Admin
             .Dock = DockStyle.Fill,
             .ColumnCount = 1,
             .RowCount = 2,
-            .BackColor = Color.White,
+            .BackColor = lightGray,
             .Margin = New Padding(0),
             .Padding = New Padding(0)
         }
         layout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100.0F))
-        layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 170.0F))
+        layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 230.0F))
         layout.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
 
-        Dim toolbar As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White}
+        Dim toolbar As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = New Padding(12, 10, 12, 14), .Padding = New Padding(0)}
+        AddHandler toolbar.Resize, Sub(sender, e) ApplyRoundedRegion(toolbar, 12)
         Dim filterLabel As New Label With {
             .Text = "Filter by parent category",
             .AutoSize = True,
             .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold),
             .ForeColor = Color.Black,
-            .Location = New Point(8, 2)
+            .Location = New Point(14, 10)
         }
         toolbar.Controls.Add(filterLabel)
 
         Dim filterPanel As New FlowLayoutPanel With {
-            .Location = New Point(8, 86),
-            .Size = New Size(650, 32),
+            .Location = New Point(14, 112),
+            .Size = New Size(650, 36),
             .WrapContents = False,
             .BackColor = Color.White,
             .Margin = New Padding(0),
@@ -1180,16 +1478,18 @@ Public Class Admin
             Dim filterButton As New Button With {
                 .Text = filterName,
                 .Tag = filterName,
-                .AutoSize = True,
+                .AutoSize = False,
+                .Size = New Size(104, 34),
                 .FlatStyle = FlatStyle.Flat,
                 .BackColor = Color.White,
                 .ForeColor = Color.FromArgb(20, 100, 60),
                 .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
-                .Margin = New Padding(0, 0, 6, 0),
-                .Padding = New Padding(6, 2, 6, 2),
-                .Height = 28
+                .Margin = New Padding(0, 0, 8, 0),
+                .Padding = New Padding(4, 2, 4, 2),
+                .UseVisualStyleBackColor = False,
+                .Cursor = Cursors.Hand
             }
-            filterButton.FlatAppearance.BorderColor = Color.FromArgb(20, 100, 60)
+            filterButton.FlatAppearance.BorderColor = Color.FromArgb(210, 220, 230)
             filterButton.FlatAppearance.BorderSize = 1
             AddHandler filterButton.Click, AddressOf InventoryFilterButton_Click
             inventoryFilterButtons(filterName) = filterButton
@@ -1200,12 +1500,12 @@ Public Class Admin
             .AutoSize = True,
             .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold),
             .ForeColor = Color.Black,
-            .Location = New Point(8, 62)
+            .Location = New Point(14, 84)
         })
         toolbar.Controls.Add(filterPanel)
         Dim parentFilterPanel As New FlowLayoutPanel With {
-            .Location = New Point(8, 28),
-            .Size = New Size(520, 34),
+            .Location = New Point(14, 38),
+            .Size = New Size(520, 36),
             .WrapContents = False,
             .BackColor = Color.White,
             .Margin = New Padding(0),
@@ -1215,7 +1515,7 @@ Public Class Admin
             Dim parentButton As New Button With {
                 .Text = parentName,
                 .Tag = parentName,
-                .Size = New Size(120, 30),
+                .Size = New Size(120, 34),
                 .FlatStyle = FlatStyle.Flat,
                 .BackColor = If(parentName = "All", Color.FromArgb(20, 100, 60), Color.White),
                 .ForeColor = If(parentName = "All", Color.White, Color.FromArgb(20, 100, 60)),
@@ -1224,38 +1524,41 @@ Public Class Admin
                 .Cursor = Cursors.Hand,
                 .UseVisualStyleBackColor = False
             }
-            parentButton.FlatAppearance.BorderColor = Color.FromArgb(20, 100, 60)
+            parentButton.FlatAppearance.BorderColor = If(parentName = "All", Color.FromArgb(20, 100, 60), Color.FromArgb(210, 220, 230))
             parentButton.FlatAppearance.BorderSize = 1
             AddHandler parentButton.Click, AddressOf InventoryParentFilterButton_Click
             inventoryParentFilterButtons(parentName) = parentButton
             parentFilterPanel.Controls.Add(parentButton)
         Next
         inventorySearchBox = New TextBox With {
-            .Location = New Point(600, 28),
-            .Size = New Size(300, 30),
+            .Location = New Point(600, 41),
+            .Size = New Size(300, 28),
             .Font = New Font("Segoe UI", 10.0F),
             .BackColor = Color.White,
             .ForeColor = Color.Black,
-            .BorderStyle = BorderStyle.FixedSingle,
+            .BorderStyle = BorderStyle.Fixed3D,
             .PlaceholderText = "Search inventory..."
         }
         AddHandler inventorySearchBox.TextChanged, AddressOf InventorySearchBox_TextChanged
 
         Dim clearButton As New Button With {
             .Text = "Clear",
-            .Location = New Point(600, 86),
-            .Size = New Size(78, 30),
+            .Location = New Point(600, 112),
+            .Size = New Size(82, 32),
             .FlatStyle = FlatStyle.Flat,
-            .BackColor = Color.FromArgb(240, 240, 240),
+            .BackColor = Color.FromArgb(238, 241, 244),
             .ForeColor = Color.FromArgb(40, 40, 40),
             .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
-            .Margin = New Padding(0)
+            .Margin = New Padding(0),
+            .UseVisualStyleBackColor = False,
+            .Cursor = Cursors.Hand
         }
-        clearButton.FlatAppearance.BorderColor = Color.FromArgb(80, 80, 80)
+        clearButton.FlatAppearance.BorderSize = 0
+        clearButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(226, 231, 236)
         Dim expiryMonitorButton As New Button With {
             .Text = "Expiry Monitor",
-            .Location = New Point(8, 128),
-            .Size = New Size(150, 30),
+            .Location = New Point(14, 158),
+            .Size = New Size(160, 38),
             .FlatStyle = FlatStyle.Flat,
             .BackColor = Color.FromArgb(20, 100, 60),
             .ForeColor = Color.White,
@@ -1278,8 +1581,9 @@ Public Class Admin
             End Sub
         Dim positionInventorySearchControls As Action =
             Sub()
-                inventorySearchBox.Left = Math.Max(parentFilterPanel.Right + 12, toolbar.ClientSize.Width - inventorySearchBox.Width - 8)
-                clearButton.Left = Math.Max(filterPanel.Right + 12, toolbar.ClientSize.Width - clearButton.Width - 8)
+                inventorySearchBox.Width = Math.Max(180, Math.Min(300, toolbar.ClientSize.Width - parentFilterPanel.Right - 20))
+                inventorySearchBox.Left = toolbar.ClientSize.Width - inventorySearchBox.Width - 14
+                clearButton.Left = Math.Max(filterPanel.Right + 12, toolbar.ClientSize.Width - clearButton.Width - 14)
             End Sub
         AddHandler toolbar.Resize, Sub(sender, e) positionInventorySearchControls()
         positionInventorySearchControls()
@@ -1287,6 +1591,13 @@ Public Class Admin
         toolbar.Controls.Add(inventorySearchBox)
         toolbar.Controls.Add(clearButton)
         toolbar.Controls.Add(expiryMonitorButton)
+        AddHandler clearButton.Resize, Sub(sender, e) ApplyRoundedRegion(clearButton, 8)
+        AddHandler expiryMonitorButton.Resize, Sub(sender, e) ApplyRoundedRegion(expiryMonitorButton, 8)
+        ApplyRoundedRegion(clearButton, 8)
+        ApplyRoundedRegion(expiryMonitorButton, 8)
+
+        Dim gridCard As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = New Padding(10, 8, 10, 10), .Padding = New Padding(14)}
+        AddHandler gridCard.Resize, Sub(sender, e) ApplyRoundedRegion(gridCard, 12)
 
         dgvInventory.Dock = DockStyle.Fill
         dgvInventory.BackgroundColor = Color.White
@@ -1309,20 +1620,29 @@ Public Class Admin
         dgvInventory.AllowUserToResizeColumns = True
         dgvInventory.AllowUserToResizeRows = True
         dgvInventory.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing
-        dgvInventory.ColumnHeadersHeight = 38
+        dgvInventory.ColumnHeadersHeight = 44
         dgvInventory.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells
         dgvInventory.DefaultCellStyle.WrapMode = DataGridViewTriState.True
+        dgvInventory.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft
+        dgvInventory.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft
         dgvInventory.ReadOnly = True
         dgvInventory.SelectionMode = DataGridViewSelectionMode.FullRowSelect
         dgvInventory.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None
+        dgvInventory.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal
+        dgvInventory.GridColor = Color.FromArgb(225, 235, 230)
+        dgvInventory.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(225, 245, 235)
+        dgvInventory.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(25, 55, 45)
+        dgvInventory.ColumnHeadersDefaultCellStyle.Padding = New Padding(12, 0, 10, 0)
+        dgvInventory.DefaultCellStyle.Padding = New Padding(12, 6, 10, 6)
         AddHandler dgvInventory.DataBindingComplete, AddressOf InventoryGrid_DataBindingComplete
         AddHandler dgvInventory.CellFormatting, AddressOf InventoryGrid_CellFormatting
         AddHandler dgvInventory.CellClick, AddressOf InventoryGrid_CellClick
 
         layout.Controls.Add(toolbar, 0, 0)
-        layout.Controls.Add(dgvInventory, 0, 1)
+        gridCard.Controls.Add(dgvInventory)
+        layout.Controls.Add(gridCard, 0, 1)
         inventoryView.Controls.Clear()
-        inventoryView.BackColor = Color.White
+        inventoryView.BackColor = lightGray
         inventoryView.Controls.Add(layout)
         SetInventoryFilter("All")
     End Sub
@@ -1635,6 +1955,7 @@ Public Class Admin
             Dim active = String.Equals(entry.Key, inventorySelectedParentCategory, StringComparison.OrdinalIgnoreCase)
             entry.Value.BackColor = If(active, Color.FromArgb(20, 100, 60), Color.White)
             entry.Value.ForeColor = If(active, Color.White, Color.FromArgb(20, 100, 60))
+            entry.Value.FlatAppearance.BorderColor = If(active, Color.FromArgb(20, 100, 60), Color.FromArgb(210, 220, 230))
         Next
         ApplyInventoryFilters()
     End Sub
@@ -1649,6 +1970,7 @@ Public Class Admin
             Dim active = String.Equals(entry.Key, inventoryActiveFilter, StringComparison.OrdinalIgnoreCase)
             entry.Value.BackColor = If(active, Color.FromArgb(218, 240, 229), Color.White)
             entry.Value.ForeColor = Color.FromArgb(20, 100, 60)
+            entry.Value.FlatAppearance.BorderColor = If(active, Color.FromArgb(190, 230, 210), Color.FromArgb(210, 220, 230))
         Next
         ApplyInventoryFilters()
     End Sub
@@ -1733,9 +2055,10 @@ Public Class Admin
         If dgvInventory.Columns.Contains("Stock Quantity") Then dgvInventory.Columns("Stock Quantity").Width = 170
         If dgvInventory.Columns.Contains("Expiry Date") Then dgvInventory.Columns("Expiry Date").Width = 145
         If dgvInventory.Columns.Contains("Status") Then dgvInventory.Columns("Status").Width = 145
-        dgvInventory.RowTemplate.MinimumHeight = 48
+        dgvInventory.RowTemplate.Height = 60
+        dgvInventory.RowTemplate.MinimumHeight = 60
         For Each row As DataGridViewRow In dgvInventory.Rows
-            row.MinimumHeight = 48
+            row.MinimumHeight = 60
         Next
     End Sub
 
@@ -1814,7 +2137,9 @@ Public Class Admin
         page.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
         page.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
 
-        Dim listing As New TableLayoutPanel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(12), .Margin = New Padding(0), .ColumnCount = 1, .RowCount = 3}
+        Dim listing As New TableLayoutPanel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(12), .Margin = New Padding(4), .ColumnCount = 1, .RowCount = 3}
+        AddHandler listing.Resize, Sub(sender, e) ApplyRoundedRegion(listing, 12)
+        ApplyRoundedRegion(listing, 12)
         listing.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
         listing.RowStyles.Add(New RowStyle(SizeType.Absolute, 48))
         listing.RowStyles.Add(New RowStyle(SizeType.Absolute, 44))
@@ -1859,9 +2184,9 @@ Public Class Admin
         priceManagerCategoryFilter.SelectedIndex = 0
         filterSearchRow.Controls.Add(parentFilterPanel, 0, 0)
         filterSearchRow.Controls.Add(priceManagerSearchBox, 1, 0)
-        Dim productArea As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = New Padding(0)}
+        Dim productArea As New Panel With {.Dock = DockStyle.Fill, .BackColor = lightGray, .Margin = New Padding(0)}
         Dim detailsHeader As New Label With {.Text = "PRODUCT DETAILS", .Dock = DockStyle.Top, .Height = 32, .BackColor = Color.FromArgb(240, 245, 241), .ForeColor = Color.FromArgb(65, 80, 70), .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold), .TextAlign = ContentAlignment.MiddleLeft, .Padding = New Padding(8, 0, 0, 0)}
-        priceManagerProductList = New FlowLayoutPanel With {.Dock = DockStyle.Fill, .AutoScroll = True, .FlowDirection = FlowDirection.TopDown, .WrapContents = False, .BackColor = Color.White, .Padding = New Padding(0, 8, 0, 0)}
+        priceManagerProductList = New FlowLayoutPanel With {.Dock = DockStyle.Fill, .AutoScroll = True, .FlowDirection = FlowDirection.TopDown, .WrapContents = False, .BackColor = lightGray, .Padding = New Padding(8, 8, 8, 0)}
         productArea.Controls.Add(priceManagerProductList)
         productArea.Controls.Add(detailsHeader)
         listing.Controls.Add(filterSearchRow, 0, 0)
@@ -2002,12 +2327,17 @@ Public Class Admin
     Private Sub PriceManagerProductList_Resize(sender As Object, e As EventArgs)
         If priceManagerProductList Is Nothing Then Return
         For Each card As Control In priceManagerProductList.Controls
-            If TypeOf card Is Panel Then card.Width = Math.Max(320, priceManagerProductList.ClientSize.Width - 24)
+            If TypeOf card Is Panel Then card.Width = GetPriceManagerProductCardWidth()
         Next
     End Sub
 
+    Private Function GetPriceManagerProductCardWidth() As Integer
+        If priceManagerProductList Is Nothing Then Return 320
+        Return Math.Max(320, priceManagerProductList.ClientSize.Width - priceManagerProductList.Padding.Horizontal - SystemInformation.VerticalScrollBarWidth - 4)
+    End Function
+
     Private Function CreatePriceProductCard(product As DataRow) As Control
-        Dim card As New Panel With {.Width = Math.Max(320, priceManagerProductList.ClientSize.Width - 24), .Height = 148, .BackColor = Color.White, .Margin = New Padding(12, 0, 12, 8), .BorderStyle = BorderStyle.FixedSingle}
+        Dim card As New Panel With {.Width = GetPriceManagerProductCardWidth(), .Height = 148, .BackColor = Color.White, .Margin = New Padding(0, 0, 0, 10), .BorderStyle = BorderStyle.None}
         Dim brand = Convert.ToString(product("Brand Name"))
         Dim generic = Convert.ToString(product("Generic Name"))
         Dim id = Convert.ToString(product("ID"))
@@ -2015,6 +2345,9 @@ Public Class Admin
         Dim qtyPerBox = If(product.IsNull("Qty/Box"), 0, Convert.ToInt32(product("Qty/Box")))
         Dim edit As New Button With {.Text = "Edit Prices", .Size = New Size(112, 32), .Location = New Point(card.Width - 128, 10), .Anchor = AnchorStyles.Top Or AnchorStyles.Right, .BackColor = activeGreen, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat, .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold), .Cursor = Cursors.Hand}
         edit.FlatAppearance.BorderSize = 0
+        edit.FlatAppearance.MouseOverBackColor = darkGreen
+        AddHandler edit.Resize, Sub(sender, e) ApplyRoundedRegion(edit, 6)
+        ApplyRoundedRegion(edit, 6)
         Dim title As New Label With {.Text = brand, .AutoSize = True, .Font = New Font("Segoe UI", 12.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(30, 55, 43), .Location = New Point(16, 12)}
         Dim description As New Label With {.Text = "P" & id & " · " & generic & " " & Convert.ToString(product("Dosage")), .AutoSize = True, .Font = New Font("Segoe UI", 9.0F), .ForeColor = Color.Gray, .Location = New Point(16, 40)}
         Dim priceArea As New TableLayoutPanel With {.Location = New Point(12, 72), .Size = New Size(card.Width - 24, 62), .Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right, .ColumnCount = 2, .RowCount = 1, .BackColor = Color.White}
@@ -2028,6 +2361,8 @@ Public Class Admin
         card.Controls.Add(description)
         card.Controls.Add(title)
         card.Controls.Add(edit)
+        AddHandler card.Resize, Sub(sender, e) ApplyRoundedRegion(card, 10)
+        ApplyRoundedRegion(card, 10)
         AddHandler edit.Click, Sub(sender, e) EditProductPrices(product)
         AddHandler card.Resize,
             Sub(sender, e)
@@ -2038,6 +2373,8 @@ Public Class Admin
 
     Private Function CreatePriceValuePanel(caption As String, amount As Object, unitText As String) As Panel
         Dim panel As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.FromArgb(245, 248, 246), .Margin = New Padding(0, 0, 8, 0)}
+        AddHandler panel.Resize, Sub(sender, e) ApplyRoundedRegion(panel, 6)
+        ApplyRoundedRegion(panel, 6)
         Dim price As Decimal = If(amount Is Nothing OrElse Convert.IsDBNull(amount), 0D, Convert.ToDecimal(amount))
         panel.Controls.Add(New Label With {.Text = unitText, .AutoSize = True, .ForeColor = Color.Gray, .Font = New Font("Segoe UI", 8.5F), .Location = New Point(8, 40)})
         panel.Controls.Add(New Label With {.Text = "₱" & price.ToString("N2", CultureInfo.CurrentCulture), .AutoSize = True, .ForeColor = Color.FromArgb(30, 55, 43), .Font = New Font("Segoe UI", 11.0F, FontStyle.Bold), .Location = New Point(8, 20)})
@@ -2247,37 +2584,45 @@ Public Class Admin
 
         Dim layout As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 1, .RowCount = 2, .BackColor = lightGray, .Margin = New Padding(0)}
         layout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
-        layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 106))
+        layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 190))
         layout.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
 
         Dim header As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = New Padding(0, 0, 0, 12)}
-        header.Controls.Add(New Label With {.Text = "Employee Sales Report", .AutoSize = True, .Font = New Font("Segoe UI", 14.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(35, 45, 40), .Location = New Point(18, 12)})
-        header.Controls.Add(New Label With {.Text = "Generated: " & DateTime.Now.ToString("MMMM dd, yyyy, h:mm tt", CultureInfo.CurrentCulture) & " | By: " & CurrentFullName, .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(20, 42)})
+        AddHandler header.Paint, Sub(sender, e)
+                                     Using brush As New LinearGradientBrush(header.ClientRectangle, Color.White, Color.FromArgb(214, 246, 230), 0.0F)
+                                         e.Graphics.FillRectangle(brush, header.ClientRectangle)
+                                     End Using
+                                 End Sub
+        header.Controls.Add(New Label With {.Text = "Employee Sales Report", .AutoSize = True, .Font = New Font("Segoe UI", 17.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(20, 30, 55), .Location = New Point(76, 18)})
+        header.Controls.Add(New Label With {.Text = "Generated: " & DateTime.Now.ToString("MMMM dd, yyyy, h:mm tt", CultureInfo.CurrentCulture) & "  |  By: " & CurrentFullName, .AutoSize = True, .Font = New Font("Segoe UI", 9.0F), .ForeColor = Color.FromArgb(90, 105, 125), .Location = New Point(78, 51)})
 
-        Dim backButton As New Button With {.Text = "Back to Reports", .Size = New Size(126, 32), .Anchor = AnchorStyles.Top Or AnchorStyles.Right, .BackColor = Color.White, .ForeColor = darkGreen, .FlatStyle = FlatStyle.Flat}
-        backButton.Location = New Point(header.ClientSize.Width - backButton.Width - 16, 12)
-        AddHandler header.Resize, Sub(sender, e) backButton.Left = header.ClientSize.Width - backButton.Width - 16
+        Dim backButton As New Button With {.Text = String.Empty, .Size = New Size(42, 40), .Anchor = AnchorStyles.Top Or AnchorStyles.Left, .BackColor = Color.White, .ForeColor = darkGreen, .FlatStyle = FlatStyle.Flat, .Cursor = Cursors.Hand}
+        backButton.Location = New Point(18, 18)
+        StyleReportBackButton(backButton)
         AddHandler backButton.Click, Sub(sender, e) InitializeReportsUi()
         header.Controls.Add(backButton)
 
-        Dim printReportButton As New Button With {.Text = "Print Report", .Size = New Size(112, 32), .Anchor = AnchorStyles.Top Or AnchorStyles.Right, .BackColor = darkGreen, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat}
+        Dim printReportButton As New Button With {.Text = "▣  Print Report", .Size = New Size(150, 40), .Anchor = AnchorStyles.Top Or AnchorStyles.Right, .BackColor = darkGreen, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat, .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold), .Cursor = Cursors.Hand}
         printReportButton.FlatAppearance.BorderSize = 0
-        printReportButton.Location = New Point(backButton.Left - printReportButton.Width - 10, 12)
-        AddHandler header.Resize, Sub(sender, e) printReportButton.Left = backButton.Left - printReportButton.Width - 10
+        StyleReportActionButton(printReportButton)
+        printReportButton.Location = New Point(header.ClientSize.Width - printReportButton.Width - 18, 18)
+        AddHandler header.Resize, Sub(sender, e) printReportButton.Left = header.ClientSize.Width - printReportButton.Width - 18
         AddHandler printReportButton.Click, AddressOf PrintEmployeeSalesReport
         header.Controls.Add(printReportButton)
 
         empSalesReportPeriodButtons.Clear()
-        AddSalesReportButtonGroup(header, {"Daily", "Monthly", "Yearly"}, empSalesReportPeriodButtons, 18, 66, AddressOf SelectEmpSalesReportPeriod)
+        AddSalesReportButtonGroup(header, {"Daily", "Monthly", "Yearly"}, empSalesReportPeriodButtons, 76, 88, AddressOf SelectEmpSalesReportPeriod, 100, 38)
         UpdateEmpSalesReportButtonStyles()
 
         Dim body As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 2, .RowCount = 1, .BackColor = lightGray, .Margin = New Padding(0)}
-        body.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 225))
+        body.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 270))
         body.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
 
         empSalesReportFilterPanel = New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(14), .Margin = New Padding(0, 0, 12, 0)}
+        AddHandler empSalesReportFilterPanel.Resize, Sub(sender, e) ApplyRoundedRegion(empSalesReportFilterPanel, 16)
 
-        Dim reportPanel As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(0), .Margin = New Padding(0)}
+        Dim reportPanel As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(8), .Margin = New Padding(0)}
+        AddHandler reportPanel.Resize, Sub(sender, e) ApplyRoundedRegion(reportPanel, 16)
         salesReportGrid = New DataGridView With {
             .Dock = DockStyle.Fill,
             .ReadOnly = True,
@@ -2288,21 +2633,29 @@ Public Class Admin
             .RowHeadersVisible = False,
             .BackgroundColor = Color.White,
             .BorderStyle = BorderStyle.None,
-            .GridColor = Color.FromArgb(230, 234, 231),
-            .EnableHeadersVisualStyles = False
+            .GridColor = Color.FromArgb(225, 235, 230),
+            .EnableHeadersVisualStyles = False,
+            .CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
+            .ColumnHeadersHeight = 42,
+            .ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing
         }
-        salesReportGrid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(245, 247, 246)
-        salesReportGrid.ColumnHeadersDefaultCellStyle.ForeColor = Color.Gray
-        salesReportGrid.ColumnHeadersDefaultCellStyle.Font = New Font("Segoe UI", 8.5F, FontStyle.Bold)
+        salesReportGrid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(225, 245, 235)
+        salesReportGrid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(25, 55, 45)
+        salesReportGrid.ColumnHeadersDefaultCellStyle.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
+        salesReportGrid.ColumnHeadersDefaultCellStyle.Padding = New Padding(8, 0, 0, 0)
         salesReportGrid.DefaultCellStyle.Font = New Font("Segoe UI", 9.0F)
+        salesReportGrid.DefaultCellStyle.Padding = New Padding(8, 0, 0, 0)
         salesReportGrid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(225, 245, 230)
         salesReportGrid.DefaultCellStyle.SelectionForeColor = Color.Black
-        salesReportGrid.RowTemplate.Height = 36
+        salesReportGrid.RowTemplate.Height = 40
 
-        empSalesReportTotalLabel = New Label With {.Text = "TOTAL SALES: ₱0.00", .Dock = DockStyle.Bottom, .Height = 44, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = darkGreen, .TextAlign = ContentAlignment.MiddleRight, .Padding = New Padding(0, 0, 18, 0)}
+        empSalesReportTotalLabel = New Label With {.Text = "TOTAL SALES: ₱0.00", .Dock = DockStyle.Bottom, .Height = 46, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = darkGreen, .BackColor = Color.FromArgb(225, 245, 235), .TextAlign = ContentAlignment.MiddleRight, .Padding = New Padding(0, 0, 18, 0)}
+        Dim detailsLabel As New Label With {.Text = "▤  Employee Sales Details", .Dock = DockStyle.Top, .Height = 42, .Font = New Font("Segoe UI", 11.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(25, 40, 55), .Padding = New Padding(12, 10, 0, 0)}
 
         reportPanel.Controls.Add(salesReportGrid)
         reportPanel.Controls.Add(empSalesReportTotalLabel)
+        reportPanel.Controls.Add(detailsLabel)
+        empSalesReportEmptyState = CreateReportEmptyState(salesReportGrid, "No employee sales found", "Try selecting a different date or period.")
 
         body.Controls.Add(empSalesReportFilterPanel, 0, 0)
         body.Controls.Add(reportPanel, 1, 0)
@@ -2311,6 +2664,9 @@ Public Class Admin
         reportsView.Controls.Add(layout)
 
         ConfigureEmpSalesReportFilters()
+        AddHandler header.Resize, Sub(sender, e) ApplyRoundedRegion(header, 16)
+        ApplyRoundedRegion(header, 16)
+        PositionReportEmptyState(salesReportGrid, empSalesReportEmptyState)
     End Sub
 
     Private Sub SelectEmpSalesReportPeriod(period As String)
@@ -2325,6 +2681,7 @@ Public Class Admin
             Dim isSelected = String.Equals(pair.Key, empSalesReportPeriod, StringComparison.OrdinalIgnoreCase)
             pair.Value.BackColor = If(isSelected, darkGreen, Color.White)
             pair.Value.ForeColor = If(isSelected, Color.White, darkGreen)
+            pair.Value.FlatAppearance.BorderColor = If(isSelected, darkGreen, Color.FromArgb(210, 220, 230))
         Next
     End Sub
 
@@ -2336,23 +2693,24 @@ Public Class Admin
         empSalesReportYearCombo = Nothing
         Dim period = empSalesReportPeriod
 
-        empSalesReportFilterPanel.Controls.Add(New Label With {.Text = "Filter by " & period.ToLowerInvariant(), .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(14, 14)})
+        empSalesReportFilterPanel.Controls.Add(New Label With {.Text = "▼  " & If(String.Equals(period, "Daily", StringComparison.Ordinal), "Filter by date", "Filter by " & period.ToLowerInvariant()), .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(14, 14)})
 
         If String.Equals(period, "Daily", StringComparison.Ordinal) Then
             Dim firstAvailableDate As New DateTime(2026, 9, 1)
             Dim lastAvailableDate As New DateTime(2026, 10, 31)
             If Date.Today < lastAvailableDate Then lastAvailableDate = Date.Today
 
-            empSalesReportFilterPanel.Controls.Add(New Label With {.Text = "Date", .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(14, 60)})
+            empSalesReportFilterPanel.Controls.Add(New Label With {.Text = "Date", .AutoSize = True, .Font = New Font("Segoe UI", 9.0F), .ForeColor = Color.FromArgb(75, 90, 115), .Location = New Point(14, 60)})
             empSalesReportDatePicker = New DateTimePicker With {
                 .Format = DateTimePickerFormat.Custom,
                 .CustomFormat = "MMMM dd, yyyy",
                 .MinDate = firstAvailableDate,
                 .MaxDate = lastAvailableDate,
                 .Value = lastAvailableDate,
-                .Location = New Point(14, 82),
-                .Width = 190,
-                .Font = New Font("Segoe UI", 9.0F)
+                .Location = New Point(14, 84),
+                .Width = Math.Max(190, empSalesReportFilterPanel.ClientSize.Width - 28),
+                .Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right,
+                .Font = New Font("Segoe UI", 10.0F)
             }
             empSalesReportFilterPanel.Controls.Add(empSalesReportDatePicker)
         ElseIf String.Equals(period, "Monthly", StringComparison.Ordinal) Then
@@ -2414,7 +2772,9 @@ Public Class Admin
 
             Dim repo As New SalesRepository()
             Dim rows = repo.GetEmployeeSalesReport(startDate, endDate)
+            ' CHANGE: Format the transaction table columns to match the reference layout.
             salesReportGrid.DataSource = rows
+            UpdateReportEmptyState(salesReportGrid, empSalesReportEmptyState)
             If salesReportGrid.Columns.Contains("Total Sales Revenue") Then
                 salesReportGrid.Columns("Total Sales Revenue").DefaultCellStyle.Format = "₱#,##0.00"
             End If
@@ -2499,38 +2859,46 @@ Public Class Admin
 
         Dim layout As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 1, .RowCount = 2, .BackColor = lightGray, .Margin = New Padding(0)}
         layout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
-        layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 106))
+        layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 190))
         layout.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
 
         Dim header As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = New Padding(0, 0, 0, 12)}
-        header.Controls.Add(New Label With {.Text = "Financial Expense Report", .AutoSize = True, .Font = New Font("Segoe UI", 14.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(35, 45, 40), .Location = New Point(18, 12)})
-        header.Controls.Add(New Label With {.Text = "Generated: " & DateTime.Now.ToString("MMMM dd, yyyy, h:mm tt", Globalization.CultureInfo.CurrentCulture) & " | By: " & CurrentFullName, .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(20, 42)})
+        AddHandler header.Paint, Sub(sender, e)
+                                     Using brush As New LinearGradientBrush(header.ClientRectangle, Color.White, Color.FromArgb(214, 246, 230), 0.0F)
+                                         e.Graphics.FillRectangle(brush, header.ClientRectangle)
+                                     End Using
+                                 End Sub
+        header.Controls.Add(New Label With {.Text = "Financial Expense Report", .AutoSize = True, .Font = New Font("Segoe UI", 17.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(20, 30, 55), .Location = New Point(76, 18)})
+        header.Controls.Add(New Label With {.Text = "Generated: " & DateTime.Now.ToString("MMMM dd, yyyy, h:mm tt", Globalization.CultureInfo.CurrentCulture) & "  |  By: " & CurrentFullName, .AutoSize = True, .Font = New Font("Segoe UI", 9.0F), .ForeColor = Color.FromArgb(90, 105, 125), .Location = New Point(78, 51)})
 
-        Dim backButton As New Button With {.Text = "Back to Reports", .Size = New Size(126, 32), .Anchor = AnchorStyles.Top Or AnchorStyles.Right, .BackColor = Color.White, .ForeColor = darkGreen, .FlatStyle = FlatStyle.Flat}
-        backButton.Location = New Point(header.ClientSize.Width - backButton.Width - 16, 12)
-        AddHandler header.Resize, Sub(sender, e) backButton.Left = header.ClientSize.Width - backButton.Width - 16
+        Dim backButton As New Button With {.Text = String.Empty, .Size = New Size(42, 40), .Anchor = AnchorStyles.Top Or AnchorStyles.Left, .BackColor = Color.White, .ForeColor = darkGreen, .FlatStyle = FlatStyle.Flat, .Cursor = Cursors.Hand}
+        backButton.Location = New Point(18, 18)
+        StyleReportBackButton(backButton)
         AddHandler backButton.Click, Sub(sender, e) InitializeReportsUi()
 
-        Dim addExpenseBtn As New Button With {.Text = "+ Add Expense", .Size = New Size(126, 32), .Anchor = AnchorStyles.Top Or AnchorStyles.Right, .BackColor = darkGreen, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat}
+        Dim addExpenseBtn As New Button With {.Text = "+  Add Expense", .Size = New Size(150, 40), .Anchor = AnchorStyles.Top Or AnchorStyles.Right, .BackColor = darkGreen, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat, .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold), .Cursor = Cursors.Hand}
         addExpenseBtn.FlatAppearance.BorderSize = 0
-        addExpenseBtn.Location = New Point(backButton.Left - addExpenseBtn.Width - 10, 12)
-        AddHandler header.Resize, Sub(sender, e) addExpenseBtn.Left = backButton.Left - addExpenseBtn.Width - 10
+        StyleReportActionButton(addExpenseBtn)
+        addExpenseBtn.Location = New Point(header.ClientSize.Width - addExpenseBtn.Width - 18, 18)
+        AddHandler header.Resize, Sub(sender, e) addExpenseBtn.Left = header.ClientSize.Width - addExpenseBtn.Width - 18
         AddHandler addExpenseBtn.Click, AddressOf ShowAddExpenseModal
 
         header.Controls.Add(backButton)
         header.Controls.Add(addExpenseBtn)
 
         expReportPeriodButtons.Clear()
-        AddSalesReportButtonGroup(header, {"Daily", "Monthly", "Yearly"}, expReportPeriodButtons, 18, 66, AddressOf SelectExpReportPeriod)
+        AddSalesReportButtonGroup(header, {"Daily", "Monthly", "Yearly"}, expReportPeriodButtons, 76, 88, AddressOf SelectExpReportPeriod, 100, 38)
         UpdateExpReportButtonStyles()
 
         Dim body As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 2, .RowCount = 1, .BackColor = lightGray, .Margin = New Padding(0)}
-        body.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 225))
+        body.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 270))
         body.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
 
         expReportFilterPanel = New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(14), .Margin = New Padding(0, 0, 12, 0)}
+        AddHandler expReportFilterPanel.Resize, Sub(sender, e) ApplyRoundedRegion(expReportFilterPanel, 16)
 
-        Dim reportPanel As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(0), .Margin = New Padding(0)}
+        Dim reportPanel As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(8), .Margin = New Padding(0)}
+        AddHandler reportPanel.Resize, Sub(sender, e) ApplyRoundedRegion(reportPanel, 16)
         dgvExpenses = New DataGridView With {
             .Dock = DockStyle.Fill,
             .ReadOnly = True,
@@ -2541,21 +2909,29 @@ Public Class Admin
             .RowHeadersVisible = False,
             .BackgroundColor = Color.White,
             .BorderStyle = BorderStyle.None,
-            .GridColor = Color.FromArgb(230, 234, 231),
-            .EnableHeadersVisualStyles = False
+            .GridColor = Color.FromArgb(225, 235, 230),
+            .EnableHeadersVisualStyles = False,
+            .CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
+            .ColumnHeadersHeight = 42,
+            .ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing
         }
-        dgvExpenses.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(245, 247, 246)
-        dgvExpenses.ColumnHeadersDefaultCellStyle.ForeColor = Color.Gray
-        dgvExpenses.ColumnHeadersDefaultCellStyle.Font = New Font("Segoe UI", 8.5F, FontStyle.Bold)
+        dgvExpenses.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(225, 245, 235)
+        dgvExpenses.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(25, 55, 45)
+        dgvExpenses.ColumnHeadersDefaultCellStyle.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
+        dgvExpenses.ColumnHeadersDefaultCellStyle.Padding = New Padding(8, 0, 0, 0)
         dgvExpenses.DefaultCellStyle.Font = New Font("Segoe UI", 9.0F)
+        dgvExpenses.DefaultCellStyle.Padding = New Padding(8, 0, 0, 0)
         dgvExpenses.DefaultCellStyle.SelectionBackColor = Color.FromArgb(225, 245, 230)
         dgvExpenses.DefaultCellStyle.SelectionForeColor = Color.Black
-        dgvExpenses.RowTemplate.Height = 36
+        dgvExpenses.RowTemplate.Height = 40
 
-        expReportTotalLabel = New Label With {.Text = "TOTAL EXPENSES: ₱0.00", .Dock = DockStyle.Bottom, .Height = 44, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = Color.DarkRed, .TextAlign = ContentAlignment.MiddleRight, .Padding = New Padding(0, 0, 18, 0)}
+        expReportTotalLabel = New Label With {.Text = "TOTAL EXPENSES: ₱0.00", .Dock = DockStyle.Bottom, .Height = 46, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = darkGreen, .BackColor = Color.FromArgb(225, 245, 235), .TextAlign = ContentAlignment.MiddleRight, .Padding = New Padding(0, 0, 18, 0)}
+        Dim detailsLabel As New Label With {.Text = "▤  Expense Details", .Dock = DockStyle.Top, .Height = 42, .Font = New Font("Segoe UI", 11.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(25, 40, 55), .Padding = New Padding(12, 10, 0, 0)}
 
         reportPanel.Controls.Add(dgvExpenses)
         reportPanel.Controls.Add(expReportTotalLabel)
+        reportPanel.Controls.Add(detailsLabel)
+        expReportEmptyState = CreateReportEmptyState(dgvExpenses, "No expenses found", "Try selecting a different date or period.")
 
         body.Controls.Add(expReportFilterPanel, 0, 0)
         body.Controls.Add(reportPanel, 1, 0)
@@ -2564,6 +2940,9 @@ Public Class Admin
         reportsView.Controls.Add(layout)
 
         ConfigureExpReportFilters()
+        AddHandler header.Resize, Sub(sender, e) ApplyRoundedRegion(header, 16)
+        ApplyRoundedRegion(header, 16)
+        PositionReportEmptyState(dgvExpenses, expReportEmptyState)
     End Sub
 
     ' --- Expense Report Filter Logic ---
@@ -2579,6 +2958,7 @@ Public Class Admin
             Dim isSelected = String.Equals(pair.Key, expReportPeriod, StringComparison.OrdinalIgnoreCase)
             pair.Value.BackColor = If(isSelected, darkGreen, Color.White)
             pair.Value.ForeColor = If(isSelected, Color.White, darkGreen)
+            pair.Value.FlatAppearance.BorderColor = If(isSelected, darkGreen, Color.FromArgb(210, 220, 230))
         Next
     End Sub
 
@@ -2590,15 +2970,15 @@ Public Class Admin
         expReportYearCombo = Nothing
         Dim period = expReportPeriod
 
-        expReportFilterPanel.Controls.Add(New Label With {.Text = "Filter by " & period.ToLowerInvariant(), .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(14, 14)})
+        expReportFilterPanel.Controls.Add(New Label With {.Text = "▼  " & If(String.Equals(period, "Daily", StringComparison.Ordinal), "Filter by date", "Filter by " & period.ToLowerInvariant()), .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(14, 14)})
 
         If String.Equals(period, "Daily", StringComparison.Ordinal) Then
             Dim firstAvailableDate As New DateTime(2026, 9, 1)
             Dim lastAvailableDate As New DateTime(2026, 10, 31)
             If Date.Today < lastAvailableDate Then lastAvailableDate = Date.Today
 
-            expReportFilterPanel.Controls.Add(New Label With {.Text = "Date", .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(14, 60)})
-            expReportDatePicker = New DateTimePicker With {.Format = DateTimePickerFormat.Custom, .CustomFormat = "MMMM dd, yyyy", .Value = lastAvailableDate, .Location = New Point(14, 82), .Width = 190, .Font = New Font("Segoe UI", 9.0F)}
+            expReportFilterPanel.Controls.Add(New Label With {.Text = "Date", .AutoSize = True, .Font = New Font("Segoe UI", 9.0F), .ForeColor = Color.FromArgb(75, 90, 115), .Location = New Point(14, 60)})
+            expReportDatePicker = New DateTimePicker With {.Format = DateTimePickerFormat.Custom, .CustomFormat = "MMMM dd, yyyy", .Value = lastAvailableDate, .Location = New Point(14, 84), .Width = Math.Max(190, expReportFilterPanel.ClientSize.Width - 28), .Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right, .Font = New Font("Segoe UI", 10.0F)}
             expReportFilterPanel.Controls.Add(expReportDatePicker)
             AddHandler expReportDatePicker.ValueChanged, Sub(sender, e) LoadExpenseReportRows()
         ElseIf String.Equals(period, "Monthly", StringComparison.Ordinal) Then
@@ -2641,6 +3021,7 @@ Public Class Admin
             Next
 
             dgvExpenses.DataSource = filteredRows
+            UpdateReportEmptyState(dgvExpenses, expReportEmptyState)
             If dgvExpenses.Columns.Contains("Amount") Then dgvExpenses.Columns("Amount").DefaultCellStyle.Format = "₱#,##0.00"
             If dgvExpenses.Columns.Contains("Date") Then dgvExpenses.Columns("Date").DefaultCellStyle.Format = "MM/dd/yyyy"
 
@@ -2697,3 +3078,9 @@ Public Class Admin
     End Sub
 
 End Class
+
+
+
+
+
+
