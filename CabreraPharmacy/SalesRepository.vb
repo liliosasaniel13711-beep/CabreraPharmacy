@@ -1,5 +1,6 @@
 Imports MySql.Data.MySqlClient
 Imports System.Data
+Imports System.Windows.Forms
 
 Public Class SaleLineRecord
     Public Property ProductId As Integer
@@ -371,9 +372,199 @@ Public Class SalesRepository
         command.Parameters.AddWithValue(parameterName, If(value Is Nothing, DBNull.Value, value))
     End Sub
 
-    ' --- NEW: Fetches total sales grouped by cashier/employee ---
-    Public Function GetEmployeeSalesReport(Optional fromDate As DateTime? = Nothing,
-                                           Optional throughDateExclusive As DateTime? = Nothing) As DataTable
+    ' =========================================================
+    ' UNIFIED REPORTS, EXPENSES & SYNC BACKEND
+    ' =========================================================
+
+    Public Function GetInventoryStockReport() As DataTable
+        Dim dt As New DataTable()
+        Try
+            Using conn = GetConnection()
+                conn.Open()
+                Dim nearDays = ExpiryMonitorSettings.LoadNearExpiryDays()
+                Const query = "SELECT " &
+                              "p.brand_name AS 'Brand Name', " &
+                              "p.generic_name AS 'Generic Name', " &
+                              "c.category_name AS 'Category', " &
+                              "p.unit_of_measure AS 'Unit', " &
+                              "p.stock_quantity AS 'Stock Qty', " &
+                              "p.reorder_point AS 'Reorder Point', " &
+                              "COALESCE(MIN(CASE WHEN b.quantity_remaining > 0 THEN b.batch_no END), p.CPR_number) AS 'Batch / CPR', " &
+                              "MIN(CASE WHEN b.quantity_remaining > 0 THEN b.expiry_date END) AS 'Earliest Expiry', " &
+                              "s.company_name AS 'Supplier', " &
+                              "CASE " &
+                              "  WHEN EXISTS (SELECT 1 FROM inventory_batch eb WHERE eb.product_ID = p.product_ID AND eb.quantity_remaining > 0 AND eb.expiry_date <= CURDATE()) THEN 'Expired' " &
+                              "  WHEN EXISTS (SELECT 1 FROM inventory_batch nb WHERE nb.product_ID = p.product_ID AND nb.quantity_remaining > 0 AND nb.expiry_date > CURDATE() AND nb.expiry_date <= DATE_ADD(CURDATE(), INTERVAL @nearDays DAY)) THEN 'Near Expiry' " &
+                              "  WHEN p.stock_quantity <= p.reorder_point THEN 'Low Stock' " &
+                              "  ELSE 'In Stock' " &
+                              "END AS 'Status' " &
+                              "FROM product p " &
+                              "INNER JOIN product_category c ON p.category_ID = c.category_ID " &
+                              "INNER JOIN supplier s ON p.supplier_ID = s.supplier_ID " &
+                              "LEFT JOIN inventory_batch b ON p.product_ID = b.product_ID " &
+                              "WHERE p.is_active = 1 " &
+                              "GROUP BY p.product_ID, p.brand_name, p.generic_name, c.category_name, p.unit_of_measure, p.stock_quantity, p.reorder_point, p.CPR_number, s.company_name " &
+                              "ORDER BY p.brand_name ASC"
+                Using cmd As New MySqlCommand(query, conn)
+                    cmd.Parameters.AddWithValue("@nearDays", nearDays)
+                    Using da As New MySqlDataAdapter(cmd)
+                        da.Fill(dt)
+                    End Using
+                End Using
+            End Using
+        Catch ex As Exception
+            MessageBox.Show("Failed to load inventory stock report: " & ex.Message, "Report Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+        Return dt
+    End Function
+
+    Public Function GetNearExpiryReport(Optional thresholdDays As Integer = 90) As DataTable
+        Dim dt As New DataTable()
+        Try
+            Using conn = GetConnection()
+                conn.Open()
+                Const query = "SELECT " &
+                              "b.batch_no AS 'Batch No', " &
+                              "p.brand_name AS 'Brand Name', " &
+                              "p.generic_name AS 'Generic Name', " &
+                              "c.category_name AS 'Category', " &
+                              "b.quantity_remaining AS 'Remaining Qty', " &
+                              "b.expiry_date AS 'Expiry Date', " &
+                              "DATEDIFF(b.expiry_date, CURDATE()) AS 'Days Left', " &
+                              "COALESCE(s.company_name, 'N/A') AS 'Supplier', " &
+                              "'Near Expiry' AS 'Status' " &
+                              "FROM inventory_batch b " &
+                              "INNER JOIN product p ON b.product_ID = p.product_ID " &
+                              "INNER JOIN product_category c ON p.category_ID = c.category_ID " &
+                              "LEFT JOIN supplier s ON COALESCE(b.supplier_ID, p.supplier_ID) = s.supplier_ID " &
+                              "WHERE b.quantity_remaining > 0 " &
+                              "AND b.expiry_date > CURDATE() " &
+                              "AND b.expiry_date <= DATE_ADD(CURDATE(), INTERVAL @days DAY) " &
+                              "ORDER BY b.expiry_date ASC, p.brand_name ASC"
+                Using cmd As New MySqlCommand(query, conn)
+                    cmd.Parameters.AddWithValue("@days", thresholdDays)
+                    Using da As New MySqlDataAdapter(cmd)
+                        da.Fill(dt)
+                    End Using
+                End Using
+            End Using
+        Catch ex As Exception
+            MessageBox.Show("Failed to load near-expiry report: " & ex.Message, "Report Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+        Return dt
+    End Function
+
+    Public Function GetExpiredStockReport() As DataTable
+        Dim dt As New DataTable()
+        Try
+            Using conn = GetConnection()
+                conn.Open()
+                Const query = "SELECT " &
+                              "b.batch_no AS 'Batch No', " &
+                              "p.brand_name AS 'Brand Name', " &
+                              "p.generic_name AS 'Generic Name', " &
+                              "c.category_name AS 'Category', " &
+                              "b.quantity_remaining AS 'Expired Qty', " &
+                              "b.expiry_date AS 'Expiry Date', " &
+                              "DATEDIFF(CURDATE(), b.expiry_date) AS 'Days Expired', " &
+                              "COALESCE(s.company_name, 'N/A') AS 'Supplier', " &
+                              "'Expired' AS 'Status' " &
+                              "FROM inventory_batch b " &
+                              "INNER JOIN product p ON b.product_ID = p.product_ID " &
+                              "INNER JOIN product_category c ON p.category_ID = c.category_ID " &
+                              "LEFT JOIN supplier s ON COALESCE(b.supplier_ID, p.supplier_ID) = s.supplier_ID " &
+                              "WHERE b.quantity_remaining > 0 " &
+                              "AND b.expiry_date <= CURDATE() " &
+                              "ORDER BY b.expiry_date ASC, p.brand_name ASC"
+                Using cmd As New MySqlCommand(query, conn)
+                    Using da As New MySqlDataAdapter(cmd)
+                        da.Fill(dt)
+                    End Using
+                End Using
+            End Using
+        Catch ex As Exception
+            MessageBox.Show("Failed to load expired stock report: " & ex.Message, "Report Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+        Return dt
+    End Function
+
+    Public Function GetFinancialReport(Optional fromDate As DateTime? = Nothing, Optional throughDateExclusive As DateTime? = Nothing) As DataTable
+        Dim dt As New DataTable()
+        dt.Columns.Add("Date", GetType(DateTime))
+        dt.Columns.Add("Transactions", GetType(Integer))
+        dt.Columns.Add("Retail Revenue", GetType(Decimal))
+        dt.Columns.Add("Wholesale Revenue", GetType(Decimal))
+        dt.Columns.Add("Discounts", GetType(Decimal))
+        dt.Columns.Add("Gross Revenue", GetType(Decimal))
+        dt.Columns.Add("Expenses", GetType(Decimal))
+        dt.Columns.Add("Net Profit", GetType(Decimal))
+
+        Try
+            Dim byDate As New SortedDictionary(Of DateTime, Decimal())()
+            Using conn = GetConnection()
+                conn.Open()
+
+                Const salesSql = "SELECT DATE(created_at) AS SaleDay, " &
+                                 "COUNT(sale_id) AS TxCount, " &
+                                 "COALESCE(SUM(CASE WHEN sale_mode = 'Retail' THEN total_amount ELSE 0 END), 0) AS RetailTotal, " &
+                                 "COALESCE(SUM(CASE WHEN sale_mode = 'Wholesale' THEN total_amount ELSE 0 END), 0) AS WholesaleTotal, " &
+                                 "COALESCE(SUM(discount_amount), 0) AS DiscountTotal, " &
+                                 "COALESCE(SUM(total_amount), 0) AS GrossTotal " &
+                                 "FROM pharmacy_sales " &
+                                 "WHERE (@fromDate IS NULL OR created_at >= @fromDate) " &
+                                 "AND (@throughDateExclusive IS NULL OR created_at < @throughDateExclusive) " &
+                                 "GROUP BY DATE(created_at)"
+                Using cmd As New MySqlCommand(salesSql, conn)
+                    cmd.Parameters.AddWithValue("@fromDate", If(fromDate.HasValue, CType(fromDate.Value, Object), DBNull.Value))
+                    cmd.Parameters.AddWithValue("@throughDateExclusive", If(throughDateExclusive.HasValue, CType(throughDateExclusive.Value, Object), DBNull.Value))
+                    Using r = cmd.ExecuteReader()
+                        While r.Read()
+                            Dim d = Convert.ToDateTime(r("SaleDay")).Date
+                            byDate(d) = {
+                                Convert.ToDecimal(r("TxCount")),
+                                Convert.ToDecimal(r("RetailTotal")),
+                                Convert.ToDecimal(r("WholesaleTotal")),
+                                Convert.ToDecimal(r("DiscountTotal")),
+                                Convert.ToDecimal(r("GrossTotal")),
+                                0D
+                            }
+                        End While
+                    End Using
+                End Using
+
+                Const expSql = "SELECT expense_date AS ExpDay, COALESCE(SUM(amount), 0) AS ExpTotal " &
+                               "FROM pharmacy_expenses " &
+                               "WHERE (@fromDate IS NULL OR expense_date >= DATE(@fromDate)) " &
+                               "AND (@throughDateExclusive IS NULL OR expense_date < DATE(@throughDateExclusive)) " &
+                               "GROUP BY expense_date"
+                Using cmd As New MySqlCommand(expSql, conn)
+                    cmd.Parameters.AddWithValue("@fromDate", If(fromDate.HasValue, CType(fromDate.Value, Object), DBNull.Value))
+                    cmd.Parameters.AddWithValue("@throughDateExclusive", If(throughDateExclusive.HasValue, CType(throughDateExclusive.Value, Object), DBNull.Value))
+                    Using r = cmd.ExecuteReader()
+                        While r.Read()
+                            Dim d = Convert.ToDateTime(r("ExpDay")).Date
+                            If Not byDate.ContainsKey(d) Then
+                                byDate(d) = {0D, 0D, 0D, 0D, 0D, 0D}
+                            End If
+                            byDate(d)(5) = Convert.ToDecimal(r("ExpTotal"))
+                        End While
+                    End Using
+                End Using
+            End Using
+
+            For Each kvp In byDate.Reverse()
+                Dim vals = kvp.Value
+                Dim gross = vals(4)
+                Dim exp = vals(5)
+                dt.Rows.Add(kvp.Key, CInt(vals(0)), vals(1), vals(2), vals(3), gross, exp, gross - exp)
+            Next
+        Catch ex As Exception
+            MessageBox.Show("Failed to load financial report: " & ex.Message, "Report Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+        Return dt
+    End Function
+
+    Public Function GetEmployeeSalesReport(Optional fromDate As DateTime? = Nothing, Optional throughDateExclusive As DateTime? = Nothing) As DataTable
         Dim dt As New DataTable()
         Try
             Using conn = GetConnection()
@@ -388,11 +579,11 @@ Public Class SalesRepository
                               "WHERE (@fromDate IS NULL OR ps.created_at >= @fromDate) " &
                               "AND (@throughDateExclusive IS NULL OR ps.created_at < @throughDateExclusive) " &
                               "GROUP BY u.user_id, u.full_name, u.role " &
-                              "ORDER BY 'Total Sales Revenue' DESC"
+                              "ORDER BY SUM(ps.total_amount) DESC"
 
                 Using cmd As New MySqlCommand(query, conn)
-                    AddNullable(cmd, "@fromDate", If(fromDate.HasValue, CType(fromDate.Value, Object), Nothing))
-                    AddNullable(cmd, "@throughDateExclusive", If(throughDateExclusive.HasValue, CType(throughDateExclusive.Value, Object), Nothing))
+                    cmd.Parameters.AddWithValue("@fromDate", If(fromDate.HasValue, CType(fromDate.Value, Object), DBNull.Value))
+                    cmd.Parameters.AddWithValue("@throughDateExclusive", If(throughDateExclusive.HasValue, CType(throughDateExclusive.Value, Object), DBNull.Value))
                     Using da As New MySqlDataAdapter(cmd)
                         da.Fill(dt)
                     End Using
@@ -404,46 +595,43 @@ Public Class SalesRepository
         Return dt
     End Function
 
-    ' --- NEW: Fetches financial expenses ---
-    Public Function GetExpenseReport() As DataTable
+    Public Function GetExpenseReport(Optional fromDate As DateTime? = Nothing, Optional throughDateExclusive As DateTime? = Nothing) As DataTable
         Dim dt As New DataTable()
         Try
             Using conn = GetConnection()
                 conn.Open()
-                Const query = "SELECT " &
-                              "e.expense_date AS 'Date', " &
-                              "e.expense_category AS 'Category', " &
-                              "e.description AS 'Description', " &
-                              "e.amount AS 'Amount', " &
-                              "u.full_name AS 'Recorded By' " &
+                Const query = "SELECT e.expense_date AS 'Date', e.expense_category AS 'Category', e.description AS 'Description', e.amount AS 'Amount', u.full_name AS 'Recorded By' " &
                               "FROM pharmacy_expenses e " &
                               "INNER JOIN users u ON e.recorded_by = u.user_id " &
-                              "ORDER BY e.expense_date DESC"
-
+                              "WHERE (@fromDate IS NULL OR e.expense_date >= DATE(@fromDate)) " &
+                              "AND (@throughDateExclusive IS NULL OR e.expense_date < DATE(@throughDateExclusive)) " &
+                              "ORDER BY e.expense_date DESC, e.expense_id DESC"
                 Using cmd As New MySqlCommand(query, conn)
+                    cmd.Parameters.AddWithValue("@fromDate", If(fromDate.HasValue, CType(fromDate.Value, Object), DBNull.Value))
+                    cmd.Parameters.AddWithValue("@throughDateExclusive", If(throughDateExclusive.HasValue, CType(throughDateExclusive.Value, Object), DBNull.Value))
                     Using da As New MySqlDataAdapter(cmd)
                         da.Fill(dt)
                     End Using
                 End Using
             End Using
         Catch ex As Exception
-            MessageBox.Show("Failed to load expenses: " & ex.Message, "Report Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            ' Handled in UI
         End Try
         Return dt
     End Function
 
-    ' --- NEW: Saves a new expense to the database ---
-    Public Sub AddExpense(category As String, description As String, amount As Decimal)
+    Public Sub AddExpense(category As String, description As String, amount As Decimal, Optional expenseDate As DateTime? = Nothing)
         Try
             Using conn = GetConnection()
                 conn.Open()
                 Const query = "INSERT INTO pharmacy_expenses (expense_category, description, amount, expense_date, recorded_by) " &
-                              "VALUES (@category, @desc, @amount, CURDATE(), @userId)"
+                              "VALUES (@category, @desc, @amount, @expDate, @userId)"
                 Using cmd As New MySqlCommand(query, conn)
                     cmd.Parameters.AddWithValue("@category", category)
                     cmd.Parameters.AddWithValue("@desc", If(String.IsNullOrWhiteSpace(description), DBNull.Value, description))
                     cmd.Parameters.AddWithValue("@amount", amount)
-                    cmd.Parameters.AddWithValue("@userId", CurrentUserID)
+                    cmd.Parameters.AddWithValue("@expDate", If(expenseDate.HasValue, expenseDate.Value.Date, Date.Today))
+                    cmd.Parameters.AddWithValue("@userId", If(CurrentUserID > 0, CurrentUserID, 3))
                     cmd.ExecuteNonQuery()
                 End Using
             End Using
@@ -452,7 +640,6 @@ Public Class SalesRepository
         End Try
     End Sub
 
-    ' --- NEW: Fetches today's total expenses for the dashboard ---
     Public Function GetTodayTotalExpenses() As Decimal
         Try
             Using conn = GetConnection()
@@ -467,5 +654,23 @@ Public Class SalesRepository
         End Try
     End Function
 
+    Public Function GetSyncSignature() As String
+        Try
+            Using conn = GetConnection()
+                conn.Open()
+                Const sql = "SELECT CONCAT_WS('|', " &
+                            "(SELECT COALESCE(MAX(sale_id), 0) FROM pharmacy_sales), " &
+                            "(SELECT COALESCE(SUM(quantity_remaining), 0) FROM inventory_batch), " &
+                            "(SELECT COALESCE(MAX(batch_id), 0) FROM inventory_batch), " &
+                            "(SELECT COALESCE(MAX(expense_id), 0) FROM pharmacy_expenses), " &
+                            "(SELECT COUNT(*) FROM users WHERE is_active = 1))"
+                Using cmd As New MySqlCommand(sql, conn)
+                    Return Convert.ToString(cmd.ExecuteScalar())
+                End Using
+            End Using
+        Catch
+            Return String.Empty
+        End Try
+    End Function
 
 End Class

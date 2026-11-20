@@ -3,12 +3,34 @@ Imports System.Data
 
 Public Class ProductManager
 
-    Public Sub AddProduct(categoryId As Integer, supplierId As Integer, brandName As String, genericName As String, cprNumber As String, qtyPerBox As Integer, reorderPoint As Integer, retailPrice As Decimal, wholesalePrice As Decimal, dosageStrength As String, unitOfMeasure As String, manufacturerName As String)
+    Private Shared itemPlacementColumnEnsured As Boolean = False
+
+    Private Shared Sub EnsureItemPlacementColumn(conn As MySqlConnection)
+        If itemPlacementColumnEnsured Then Return
+        Try
+            Using cmd As New MySqlCommand("ALTER TABLE product ADD COLUMN IF NOT EXISTS item_placement VARCHAR(100) DEFAULT 'Unassigned' AFTER CPR_number;", conn)
+                cmd.ExecuteNonQuery()
+            End Using
+            itemPlacementColumnEnsured = True
+        Catch
+            Try
+                Using cmd As New MySqlCommand("ALTER TABLE product ADD COLUMN item_placement VARCHAR(100) DEFAULT 'Unassigned' AFTER CPR_number;", conn)
+                    cmd.ExecuteNonQuery()
+                End Using
+            Catch
+                ' Column already exists
+            End Try
+            itemPlacementColumnEnsured = True
+        End Try
+    End Sub
+
+    Public Sub AddProduct(categoryId As Integer, supplierId As Integer, brandName As String, genericName As String, cprNumber As String, qtyPerBox As Integer, reorderPoint As Integer, retailPrice As Decimal, wholesalePrice As Decimal, dosageStrength As String, unitOfMeasure As String, manufacturerName As String, Optional itemPlacement As String = "Unassigned")
         Try
             Using conn = GetConnection()
                 conn.Open()
-                Dim query As String = "INSERT INTO product (category_ID, supplier_ID, brand_name, generic_name, CPR_number, quantity_per_box, reorder_point, retail_price, wholesale_price_per_box, dosage_strength, unit_of_measure, manufacturer_name) " &
-                                      "VALUES (@cat, @sup, @brand, @gen, @cpr, @qty, @reorder, @ret, @whole, @dos, @unit, @mfg)"
+                EnsureItemPlacementColumn(conn)
+                Dim query As String = "INSERT INTO product (category_ID, supplier_ID, brand_name, generic_name, CPR_number, item_placement, quantity_per_box, reorder_point, retail_price, wholesale_price_per_box, dosage_strength, unit_of_measure, manufacturer_name) " &
+                                      "VALUES (@cat, @sup, @brand, @gen, @cpr, @placement, @qty, @reorder, @ret, @whole, @dos, @unit, @mfg)"
 
                 Using cmd As New MySqlCommand(query, conn)
                     cmd.Parameters.AddWithValue("@cat", categoryId)
@@ -16,6 +38,7 @@ Public Class ProductManager
                     cmd.Parameters.AddWithValue("@brand", brandName)
                     cmd.Parameters.AddWithValue("@gen", genericName)
                     cmd.Parameters.AddWithValue("@cpr", cprNumber)
+                    cmd.Parameters.AddWithValue("@placement", If(String.IsNullOrWhiteSpace(itemPlacement), "Unassigned", itemPlacement.Trim()))
                     cmd.Parameters.AddWithValue("@qty", qtyPerBox)
                     cmd.Parameters.AddWithValue("@reorder", reorderPoint)
                     cmd.Parameters.AddWithValue("@ret", retailPrice)
@@ -37,7 +60,9 @@ Public Class ProductManager
         Try
             Using conn = GetConnection()
                 conn.Open()
+                EnsureItemPlacementColumn(conn)
                 Dim query As String = "SELECT p.product_ID AS 'ID', " &
+                                  "COALESCE(NULLIF(p.item_placement, ''), 'Unassigned') AS 'Item Placement', " &
                                   "c.category_name AS 'Category', " &
                                   "parent.category_name AS 'Parent Category', " &
                                   "s.company_name AS 'Supplier', " &
@@ -63,7 +88,7 @@ Public Class ProductManager
 
                 Dim conditions As New List(Of String)
                 If Not includeInactive Then conditions.Add("p.is_active = 1")
-                If Not String.IsNullOrEmpty(searchKeyword) Then conditions.Add("(p.brand_name LIKE @search OR p.generic_name LIKE @search OR p.CPR_number LIKE @search)")
+                If Not String.IsNullOrEmpty(searchKeyword) Then conditions.Add("(p.brand_name LIKE @search OR p.generic_name LIKE @search OR p.CPR_number LIKE @search OR p.item_placement LIKE @search)")
                 If conditions.Count > 0 Then query &= " WHERE " & String.Join(" AND ", conditions)
 
                 Using cmd As New MySqlCommand(query, conn)
@@ -124,6 +149,108 @@ Public Class ProductManager
         End Using
         Return summary
     End Function
+
+    Public Function GetActiveSuppliers() As DataTable
+        Dim dt As New DataTable()
+        Using conn = GetConnection()
+            conn.Open()
+            Const query = "SELECT supplier_ID, company_name FROM supplier WHERE is_active = 1 ORDER BY company_name"
+            Using cmd As New MySqlCommand(query, conn)
+                Using da As New MySqlDataAdapter(cmd)
+                    da.Fill(dt)
+                End Using
+            End Using
+        End Using
+        Return dt
+    End Function
+
+    Public Function GetActiveCategories() As DataTable
+        Dim dt As New DataTable()
+        Using conn = GetConnection()
+            conn.Open()
+            Const query = "SELECT c.category_ID, CONCAT(COALESCE(CONCAT(p.category_name, ' - '), ''), c.category_name) AS display_name " &
+                          "FROM product_category c " &
+                          "LEFT JOIN product_category p ON c.parent_category_id = p.category_ID " &
+                          "WHERE c.is_active = 1 AND c.parent_category_id IS NOT NULL " &
+                          "ORDER BY display_name"
+            Using cmd As New MySqlCommand(query, conn)
+                Using da As New MySqlDataAdapter(cmd)
+                    da.Fill(dt)
+                End Using
+            End Using
+        End Using
+        Return dt
+    End Function
+
+    Public Sub UpdateItemPlacement(productId As Integer, itemPlacement As String)
+        If productId <= 0 Then Throw New ArgumentOutOfRangeException(NameOf(productId))
+        Using conn = GetConnection()
+            conn.Open()
+            EnsureItemPlacementColumn(conn)
+            Const query = "UPDATE product SET item_placement = @placement WHERE product_ID = @id"
+            Using cmd As New MySqlCommand(query, conn)
+                cmd.Parameters.AddWithValue("@placement", If(String.IsNullOrWhiteSpace(itemPlacement), "Unassigned", itemPlacement.Trim()))
+                cmd.Parameters.AddWithValue("@id", productId)
+                cmd.ExecuteNonQuery()
+            End Using
+        End Using
+    End Sub
+
+    Public Sub RestockProductBatch(productId As Integer,
+                                   batchNo As String,
+                                   expiryDate As Date,
+                                   quantityAdded As Integer,
+                                   supplierId As Integer?,
+                                   Optional itemPlacement As String = Nothing)
+        If productId <= 0 Then Throw New ArgumentOutOfRangeException(NameOf(productId))
+        If String.IsNullOrWhiteSpace(batchNo) Then Throw New ArgumentException("Batch number is required.", NameOf(batchNo))
+        If quantityAdded < 1 Then Throw New ArgumentOutOfRangeException(NameOf(quantityAdded), "Restock quantity must be at least 1.")
+        If expiryDate.Date <= Date.Today Then Throw New ArgumentException("Expiry date must be in the future.", NameOf(expiryDate))
+
+        Using conn = GetConnection()
+            conn.Open()
+            EnsureItemPlacementColumn(conn)
+            Using tx = conn.BeginTransaction()
+                Try
+                    Const insertBatch = "INSERT INTO inventory_batch (product_ID, batch_no, expiry_date, quantity_received, quantity_remaining, date_received, supplier_ID) " &
+                                        "VALUES (@productId, @batchNo, @expiryDate, @qty, @qty, CURDATE(), @supplierId)"
+                    Using cmd As New MySqlCommand(insertBatch, conn, tx)
+                        cmd.Parameters.AddWithValue("@productId", productId)
+                        cmd.Parameters.AddWithValue("@batchNo", batchNo.Trim().ToUpperInvariant())
+                        cmd.Parameters.AddWithValue("@expiryDate", expiryDate.Date)
+                        cmd.Parameters.AddWithValue("@qty", quantityAdded)
+                        cmd.Parameters.AddWithValue("@supplierId", If(supplierId.HasValue AndAlso supplierId.Value > 0, CType(supplierId.Value, Object), DBNull.Value))
+                        cmd.ExecuteNonQuery()
+                    End Using
+
+                    Const syncStock = "UPDATE product SET stock_quantity = " &
+                                      "(SELECT COALESCE(SUM(quantity_remaining), 0) FROM inventory_batch WHERE product_ID = @productId) " &
+                                      "WHERE product_ID = @productId"
+                    Using cmd As New MySqlCommand(syncStock, conn, tx)
+                        cmd.Parameters.AddWithValue("@productId", productId)
+                        cmd.ExecuteNonQuery()
+                    End Using
+
+                    If itemPlacement IsNot Nothing Then
+                        Const updatePlacement = "UPDATE product SET item_placement = @placement WHERE product_ID = @productId"
+                        Using cmd As New MySqlCommand(updatePlacement, conn, tx)
+                            cmd.Parameters.AddWithValue("@placement", If(String.IsNullOrWhiteSpace(itemPlacement), "Unassigned", itemPlacement.Trim()))
+                            cmd.Parameters.AddWithValue("@productId", productId)
+                            cmd.ExecuteNonQuery()
+                        End Using
+                    End If
+
+                    tx.Commit()
+                Catch
+                    Try
+                        tx.Rollback()
+                    Catch
+                    End Try
+                    Throw
+                End Try
+            End Using
+        End Using
+    End Sub
 
     Public Sub UpdatePrices(productId As Integer, newRetailPrice As Decimal, newWholesalePrice As Decimal)
         Try

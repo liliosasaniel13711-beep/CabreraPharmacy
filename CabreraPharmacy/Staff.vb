@@ -83,6 +83,24 @@ Public Class Staff
     Private currentWholesalePurchaseOrderDate As Date = Date.Today
     Private updatingWholesalePaymentUi As Boolean
 
+    ' Restock View Controls
+    Private restockGrid As DataGridView
+    Private restockBatchesGrid As DataGridView
+    Private restockSearchBox As TextBox
+    Private restockAllFilterBtn As Button
+    Private restockLowFilterBtn As Button
+    Private restockFilterLowStockOnly As Boolean = False
+    Private restockSelectedProductId As Integer = 0
+    Private restockSelectedTitleLabel As Label
+    Private restockSelectedStockLabel As Label
+    Private restockPlacementTextBox As TextBox
+    Private restockSavePlacementButton As Button
+    Private restockBatchNoTextBox As TextBox
+    Private restockQuantityNumeric As NumericUpDown
+    Private restockExpiryDatePicker As DateTimePicker
+    Private restockSupplierCombo As ComboBox
+    Private restockSubmitButton As Button
+
     Private Sub Staff_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         Me.WindowState = FormWindowState.Maximized
         Me.FormBorderStyle = FormBorderStyle.None
@@ -90,10 +108,9 @@ Public Class Staff
         CombineTransactionFilterPanels()
         welcomestaff_label.Text = CurrentFullName
         userRoleLabel.Text = If(String.IsNullOrWhiteSpace(CurrentRole), "Staff", CurrentRole)
-        ProfileAvatarStyler.Apply(userAvatar)
-        userPanel.Location = New Point(headerPanel.ClientSize.Width - userPanel.Width - 20,
-                                       Math.Max(0, (headerPanel.ClientSize.Height - userPanel.Height) \ 2))
+        LoadStaffHeaderAvatar()
         searchFilterCombo.SelectedIndex = 0
+        searchTextBox.PlaceholderText = "Search by brand, generic name, or placement..."
         AddHandler quantityPanel.Resize, AddressOf QuantityPanel_Resize
         AddHandler modePanel.Resize, AddressOf ModePanel_Resize
         AddHandler parentFilterPanel.Resize, AddressOf ParentFilterPanel_Resize
@@ -114,6 +131,7 @@ Public Class Staff
         AddHandler resultsGrid.CellMouseDown, AddressOf resultsGrid_CellMouseDown
         AddHandler resultsGrid.CellClick, AddressOf resultsGrid_CellClick
         InitializeInventoryWarningUi()
+        InitializeRestockUi()
         ApplyStaffSurfaceTheme()
         QuantityPanel_Resize(quantityPanel, EventArgs.Empty)
         ModePanel_Resize(modePanel, EventArgs.Empty)
@@ -131,6 +149,79 @@ Public Class Staff
         LoadProducts()
         UiSelectionStyler.ApplyToForm(Me)
         ApplyStaffGridSelectionColors(Me)
+    End Sub
+
+    Private Sub LoadStaffHeaderAvatar()
+        If userAvatar Is Nothing Then Return
+
+        Dim photoBytes As Byte() = Nothing
+        Dim initials As String = "ST"
+
+        If Not String.IsNullOrWhiteSpace(CurrentFullName) Then
+            Dim parts = CurrentFullName.Trim().Split(New Char() {" "c}, StringSplitOptions.RemoveEmptyEntries)
+            If parts.Length = 1 Then
+                initials = parts(0).Substring(0, Math.Min(2, parts(0).Length)).ToUpperInvariant()
+            ElseIf parts.Length > 1 Then
+                initials = (parts(0)(0).ToString() & parts(parts.Length - 1)(0).ToString()).ToUpperInvariant()
+            End If
+        End If
+
+        Try
+            Using conn = GetConnection()
+                conn.Open()
+                Try
+                    Using ensureCmd As New MySqlCommand("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo LONGBLOB DEFAULT NULL;", conn)
+                        ensureCmd.ExecuteNonQuery()
+                    End Using
+                Catch
+                End Try
+                Const sql = "SELECT staff_initials, profile_photo FROM users WHERE user_id = @id OR full_name = @fullName LIMIT 1"
+                Using cmd As New MySqlCommand(sql, conn)
+                    cmd.Parameters.AddWithValue("@id", CurrentUserID)
+                    cmd.Parameters.AddWithValue("@fullName", If(CurrentFullName, ""))
+                    Using reader = cmd.ExecuteReader()
+                        If reader.Read() Then
+                            If Not reader.IsDBNull(0) AndAlso Not String.IsNullOrWhiteSpace(reader.GetString(0)) Then
+                                initials = reader.GetString(0).Trim()
+                            End If
+                            If Not reader.IsDBNull(1) Then
+                                photoBytes = DirectCast(reader.GetValue(1), Byte())
+                            End If
+                        End If
+                    End Using
+                End Using
+            End Using
+        Catch
+        End Try
+
+        For Each child As Control In userAvatar.Controls.Cast(Of Control)().ToArray()
+            child.Visible = False
+        Next
+
+        Dim diameter As Integer = 40
+        userAvatar.Region = Nothing
+        userAvatar.Size = New Size(diameter, diameter)
+        userAvatar.BackColor = Color.White
+        userAvatar.BackgroundImageLayout = ImageLayout.Stretch
+        Dim oldImage = userAvatar.BackgroundImage
+        userAvatar.BackgroundImage = SuperAdmin.CreateCircularAvatarImage(photoBytes, initials, diameter)
+        oldImage?.Dispose()
+
+        Dim parentPanel = userAvatar.Parent
+        If parentPanel IsNot Nothing Then
+            welcomestaff_label.Text = CurrentFullName
+            welcomestaff_label.Location = New Point(12, 8)
+            userRoleLabel.Location = New Point(12, 30)
+
+            Dim textRight = Math.Max(welcomestaff_label.Right, userRoleLabel.Right)
+            userAvatar.Location = New Point(textRight + 14, Math.Max(4, (parentPanel.Height - diameter) \ 2))
+            parentPanel.Width = userAvatar.Right + 12
+
+            If headerPanel IsNot Nothing Then
+                parentPanel.Location = New Point(headerPanel.ClientSize.Width - parentPanel.Width - 20,
+                                                 Math.Max(0, (headerPanel.ClientSize.Height - parentPanel.Height) \ 2))
+            End If
+        End If
     End Sub
 
     Private Sub sidebar_Resize(sender As Object, e As EventArgs) Handles sidebar.Resize
@@ -199,6 +290,7 @@ Public Class Staff
                                    quantityPanel, transactionDetailsPanel, cartCard,
                                    orderReviewCard, paymentCard, restockCard,
                                    wholesaleDetailsPanel, prescriptionPanel}
+            If card Is Nothing Then Continue For
             card.BackColor = Color.White
             card.BorderStyle = BorderStyle.None
             Dim radius = If(card Is cartCard OrElse card Is orderReviewCard OrElse card Is paymentCard OrElse card Is restockCard, 14, 10)
@@ -209,6 +301,7 @@ Public Class Staff
         Next
         For Each button As Button In {addToCartButton, customerSearchButton, checkoutButton,
                                       backToPosButton, cancelButton, confirmButton, searchButton}
+            If button Is Nothing Then Continue For
             button.FlatStyle = FlatStyle.Flat
             button.UseVisualStyleBackColor = False
             button.Cursor = Cursors.Hand
@@ -321,6 +414,484 @@ Public Class Staff
         End Using
     End Sub
 
+    ' ==========================================
+    ' RESTOCK VIEW (BATCH ENTRY & PLACEMENT)
+    ' ==========================================
+    Private Sub InitializeRestockUi()
+        If restockView Is Nothing Then Return
+        restockView.SuspendLayout()
+        restockView.Controls.Clear()
+        restockView.BackColor = Color.FromArgb(245, 245, 245)
+
+        Dim rootLayout As New TableLayoutPanel With {
+            .Dock = DockStyle.Fill,
+            .ColumnCount = 1,
+            .RowCount = 2,
+            .BackColor = Color.FromArgb(245, 245, 245),
+            .Margin = New Padding(0)
+        }
+        rootLayout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100.0F))
+        rootLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 104.0F))
+        rootLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
+
+        Dim topCard As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = New Padding(0, 0, 0, 12)}
+        AddHandler topCard.Resize, Sub(s, e) ApplyStaffRoundedCorners(topCard, 12)
+        topCard.Controls.Add(New Label With {.Text = "Restock & Shelf Placement", .AutoSize = True, .Font = New Font("Segoe UI", 13.0F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(18, 10)})
+        topCard.Controls.Add(New Label With {.Text = "Record incoming supplier batches and manage product shelf placements.", .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(19, 36)})
+
+        restockAllFilterBtn = New Button With {
+            .Text = "All Products",
+            .Size = New Size(112, 32),
+            .Location = New Point(18, 58),
+            .FlatStyle = FlatStyle.Flat,
+            .Font = New Font("Segoe UI", 8.5F, FontStyle.Bold),
+            .Cursor = Cursors.Hand,
+            .UseVisualStyleBackColor = False
+        }
+        restockAllFilterBtn.FlatAppearance.BorderColor = darkGreen
+
+        restockLowFilterBtn = New Button With {
+            .Text = "Low Stock Only",
+            .Size = New Size(124, 32),
+            .Location = New Point(136, 58),
+            .FlatStyle = FlatStyle.Flat,
+            .Font = New Font("Segoe UI", 8.5F, FontStyle.Bold),
+            .Cursor = Cursors.Hand,
+            .UseVisualStyleBackColor = False
+        }
+        restockLowFilterBtn.FlatAppearance.BorderColor = darkGreen
+
+        restockSearchBox = New TextBox With {
+            .Location = New Point(276, 61),
+            .Width = 300,
+            .Font = New Font("Segoe UI", 9.0F),
+            .PlaceholderText = "Search brand, generic name, placement, or supplier..."
+        }
+
+        Dim refreshBtn As New Button With {
+            .Text = "Refresh",
+            .Size = New Size(96, 32),
+            .Anchor = AnchorStyles.Top Or AnchorStyles.Right,
+            .BackColor = Color.White,
+            .ForeColor = darkGreen,
+            .FlatStyle = FlatStyle.Flat,
+            .Font = New Font("Segoe UI", 8.5F, FontStyle.Bold),
+            .Cursor = Cursors.Hand,
+            .UseVisualStyleBackColor = False
+        }
+        refreshBtn.FlatAppearance.BorderColor = darkGreen
+        refreshBtn.Location = New Point(topCard.ClientSize.Width - refreshBtn.Width - 18, 58)
+        AddHandler topCard.Resize, Sub(s, e) refreshBtn.Left = topCard.ClientSize.Width - refreshBtn.Width - 18
+
+        AddHandler restockAllFilterBtn.Click, Sub(s, e)
+                                                  restockFilterLowStockOnly = False
+                                                  UpdateRestockFilterButtons()
+                                                  BindRestockGrid()
+                                              End Sub
+        AddHandler restockLowFilterBtn.Click, Sub(s, e)
+                                                  restockFilterLowStockOnly = True
+                                                  UpdateRestockFilterButtons()
+                                                  BindRestockGrid()
+                                              End Sub
+        AddHandler restockSearchBox.TextChanged, Sub(s, e) BindRestockGrid()
+        AddHandler refreshBtn.Click, Sub(s, e) LoadRestockProducts()
+
+        topCard.Controls.Add(restockAllFilterBtn)
+        topCard.Controls.Add(restockLowFilterBtn)
+        topCard.Controls.Add(restockSearchBox)
+        topCard.Controls.Add(refreshBtn)
+        UpdateRestockFilterButtons()
+
+        Dim bodyLayout As New TableLayoutPanel With {
+            .Dock = DockStyle.Fill,
+            .ColumnCount = 2,
+            .RowCount = 1,
+            .BackColor = Color.FromArgb(245, 245, 245),
+            .Margin = New Padding(0)
+        }
+        bodyLayout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 64.0F))
+        bodyLayout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 36.0F))
+        bodyLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
+
+        Dim leftCard As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(12), .Margin = New Padding(0, 0, 12, 0)}
+        AddHandler leftCard.Resize, Sub(s, e) ApplyStaffRoundedCorners(leftCard, 14)
+
+        restockGrid = New DataGridView With {
+            .Dock = DockStyle.Fill,
+            .ReadOnly = True,
+            .AllowUserToAddRows = False,
+            .AllowUserToDeleteRows = False,
+            .AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+            .SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+            .MultiSelect = False,
+            .RowHeadersVisible = False,
+            .BackgroundColor = Color.White,
+            .BorderStyle = BorderStyle.None,
+            .CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
+            .GridColor = Color.FromArgb(225, 235, 230),
+            .EnableHeadersVisualStyles = False,
+            .ColumnHeadersHeight = 40,
+            .ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing
+        }
+        restockGrid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(225, 245, 235)
+        restockGrid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(25, 55, 45)
+        restockGrid.ColumnHeadersDefaultCellStyle.Font = New Font("Segoe UI", 8.5F, FontStyle.Bold)
+        restockGrid.DefaultCellStyle.Font = New Font("Segoe UI", 9.0F)
+        restockGrid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(218, 240, 229)
+        restockGrid.DefaultCellStyle.SelectionForeColor = Color.FromArgb(20, 70, 48)
+        restockGrid.RowTemplate.Height = 36
+        AddHandler restockGrid.SelectionChanged, AddressOf RestockGrid_SelectionChanged
+        AddHandler restockGrid.CellFormatting, AddressOf RestockGrid_CellFormatting
+        leftCard.Controls.Add(restockGrid)
+
+        Dim rightCard As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(18), .AutoScroll = True, .Margin = New Padding(0)}
+        AddHandler rightCard.Resize, Sub(s, e) ApplyStaffRoundedCorners(rightCard, 14)
+
+        restockSelectedTitleLabel = New Label With {
+            .Text = "Select a product to restock",
+            .AutoSize = False,
+            .Size = New Size(360, 26),
+            .Font = New Font("Segoe UI", 11.5F, FontStyle.Bold),
+            .ForeColor = darkGreen,
+            .Location = New Point(18, 16)
+        }
+        restockSelectedStockLabel = New Label With {
+            .Text = "Choose an item from the list on the left.",
+            .AutoSize = False,
+            .Size = New Size(360, 22),
+            .Font = New Font("Segoe UI", 8.5F),
+            .ForeColor = Color.Gray,
+            .Location = New Point(18, 44)
+        }
+
+        rightCard.Controls.Add(New Label With {.Text = "Item Placement (Shelf / Cabinet)", .AutoSize = True, .Font = New Font("Segoe UI", 8.5F, FontStyle.Bold), .ForeColor = Color.FromArgb(55, 65, 60), .Location = New Point(18, 78)})
+        restockPlacementTextBox = New TextBox With {.Location = New Point(18, 98), .Width = 220, .Font = New Font("Segoe UI", 9.5F), .PlaceholderText = "e.g., Shelf A - Row 1", .Enabled = False}
+        restockSavePlacementButton = New Button With {
+            .Text = "Save Placement",
+            .Size = New Size(118, 28),
+            .Location = New Point(246, 97),
+            .BackColor = Color.White,
+            .ForeColor = darkGreen,
+            .FlatStyle = FlatStyle.Flat,
+            .Font = New Font("Segoe UI", 8.5F, FontStyle.Bold),
+            .Cursor = Cursors.Hand,
+            .Enabled = False,
+            .UseVisualStyleBackColor = False
+        }
+        restockSavePlacementButton.FlatAppearance.BorderColor = darkGreen
+        AddHandler restockSavePlacementButton.Click, AddressOf RestockSavePlacement_Click
+
+        rightCard.Controls.Add(New Label With {.Text = "INCOMING BATCH DETAILS", .AutoSize = True, .Font = New Font("Segoe UI", 8.5F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(18, 140)})
+
+        rightCard.Controls.Add(New Label With {.Text = "Batch Number *", .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(18, 166)})
+        restockBatchNoTextBox = New TextBox With {.Location = New Point(18, 186), .Width = 346, .Font = New Font("Segoe UI", 9.5F), .CharacterCasing = CharacterCasing.Upper, .PlaceholderText = "e.g., BGC261120", .Enabled = False}
+
+        rightCard.Controls.Add(New Label With {.Text = "Quantity to Add (Units) *", .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(18, 222)})
+        restockQuantityNumeric = New NumericUpDown With {.Location = New Point(18, 242), .Width = 165, .Minimum = 1, .Maximum = 100000, .Value = 10, .Font = New Font("Segoe UI", 9.5F), .Enabled = False}
+
+        rightCard.Controls.Add(New Label With {.Text = "Expiry Date *", .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(199, 222)})
+        restockExpiryDatePicker = New DateTimePicker With {
+            .Location = New Point(199, 242),
+            .Width = 165,
+            .Format = DateTimePickerFormat.Custom,
+            .CustomFormat = "MMM dd, yyyy",
+            .MinDate = Date.Today.AddDays(1),
+            .MaxDate = Date.Today.AddYears(10),
+            .Value = Date.Today.AddYears(1),
+            .Font = New Font("Segoe UI", 9.5F),
+            .Enabled = False
+        }
+
+        rightCard.Controls.Add(New Label With {.Text = "Supplier", .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(18, 280)})
+        restockSupplierCombo = New ComboBox With {.Location = New Point(18, 300), .Width = 346, .DropDownStyle = ComboBoxStyle.DropDownList, .Font = New Font("Segoe UI", 9.5F), .Enabled = False}
+
+        restockSubmitButton = New Button With {
+            .Text = "RECORD RESTOCK",
+            .Size = New Size(346, 40),
+            .Location = New Point(18, 342),
+            .BackColor = darkGreen,
+            .ForeColor = Color.White,
+            .FlatStyle = FlatStyle.Flat,
+            .Font = New Font("Segoe UI", 9.5F, FontStyle.Bold),
+            .Cursor = Cursors.Hand,
+            .Enabled = False,
+            .UseVisualStyleBackColor = False
+        }
+        restockSubmitButton.FlatAppearance.BorderSize = 0
+        AddHandler restockSubmitButton.Resize, Sub(s, e) ApplyStaffRoundedCorners(restockSubmitButton, 8)
+        AddHandler restockSubmitButton.Click, AddressOf RestockSubmit_Click
+
+        rightCard.Controls.Add(New Label With {.Text = "EXISTING BATCHES FOR SELECTED PRODUCT", .AutoSize = True, .Font = New Font("Segoe UI", 8.0F, FontStyle.Bold), .ForeColor = Color.Gray, .Location = New Point(18, 398)})
+        restockBatchesGrid = New DataGridView With {
+            .Location = New Point(18, 420),
+            .Size = New Size(346, 170),
+            .ReadOnly = True,
+            .AllowUserToAddRows = False,
+            .AllowUserToDeleteRows = False,
+            .AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+            .SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+            .RowHeadersVisible = False,
+            .BackgroundColor = Color.White,
+            .BorderStyle = BorderStyle.FixedSingle,
+            .GridColor = Color.FromArgb(230, 234, 231),
+            .EnableHeadersVisualStyles = False
+        }
+        restockBatchesGrid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(225, 245, 235)
+        restockBatchesGrid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(25, 55, 45)
+        restockBatchesGrid.ColumnHeadersDefaultCellStyle.Font = New Font("Segoe UI", 8.0F, FontStyle.Bold)
+        restockBatchesGrid.DefaultCellStyle.Font = New Font("Segoe UI", 8.5F)
+        restockBatchesGrid.RowTemplate.Height = 28
+
+        rightCard.Controls.Add(restockSelectedTitleLabel)
+        rightCard.Controls.Add(restockSelectedStockLabel)
+        rightCard.Controls.Add(restockPlacementTextBox)
+        rightCard.Controls.Add(restockSavePlacementButton)
+        rightCard.Controls.Add(restockBatchNoTextBox)
+        rightCard.Controls.Add(restockQuantityNumeric)
+        rightCard.Controls.Add(restockExpiryDatePicker)
+        rightCard.Controls.Add(restockSupplierCombo)
+        rightCard.Controls.Add(restockSubmitButton)
+        rightCard.Controls.Add(restockBatchesGrid)
+
+        AddHandler rightCard.Resize,
+            Sub(s, e)
+                Dim fieldWidth = Math.Max(260, rightCard.ClientSize.Width - 36)
+                restockSelectedTitleLabel.Width = fieldWidth
+                restockSelectedStockLabel.Width = fieldWidth
+                restockSavePlacementButton.Left = 18 + fieldWidth - restockSavePlacementButton.Width
+                restockPlacementTextBox.Width = Math.Max(120, restockSavePlacementButton.Left - 26)
+                restockBatchNoTextBox.Width = fieldWidth
+                Dim halfWidth = (fieldWidth - 16) \ 2
+                restockQuantityNumeric.Width = halfWidth
+                restockExpiryDatePicker.Left = 18 + halfWidth + 16
+                restockExpiryDatePicker.Width = fieldWidth - halfWidth - 16
+                restockSupplierCombo.Width = fieldWidth
+                restockSubmitButton.Width = fieldWidth
+                restockBatchesGrid.Width = fieldWidth
+                restockBatchesGrid.Height = Math.Max(140, rightCard.ClientSize.Height - 438)
+            End Sub
+
+        bodyLayout.Controls.Add(leftCard, 0, 0)
+        bodyLayout.Controls.Add(rightCard, 1, 0)
+        rootLayout.Controls.Add(topCard, 0, 0)
+        rootLayout.Controls.Add(bodyLayout, 0, 1)
+        restockView.Controls.Add(rootLayout)
+        restockView.ResumeLayout(True)
+    End Sub
+
+    Private Sub UpdateRestockFilterButtons()
+        If restockAllFilterBtn Is Nothing OrElse restockLowFilterBtn Is Nothing Then Return
+        restockAllFilterBtn.BackColor = If(Not restockFilterLowStockOnly, darkGreen, Color.White)
+        restockAllFilterBtn.ForeColor = If(Not restockFilterLowStockOnly, Color.White, darkGreen)
+        restockLowFilterBtn.BackColor = If(restockFilterLowStockOnly, darkGreen, Color.White)
+        restockLowFilterBtn.ForeColor = If(restockFilterLowStockOnly, Color.White, darkGreen)
+    End Sub
+
+    Private Sub LoadRestockProducts()
+        Try
+            Dim pm As New ProductManager()
+            products = pm.GetProducts(includeInactive:=False)
+            If products Is Nothing Then products = New DataTable()
+
+            Dim suppliers = pm.GetActiveSuppliers()
+            restockSupplierCombo.DataSource = suppliers
+            restockSupplierCombo.DisplayMember = "company_name"
+            restockSupplierCombo.ValueMember = "supplier_ID"
+
+            BindRestockGrid()
+        Catch ex As Exception
+            MessageBox.Show("Could not load restock inventory: " & ex.Message, "Restock", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Sub
+
+    Private Sub BindRestockGrid()
+        If restockGrid Is Nothing OrElse products Is Nothing Then Return
+
+        Dim dt As New DataTable()
+        dt.Columns.Add("ID", GetType(Integer))
+        dt.Columns.Add("Item Placement", GetType(String))
+        dt.Columns.Add("Brand Name", GetType(String))
+        dt.Columns.Add("Generic Name", GetType(String))
+        dt.Columns.Add("Stock Qty", GetType(Integer))
+        dt.Columns.Add("Reorder Point", GetType(Integer))
+        dt.Columns.Add("Supplier", GetType(String))
+        dt.Columns.Add("Status", GetType(String))
+
+        Dim keyword = If(restockSearchBox IsNot Nothing, restockSearchBox.Text.Trim(), String.Empty)
+
+        For Each row As DataRow In products.Rows
+            Dim stockQty = If(row.IsNull("Stock Quantity"), 0, Convert.ToInt32(row("Stock Quantity")))
+            Dim reorderPt = If(row.IsNull("Reorder Point"), 0, Convert.ToInt32(row("Reorder Point")))
+            Dim isLow = stockQty <= reorderPt
+            If restockFilterLowStockOnly AndAlso Not isLow Then Continue For
+
+            Dim placement = If(products.Columns.Contains("Item Placement") AndAlso Not row.IsNull("Item Placement"), Convert.ToString(row("Item Placement")), "Unassigned")
+            Dim brand = Convert.ToString(row("Brand Name"))
+            Dim genericName = Convert.ToString(row("Generic Name"))
+            Dim supplier = Convert.ToString(row("Supplier"))
+            Dim searchable = String.Join(" ", {placement, brand, genericName, supplier})
+            If keyword.Length > 0 AndAlso searchable.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) < 0 Then Continue For
+
+            dt.Rows.Add(Convert.ToInt32(row("ID")), placement, brand, genericName, stockQty, reorderPt, supplier, If(isLow, "Low Stock", "In Stock"))
+        Next
+
+        restockGrid.DataSource = dt
+        If restockGrid.Columns.Contains("ID") Then restockGrid.Columns("ID").Visible = False
+        If restockGrid.Columns.Contains("Item Placement") Then restockGrid.Columns("Item Placement").FillWeight = 95
+        If restockGrid.Columns.Contains("Brand Name") Then restockGrid.Columns("Brand Name").FillWeight = 105
+        If restockGrid.Columns.Contains("Generic Name") Then restockGrid.Columns("Generic Name").FillWeight = 125
+        If restockGrid.Columns.Contains("Stock Qty") Then restockGrid.Columns("Stock Qty").FillWeight = 65
+        If restockGrid.Columns.Contains("Reorder Point") Then restockGrid.Columns("Reorder Point").FillWeight = 75
+        If restockGrid.Columns.Contains("Supplier") Then restockGrid.Columns("Supplier").FillWeight = 105
+        If restockGrid.Columns.Contains("Status") Then restockGrid.Columns("Status").FillWeight = 70
+
+        restockGrid.ClearSelection()
+        restockGrid.CurrentCell = Nothing
+        SetRestockFormState(Nothing)
+    End Sub
+
+    Private Sub RestockGrid_CellFormatting(sender As Object, e As DataGridViewCellFormattingEventArgs)
+        If e.RowIndex < 0 OrElse restockGrid Is Nothing OrElse Not restockGrid.Columns.Contains("Status") Then Return
+        If restockGrid.Columns(e.ColumnIndex).Name <> "Status" Then Return
+        Dim val = Convert.ToString(e.Value)
+        If String.Equals(val, "Low Stock", StringComparison.OrdinalIgnoreCase) Then
+            e.CellStyle.ForeColor = Color.FromArgb(180, 45, 45)
+            e.CellStyle.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
+        Else
+            e.CellStyle.ForeColor = darkGreen
+        End If
+    End Sub
+
+    Private Sub RestockGrid_SelectionChanged(sender As Object, e As EventArgs)
+        If restockGrid Is Nothing OrElse restockGrid.SelectedRows.Count = 0 OrElse restockGrid.CurrentRow Is Nothing OrElse restockGrid.CurrentRow.IsNewRow Then
+            SetRestockFormState(Nothing)
+            Return
+        End If
+        Dim prodId As Integer
+        If Not Integer.TryParse(Convert.ToString(restockGrid.CurrentRow.Cells("ID").Value), prodId) OrElse products Is Nothing Then
+            SetRestockFormState(Nothing)
+            Return
+        End If
+        Dim match = products.AsEnumerable().FirstOrDefault(Function(r) Convert.ToInt32(r("ID")) = prodId)
+        SetRestockFormState(match)
+    End Sub
+
+    Private Sub SetRestockFormState(productRow As DataRow)
+        Dim hasSelection = productRow IsNot Nothing
+        restockPlacementTextBox.Enabled = hasSelection
+        restockSavePlacementButton.Enabled = hasSelection
+        restockBatchNoTextBox.Enabled = hasSelection
+        restockQuantityNumeric.Enabled = hasSelection
+        restockExpiryDatePicker.Enabled = hasSelection
+        restockSupplierCombo.Enabled = hasSelection
+        restockSubmitButton.Enabled = hasSelection
+        restockSubmitButton.BackColor = If(hasSelection, darkGreen, Color.LightGray)
+        restockSubmitButton.ForeColor = If(hasSelection, Color.White, Color.DimGray)
+
+        If Not hasSelection Then
+            restockSelectedProductId = 0
+            restockSelectedTitleLabel.Text = "Select a product to restock"
+            restockSelectedStockLabel.Text = "Choose an item from the list on the left."
+            restockPlacementTextBox.Clear()
+            restockBatchNoTextBox.Clear()
+            restockBatchesGrid.DataSource = Nothing
+            Return
+        End If
+
+        restockSelectedProductId = Convert.ToInt32(productRow("ID"))
+        Dim brand = Convert.ToString(productRow("Brand Name"))
+        Dim dosage = Convert.ToString(productRow("Dosage"))
+        Dim unit = Convert.ToString(productRow("Unit"))
+        Dim stockQty = If(productRow.IsNull("Stock Quantity"), 0, Convert.ToInt32(productRow("Stock Quantity")))
+        Dim reorderPt = If(productRow.IsNull("Reorder Point"), 0, Convert.ToInt32(productRow("Reorder Point")))
+        Dim placement = If(productRow.Table.Columns.Contains("Item Placement") AndAlso Not productRow.IsNull("Item Placement"), Convert.ToString(productRow("Item Placement")), "Unassigned")
+        Dim supplierName = Convert.ToString(productRow("Supplier"))
+
+        restockSelectedTitleLabel.Text = brand & " (" & dosage & " " & unit & ")"
+        restockSelectedStockLabel.Text = "Current Stock: " & stockQty.ToString() & " units   |   Reorder Point: " & reorderPt.ToString()
+        restockPlacementTextBox.Text = placement
+
+        Dim prefix = New String(brand.Where(Function(ch) Char.IsLetter(ch)).Take(3).ToArray()).ToUpperInvariant()
+        If prefix.Length < 3 Then prefix = prefix.PadRight(3, "X"c)
+        restockBatchNoTextBox.Text = prefix & DateTime.Now.ToString("yyMMdd", CultureInfo.InvariantCulture) & "-" & DateTime.Now.ToString("HHmm", CultureInfo.InvariantCulture)
+
+        For i = 0 To restockSupplierCombo.Items.Count - 1
+            Dim itemView = TryCast(restockSupplierCombo.Items(i), DataRowView)
+            If itemView IsNot Nothing AndAlso String.Equals(Convert.ToString(itemView("company_name")), supplierName, StringComparison.OrdinalIgnoreCase) Then
+                restockSupplierCombo.SelectedIndex = i
+                Exit For
+            End If
+        Next
+
+        Try
+            Dim pm As New ProductManager()
+            Dim batches = pm.GetProductBatches(restockSelectedProductId)
+            restockBatchesGrid.DataSource = batches
+            If restockBatchesGrid.Columns.Contains("Batch ID") Then restockBatchesGrid.Columns("Batch ID").Visible = False
+            If restockBatchesGrid.Columns.Contains("Expiry Date") Then restockBatchesGrid.Columns("Expiry Date").DefaultCellStyle.Format = "MM/dd/yyyy"
+        Catch
+            restockBatchesGrid.DataSource = Nothing
+        End Try
+    End Sub
+
+    Private Sub RestockSavePlacement_Click(sender As Object, e As EventArgs)
+        If restockSelectedProductId <= 0 Then Return
+        Try
+            Dim pm As New ProductManager()
+            pm.UpdateItemPlacement(restockSelectedProductId, restockPlacementTextBox.Text)
+            MessageBox.Show("Item placement updated successfully.", "Item Placement", MessageBoxButtons.OK, MessageBoxIcon.Information)
+            LoadProducts()
+            LoadRestockProducts()
+        Catch ex As Exception
+            MessageBox.Show("Could not update item placement: " & ex.Message, "Item Placement", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Sub
+
+    Private Sub RestockSubmit_Click(sender As Object, e As EventArgs)
+        If restockSelectedProductId <= 0 Then Return
+        Dim batchNo = restockBatchNoTextBox.Text.Trim()
+        If String.IsNullOrWhiteSpace(batchNo) Then
+            MessageBox.Show("Enter a batch number before recording the restock.", "Restock Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+            restockBatchNoTextBox.Focus()
+            Return
+        End If
+        If restockExpiryDatePicker.Value.Date <= Date.Today Then
+            MessageBox.Show("Expiry date must be in the future.", "Restock Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+            restockExpiryDatePicker.Focus()
+            Return
+        End If
+
+        Dim supplierId As Integer? = Nothing
+        If restockSupplierCombo.SelectedValue IsNot Nothing AndAlso Not IsDBNull(restockSupplierCombo.SelectedValue) Then
+            Dim parsedId As Integer
+            If Integer.TryParse(Convert.ToString(restockSupplierCombo.SelectedValue), parsedId) Then supplierId = parsedId
+        End If
+
+        Try
+            Dim pm As New ProductManager()
+            pm.RestockProductBatch(
+                restockSelectedProductId,
+                batchNo,
+                restockExpiryDatePicker.Value.Date,
+                CInt(restockQuantityNumeric.Value),
+                supplierId,
+                restockPlacementTextBox.Text.Trim())
+
+            MessageBox.Show("Restock recorded! Batch " & batchNo.ToUpperInvariant() & " (" & CInt(restockQuantityNumeric.Value).ToString() & " units) added to inventory.",
+                            "Restock Successful", MessageBoxButtons.OK, MessageBoxIcon.Information)
+            LoadProducts()
+            LoadRestockProducts()
+        Catch ex As MySqlException When ex.Number = 1062
+            MessageBox.Show("That batch number already exists for this product. Please enter a unique batch number.", "Duplicate Batch Number", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+            restockBatchNoTextBox.Focus()
+        Catch ex As Exception
+            MessageBox.Show("Could not record restock: " & ex.Message, "Restock Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Sub
+
+    ' ==========================================
+    ' CHECKOUT & ORDER REVIEW PAYMENT UI
+    ' ==========================================
     Private Sub InitializeWholesaleCheckoutUi()
         poNoLabel.Visible = False
         poNoTextBox.Visible = False
@@ -349,13 +920,15 @@ Public Class Staff
         wholesalePurchaseOrderPanel.Controls.Add(wholesalePurchaseOrderDateLabel)
         orderReviewCard.Controls.Add(wholesalePurchaseOrderPanel)
 
-        wholesalePaymentModeLabel = New Label With {.Text = "MODE OF PAYMENT", .AutoSize = True, .Font = New Font("Segoe UI", 8.0F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(20, 65), .Visible = False}
-        wholesalePaymentModeCombo = New ComboBox With {.DropDownStyle = ComboBoxStyle.DropDownList, .Location = New Point(20, 88), .Size = New Size(300, 26), .Visible = False}
+        ' Shared Payment Mode controls (available for BOTH Retail and Wholesale customers)
+        wholesalePaymentModeLabel = New Label With {.Text = "MODE OF PAYMENT", .AutoSize = True, .Font = New Font("Segoe UI", 8.0F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(20, 65), .Visible = True}
+        wholesalePaymentModeCombo = New ComboBox With {.DropDownStyle = ComboBoxStyle.DropDownList, .Location = New Point(20, 88), .Size = New Size(300, 26), .Visible = True}
         wholesalePaymentModeCombo.Items.AddRange(New Object() {"Cash", "GCash", "Maya", "Bank Transfer"})
+        wholesalePaymentModeCombo.SelectedIndex = 0
         wholesalePaymentAccountNameLabel = New Label With {.Text = "Account Name", .AutoSize = True, .Font = New Font("Segoe UI", 8.0F), .ForeColor = Color.Gray, .Location = New Point(20, 124), .Visible = False}
-        wholesalePaymentAccountNameBox = New TextBox With {.Location = New Point(20, 144), .Size = New Size(300, 25), .Visible = False}
-        wholesalePaymentReferenceLabel = New Label With {.Text = "Reference Number", .AutoSize = True, .Font = New Font("Segoe UI", 8.0F), .ForeColor = Color.Gray, .Location = New Point(20, 178), .Visible = False}
-        wholesalePaymentReferenceBox = New TextBox With {.Location = New Point(20, 198), .Size = New Size(300, 25), .Visible = False}
+        wholesalePaymentAccountNameBox = New TextBox With {.Location = New Point(20, 144), .Size = New Size(300, 25), .PlaceholderText = "Sender / account holder name", .Visible = False}
+        wholesalePaymentReferenceLabel = New Label With {.Text = "Reference Number *", .AutoSize = True, .Font = New Font("Segoe UI", 8.0F), .ForeColor = Color.Gray, .Location = New Point(20, 178), .Visible = False}
+        wholesalePaymentReferenceBox = New TextBox With {.Location = New Point(20, 198), .Size = New Size(300, 25), .PlaceholderText = "Enter e-payment reference no.", .Visible = False}
         paymentCard.Controls.Add(wholesalePaymentModeLabel)
         paymentCard.Controls.Add(wholesalePaymentModeCombo)
         paymentCard.Controls.Add(wholesalePaymentAccountNameLabel)
@@ -366,23 +939,24 @@ Public Class Staff
         AddHandler wholesalePaymentReferenceBox.TextChanged, Sub(sender, e) UpdateConfirmButtonAvailability()
     End Sub
 
+    Private Function IsElectronicPaymentSelected() As Boolean
+        Return wholesalePaymentModeCombo IsNot Nothing AndAlso
+               wholesalePaymentModeCombo.SelectedItem IsNot Nothing AndAlso
+               Not String.Equals(Convert.ToString(wholesalePaymentModeCombo.SelectedItem), "Cash", StringComparison.OrdinalIgnoreCase)
+    End Function
+
     Private Sub UpdateWholesaleCheckoutPaymentUi()
         If wholesalePaymentModeCombo Is Nothing Then Return
-        Dim usesElectronicPayment = checkoutModeIsWholesale AndAlso
-                                    Not String.Equals(Convert.ToString(wholesalePaymentModeCombo.SelectedItem), "Cash", StringComparison.OrdinalIgnoreCase)
+        Dim usesElectronicPayment = IsElectronicPaymentSelected()
         wholesalePaymentAccountNameLabel.Visible = usesElectronicPayment
         wholesalePaymentAccountNameBox.Visible = usesElectronicPayment
         wholesalePaymentReferenceLabel.Visible = usesElectronicPayment
         wholesalePaymentReferenceBox.Visible = usesElectronicPayment
-        If checkoutModeIsWholesale Then
-            cashLabel.Text = If(usesElectronicPayment, "AMOUNT PAID:", "CASH RECEIVED:")
-            cashTextBox.Visible = Not usesElectronicPayment
-            cashValue.Visible = usesElectronicPayment
-        Else
-            cashLabel.Text = "CASH AMOUNT:"
-            cashTextBox.Visible = True
-            cashValue.Visible = True
-        End If
+
+        cashLabel.Text = If(usesElectronicPayment, "AMOUNT PAID:", If(checkoutModeIsWholesale, "CASH RECEIVED:", "CASH AMOUNT:"))
+        cashTextBox.Visible = Not usesElectronicPayment
+        cashValue.Visible = True
+
         If Not updatingWholesalePaymentUi Then
             UpdateCheckoutTotals()
             CheckoutView_Resize(checkoutView, EventArgs.Empty)
@@ -475,43 +1049,40 @@ Public Class Staff
         orderSummaryPanel.SetBounds(20, summaryTop, Math.Max(120, reviewWidth - 40), Math.Max(120, viewHeight - summaryTop - 24))
 
         Dim paymentWidth = paymentCard.ClientSize.Width
-        subtotalValue.Left = paymentWidth - subtotalValue.Width - 20
-        discountValue.Left = paymentWidth - discountValue.Width - 20
-        totalDueValue.Left = paymentWidth - totalDueValue.Width - 20
-        If checkoutModeIsWholesale Then
+        Dim usesElectronicPayment = IsElectronicPaymentSelected()
+
+        If wholesalePaymentModeCombo IsNot Nothing Then
             wholesalePaymentModeCombo.Width = Math.Max(150, paymentWidth - 40)
             wholesalePaymentAccountNameBox.Width = Math.Max(150, paymentWidth - 40)
             wholesalePaymentReferenceBox.Width = Math.Max(150, paymentWidth - 40)
-            subtotalLabel.Top = 238
-            subtotalValue.Top = subtotalLabel.Top
-            discountLabel.Top = 266
-            discountValue.Top = discountLabel.Top
-            totalDueLabel.Top = 294
-            totalDueValue.Top = totalDueLabel.Top
-            cashLabel.Top = 346
-            cashTextBox.Top = cashLabel.Top + 22
-            cashValue.Top = cashLabel.Top + 4
-            changeLabel.Top = cashLabel.Top + 58
-            changeValue.Top = changeLabel.Top
-        Else
-            subtotalLabel.Top = 70
-            subtotalValue.Top = 70
-            discountLabel.Top = 100
-            discountValue.Top = 100
-            totalDueLabel.Top = 130
-            totalDueValue.Top = 130
-            cashLabel.Top = 200
-            cashTextBox.Top = cashLabel.Top - 4
-            cashValue.Top = cashLabel.Top
-            changeLabel.Top = 230
-            changeValue.Top = 230
         End If
+
+        Dim totalsTop = If(usesElectronicPayment, 238, 136)
+        subtotalLabel.Top = totalsTop
+        subtotalValue.Top = subtotalLabel.Top
+        discountLabel.Top = totalsTop + 28
+        discountValue.Top = discountLabel.Top
+        totalDueLabel.Top = totalsTop + 56
+        totalDueValue.Top = totalDueLabel.Top
+        cashLabel.Top = totalsTop + 108
+        changeLabel.Top = cashLabel.Top + 46
+        changeValue.Top = changeLabel.Top
+
+        subtotalValue.Left = paymentWidth - subtotalValue.Width - 20
+        discountValue.Left = paymentWidth - discountValue.Width - 20
+        totalDueValue.Left = paymentWidth - totalDueValue.Width - 20
         cashTextBox.Width = 150
         cashTextBox.Left = paymentWidth - cashTextBox.Width - 20
         cashTextBox.Top = cashLabel.Top - 4
-        cashValue.Left = cashTextBox.Left - cashValue.Width - 8
-        cashValue.Top = cashTextBox.Top + 3
+        If usesElectronicPayment Then
+            cashValue.Left = paymentWidth - cashValue.Width - 20
+            cashValue.Top = cashLabel.Top
+        Else
+            cashValue.Left = cashTextBox.Left - cashValue.Width - 8
+            cashValue.Top = cashTextBox.Top + 3
+        End If
         changeValue.Left = paymentWidth - changeValue.Width - 20
+
         confirmButton.Left = paymentWidth - confirmButton.Width - 20
         cancelButton.Left = confirmButton.Left - cancelButton.Width - 10
         backToPosButton.Left = cancelButton.Left - backToPosButton.Width - 10
@@ -541,8 +1112,14 @@ Public Class Staff
         checkoutView.Visible = False
         restockView.Visible = (CStr(button.Tag) = "Restock")
         titleLabel.Text = CStr(button.Tag)
-        subtitleLabel.Text = "Cabrera's Drugstore and Medical Supplies"
+        subtitleLabel.Text = If(restockView.Visible, "Restock inventory and update shelf placements", "Cabrera's Drugstore and Medical Supplies")
         SetStaffActiveNavigation(Convert.ToString(button.Tag))
+
+        If restockView.Visible Then
+            LoadRestockProducts()
+        ElseIf transactionView.Visible Then
+            LoadProducts()
+        End If
     End Sub
 
     Private Sub logoutstaff_button_Click(sender As Object, e As EventArgs) Handles logoutstaff_button.Click
@@ -627,13 +1204,9 @@ Public Class Staff
         prescriptionPanel.Visible = Not isWholesale
         wholesaleDetailsPanel.Visible = isWholesale
         UpdatePrescriptionEntryAvailability()
-        addToCartButton.Text = If(isWholesale, "ADD TO CART", "ADD TO CART")
+        addToCartButton.Text = "ADD TO CART"
         titleLabel.Text = "Transaction"
-        If isWholesale Then
-            subtitleLabel.Text = "Wholesale Box Price"
-        Else
-            subtitleLabel.Text = "Retail Unit Price"
-        End If
+        subtitleLabel.Text = If(isWholesale, "Wholesale Box Price", "Retail Unit Price")
         If products IsNot Nothing Then BindSearchResults(products)
         UpdateTransactionScrollLayout()
     End Sub
@@ -699,9 +1272,11 @@ Public Class Staff
             Dim medicineName = Convert.ToString(first("Medicine Name"))
             Dim saleable = Convert.ToInt32(first("Saleable Quantity"))
             Dim reorderPoint = If(first.IsNull("Reorder Point"), 0, Convert.ToInt32(first("Reorder Point")))
+            Dim placement = If(currentProduct.Table.Columns.Contains("Item Placement") AndAlso Not currentProduct.IsNull("Item Placement"), Convert.ToString(currentProduct("Item Placement")), "Unassigned")
             Dim messages As New List(Of String)()
+
             If saleable <= reorderPoint Then
-                messages.Add("Low Stock Warning: " & medicineName & " has only " & saleable.ToString(CultureInfo.InvariantCulture) & " units available for sale.")
+                messages.Add("Low Stock Warning: " & medicineName & " (" & placement & ") has only " & saleable.ToString(CultureInfo.InvariantCulture) & " units available for sale.")
             End If
 
             For Each row As DataRow In summary.Rows
@@ -724,7 +1299,7 @@ Public Class Staff
                                                                   Not row.IsNull("Expiry Date") AndAlso
                                                                   Convert.ToInt32(row("Near-Expiry Quantity")) > 0)
             If messages.Count = 0 AndAlso saleable > 0 AndAlso Not hasNearExpiryStock AndAlso expiredQuantity = 0 Then
-                messages.Add("In Stock: " & medicineName & " has " & saleable.ToString(CultureInfo.InvariantCulture) &
+                messages.Add("In Stock: " & medicineName & " (" & placement & ") has " & saleable.ToString(CultureInfo.InvariantCulture) &
                              " eligible units. Stock is not expired or near expiry.")
                 inventoryWarningsLabel.BackColor = Color.FromArgb(232, 245, 233)
                 inventoryWarningsLabel.ForeColor = Color.FromArgb(27, 94, 32)
@@ -781,9 +1356,11 @@ Public Class Staff
         End If
     End Sub
 
+    ' Displays "Item Placement" instead of "Product ID" (Product ID stays hidden for selection/checkout)
     Private Sub BindSearchResults(source As DataTable)
         Dim result As New DataTable()
         result.Columns.Add("Product ID", GetType(Integer))
+        result.Columns.Add("Item Placement", GetType(String))
         result.Columns.Add("Generic Name", GetType(String))
         result.Columns.Add("Brand Name", GetType(String))
         result.Columns.Add("Form", GetType(String))
@@ -809,14 +1386,16 @@ Public Class Staff
             Dim price = If(isWholesale, wholesalePrice, retailPrice)
             Dim isRx = IsPrescriptionRequired(row)
             Dim type = If(isRx, "Rx", "OTC")
+            Dim placement = If(source.Columns.Contains("Item Placement") AndAlso Not row.IsNull("Item Placement"), Convert.ToString(row("Item Placement")), "Unassigned")
             Dim searchable = String.Join(" ", {
                 Convert.ToString(row("ID")),
+                placement,
                 Convert.ToString(row("Brand Name")),
                 Convert.ToString(row("Generic Name"))
             })
             If keyword.Length > 0 AndAlso searchable.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) < 0 Then Continue For
 
-            result.Rows.Add(Convert.ToInt32(row("ID")), row("Generic Name").ToString(), row("Brand Name").ToString(), row("Unit").ToString(), row("Dosage").ToString(), type, isRx, price)
+            result.Rows.Add(Convert.ToInt32(row("ID")), placement, row("Generic Name").ToString(), row("Brand Name").ToString(), row("Unit").ToString(), row("Dosage").ToString(), type, isRx, price)
         Next
 
         resultsGrid.DataSource = result
@@ -827,7 +1406,10 @@ Public Class Staff
             resultsGrid.Columns("Requires Prescription").Visible = False
         End If
         If resultsGrid.Columns.Contains("Product ID") Then
-            resultsGrid.Columns("Product ID").FillWeight = 60
+            resultsGrid.Columns("Product ID").Visible = False
+        End If
+        If resultsGrid.Columns.Contains("Item Placement") Then
+            resultsGrid.Columns("Item Placement").FillWeight = 95
         End If
         If resultsGrid.Columns.Contains("Generic Name") Then
             resultsGrid.Columns("Generic Name").FillWeight = 130
@@ -886,7 +1468,7 @@ Public Class Staff
                                        resultsGrid.ClearSelection()
                                        resultsGrid.CurrentCell = Nothing
                                        currentProduct = Nothing
-                                        RefreshSelectedProductInventoryWarnings()
+                                       RefreshSelectedProductInventoryWarnings()
                                        UpdatePrescriptionEntryAvailability()
                                    End If
                                End Sub))
@@ -2157,8 +2739,9 @@ Public Class Staff
     Private Sub BuildCheckoutView()
         wholesaleClientReviewPanel.Visible = checkoutModeIsWholesale
         wholesalePurchaseOrderPanel.Visible = checkoutModeIsWholesale
-        wholesalePaymentModeLabel.Visible = checkoutModeIsWholesale
-        wholesalePaymentModeCombo.Visible = checkoutModeIsWholesale
+        ' Mode of Payment is visible for BOTH Retail (Regular, PWD, Senior Citizen) and Wholesale
+        wholesalePaymentModeLabel.Visible = True
+        wholesalePaymentModeCombo.Visible = True
         customerTypeLabel.Visible = Not checkoutModeIsWholesale
         customerTypeCombo.Visible = Not checkoutModeIsWholesale
         customerNameLabel.Visible = Not checkoutModeIsWholesale
@@ -2166,6 +2749,7 @@ Public Class Staff
         idNumberLabel.Visible = Not checkoutModeIsWholesale
         idNumberTextBox.Visible = Not checkoutModeIsWholesale
 
+        updatingWholesalePaymentUi = True
         If checkoutModeIsWholesale Then
             currentWholesalePurchaseOrderDate = Date.Today
             currentWholesalePurchaseOrderNumber = "PO-" & DateTime.Now.ToString("yyyyMMdd-HHmmssfff", CultureInfo.InvariantCulture)
@@ -2176,7 +2760,7 @@ Public Class Staff
             wholesaleReviewAddressLabel.Text = "Shipping Address: " & addressTextBox.Text
             wholesalePurchaseOrderNumberLabel.Text = currentWholesalePurchaseOrderNumber
             wholesalePurchaseOrderDateLabel.Text = currentWholesalePurchaseOrderDate.ToString("MMMM d, yyyy", CultureInfo.CurrentCulture)
-            updatingWholesalePaymentUi = True
+
             Dim preferredMode As String
             If String.Equals(selectedWholesaleCustomer.PreferredPaymentMethod, "Cash", StringComparison.OrdinalIgnoreCase) Then
                 preferredMode = "Cash"
@@ -2191,8 +2775,12 @@ Public Class Staff
             wholesalePaymentModeCombo.SelectedItem = preferredMode
             wholesalePaymentAccountNameBox.Text = selectedWholesaleCustomer.PaymentAccountName
             wholesalePaymentReferenceBox.Clear()
-            updatingWholesalePaymentUi = False
+        Else
+            wholesalePaymentModeCombo.SelectedItem = "Cash"
+            wholesalePaymentAccountNameBox.Clear()
+            wholesalePaymentReferenceBox.Clear()
         End If
+        updatingWholesalePaymentUi = False
 
         orderSummaryPanel.Controls.Clear()
         For Each item In cart
@@ -2227,7 +2815,6 @@ Public Class Staff
             orderSummaryPanel.Controls.Add(line)
         Next
 
-        Dim subtotal = cart.Sum(Function(item) item.LineTotal)
         cashTextBox.Text = "0.00"
         cashValue.Text = "P"
         customerTypeCombo.Enabled = Not checkoutModeIsWholesale
@@ -2276,9 +2863,8 @@ Public Class Staff
 
     Private Sub UpdateConfirmButtonAvailability()
         If confirmButton Is Nothing Then Return
-        Dim electronicWholesalePayment = checkoutModeIsWholesale AndAlso wholesalePaymentModeCombo IsNot Nothing AndAlso
-                                         Not String.Equals(Convert.ToString(wholesalePaymentModeCombo.SelectedItem), "Cash", StringComparison.OrdinalIgnoreCase)
-        Dim paymentDetailsValid = Not electronicWholesalePayment OrElse Not String.IsNullOrWhiteSpace(wholesalePaymentReferenceBox.Text)
+        Dim usesElectronicPayment = IsElectronicPaymentSelected()
+        Dim paymentDetailsValid = Not usesElectronicPayment OrElse Not String.IsNullOrWhiteSpace(wholesalePaymentReferenceBox.Text)
         Dim identityRequired = Not checkoutModeIsWholesale AndAlso customerTypeCombo.SelectedIndex > 0
         Dim identityComplete = Not String.IsNullOrWhiteSpace(customerNameTextBox.Text) AndAlso
                                Not String.IsNullOrWhiteSpace(idNumberTextBox.Text)
@@ -2287,7 +2873,7 @@ Public Class Staff
         Dim subtotal = cart.Sum(Function(item) item.LineTotal)
         Dim totalDue = subtotal - Decimal.Round(subtotal * CheckoutDiscountRate(), 2)
         Dim canConfirm = (Not identityRequired OrElse identityComplete) AndAlso paymentDetailsValid AndAlso
-                         (electronicWholesalePayment OrElse (cashValid AndAlso cash >= totalDue))
+                         (usesElectronicPayment OrElse (cashValid AndAlso cash >= totalDue))
         confirmButton.Enabled = canConfirm
         confirmButton.BackColor = If(canConfirm, darkGreen, Color.LightGray)
         confirmButton.ForeColor = If(canConfirm, Color.White, Color.DimGray)
@@ -2302,14 +2888,17 @@ Public Class Staff
         Dim discount = Decimal.Round(subtotal * CheckoutDiscountRate(), 2)
         Dim cash As Decimal
         Decimal.TryParse(cashTextBox.Text, NumberStyles.Number, CultureInfo.CurrentCulture, cash)
-        Dim electronicWholesalePayment = checkoutModeIsWholesale AndAlso wholesalePaymentModeCombo IsNot Nothing AndAlso
-                                         Not String.Equals(Convert.ToString(wholesalePaymentModeCombo.SelectedItem), "Cash", StringComparison.OrdinalIgnoreCase)
-        Dim receivedAmount = If(electronicWholesalePayment, subtotal - discount, cash)
+        Dim usesElectronicPayment = IsElectronicPaymentSelected()
+        Dim receivedAmount = If(usesElectronicPayment, subtotal - discount, cash)
         subtotalValue.Text = "P " & subtotal.ToString("N2")
         discountValue.Text = "P " & discount.ToString("N2")
         totalDueValue.Text = "P " & (subtotal - discount).ToString("N2")
-        cashValue.Text = If(electronicWholesalePayment, "P " & receivedAmount.ToString("N2"), "P")
-        If electronicWholesalePayment Then cashValue.Left = paymentCard.ClientSize.Width - cashValue.Width - 20
+        cashValue.Text = If(usesElectronicPayment, "P " & receivedAmount.ToString("N2"), "P")
+        If usesElectronicPayment Then
+            cashValue.Left = paymentCard.ClientSize.Width - cashValue.Width - 20
+        Else
+            cashValue.Left = cashTextBox.Left - cashValue.Width - 8
+        End If
         Dim change = receivedAmount - (subtotal - discount)
         changeValue.Text = "P " & change.ToString("N2")
         changeValue.ForeColor = If(change < 0, Color.FromArgb(200, 30, 30), Color.Black)
@@ -2358,16 +2947,16 @@ Public Class Staff
         addressTextBox.Clear()
         poNoTextBox.Clear()
         selectedWholesaleCustomer = Nothing
+        If wholesalePaymentModeCombo IsNot Nothing Then wholesalePaymentModeCombo.SelectedItem = "Cash"
+        If wholesalePaymentAccountNameBox IsNot Nothing Then wholesalePaymentAccountNameBox.Clear()
+        If wholesalePaymentReferenceBox IsNot Nothing Then wholesalePaymentReferenceBox.Clear()
         cashTextBox.Text = "0.00"
         checkoutView.Visible = False
         transactionView.Visible = True
         restockView.Visible = False
         titleLabel.Text = "Transaction"
         subtitleLabel.Text = If(isWholesale, "Wholesale Box Price", "Retail Unit Price")
-        navTransaction.BackColor = darkGreen
-        navTransaction.ForeColor = Color.White
-        navRestock.BackColor = Color.White
-        navRestock.ForeColor = darkGreen
+        SetStaffActiveNavigation("Transaction")
     End Sub
 
     Private Sub confirmButton_Click(sender As Object, e As EventArgs) Handles confirmButton.Click
@@ -2376,16 +2965,15 @@ Public Class Staff
             Return
         End If
 
-        Dim electronicWholesalePayment = checkoutModeIsWholesale AndAlso wholesalePaymentModeCombo IsNot Nothing AndAlso
-                                         Not String.Equals(Convert.ToString(wholesalePaymentModeCombo.SelectedItem), "Cash", StringComparison.OrdinalIgnoreCase)
-        If electronicWholesalePayment AndAlso String.IsNullOrWhiteSpace(wholesalePaymentReferenceBox.Text) Then
+        Dim usesElectronicPayment = IsElectronicPaymentSelected()
+        If usesElectronicPayment AndAlso String.IsNullOrWhiteSpace(wholesalePaymentReferenceBox.Text) Then
             MessageBox.Show("Enter the e-payment reference number before confirming.", "Payment Reference Required", MessageBoxButtons.OK, MessageBoxIcon.Warning)
             wholesalePaymentReferenceBox.Focus()
             Return
         End If
 
         Dim cash As Decimal = 0D
-        If Not electronicWholesalePayment AndAlso Not Decimal.TryParse(cashTextBox.Text, NumberStyles.Number, CultureInfo.CurrentCulture, cash) Then
+        If Not usesElectronicPayment AndAlso Not Decimal.TryParse(cashTextBox.Text, NumberStyles.Number, CultureInfo.CurrentCulture, cash) Then
             MessageBox.Show("Enter a valid cash amount.", "Checkout", MessageBoxButtons.OK, MessageBoxIcon.Warning)
             cashTextBox.Focus()
             Return
@@ -2405,7 +2993,7 @@ Public Class Staff
         Dim subtotal = cart.Sum(Function(item) item.LineTotal)
         Dim discount = Decimal.Round(subtotal * CheckoutDiscountRate(), 2)
         Dim totalDue = subtotal - discount
-        If electronicWholesalePayment Then cash = totalDue
+        If usesElectronicPayment Then cash = totalDue
         If cash < totalDue Then
             MessageBox.Show("Insufficient cash received. Total due is P " & totalDue.ToString("N2"), "Checkout", MessageBoxButtons.OK, MessageBoxIcon.Warning)
             Return
@@ -2436,10 +3024,10 @@ Public Class Staff
             .PurchaseOrderNumber = If(checkoutModeIsWholesale, currentWholesalePurchaseOrderNumber, Nothing),
             .PurchaseOrderDate = If(checkoutModeIsWholesale, CType(currentWholesalePurchaseOrderDate, DateTime?), Nothing),
             .DeliveryDate = If(checkoutModeIsWholesale, CType(deliveryDatePicker.Value.Date, DateTime?), Nothing),
-            .PaymentMethod = If(checkoutModeIsWholesale, If(electronicWholesalePayment, "E-payment", "Cash"), "Cash"),
-            .PaymentProvider = If(electronicWholesalePayment, Convert.ToString(wholesalePaymentModeCombo.SelectedItem), Nothing),
-            .PaymentAccountName = If(electronicWholesalePayment, wholesalePaymentAccountNameBox.Text.Trim(), Nothing),
-            .PaymentReferenceNumber = If(electronicWholesalePayment, wholesalePaymentReferenceBox.Text.Trim(), Nothing),
+            .PaymentMethod = If(usesElectronicPayment, "E-payment", "Cash"),
+            .PaymentProvider = If(usesElectronicPayment, Convert.ToString(wholesalePaymentModeCombo.SelectedItem), Nothing),
+            .PaymentAccountName = If(usesElectronicPayment, wholesalePaymentAccountNameBox.Text.Trim(), Nothing),
+            .PaymentReferenceNumber = If(usesElectronicPayment, wholesalePaymentReferenceBox.Text.Trim(), Nothing),
             .Items = cart.Select(Function(item) New SaleLineRecord With {
                 .ProductId = item.ProductID,
                 .BrandName = item.BrandName,
@@ -2476,7 +3064,7 @@ Public Class Staff
             MessageBox.Show("The sale was saved, but its PDF receipt could not be created. Use Print Receipt to try again. " & ex.Message,
                             "Receipt PDF", MessageBoxButtons.OK, MessageBoxIcon.Warning)
         End Try
-        ShowPaymentSuccessDialog(saleId, receiptNumber, saleMode, subtotal, discount, totalDue, cash, cash - totalDue, receiptPdfPath, saleDate, receiptLines)
+        ShowPaymentSuccessDialog(saleId, receiptNumber, saleMode, subtotal, discount, totalDue, cash, cash - totalDue, receiptPdfPath, saleDate, receiptLines, usesElectronicPayment)
 
         cart.Clear()
         RenderCart()
@@ -2500,7 +3088,8 @@ Public Class Staff
                                          change As Decimal,
                                          receiptPdfPath As String,
                                          saleDate As DateTime,
-                                         receiptLines As List(Of String))
+                                         receiptLines As List(Of String),
+                                         Optional isElectronicPayment As Boolean = False)
         Using dialog As New Form()
             dialog.Text = String.Empty
             dialog.FormBorderStyle = FormBorderStyle.None
@@ -2545,7 +3134,7 @@ Public Class Staff
             AddDialogAmountRow(dialog, "Discount", "P" & discount.ToString("N2"), 196, Color.White, Color.Black, False)
             AddDialogDivider(dialog, 234)
             AddDialogAmountRow(dialog, "Total Due", "P" & totalDue.ToString("N2"), 243, Color.White, darkGreen, True)
-            AddDialogAmountRow(dialog, "Cash Received", "P" & cashReceived.ToString("N2"), 305, Color.FromArgb(248, 249, 250), Color.Black, False)
+            AddDialogAmountRow(dialog, If(isElectronicPayment, "Amount Paid", "Cash Received"), "P" & cashReceived.ToString("N2"), 305, Color.FromArgb(248, 249, 250), Color.Black, False)
             AddDialogAmountRow(dialog, "Change", "P" & change.ToString("N2"), 346, Color.FromArgb(248, 249, 250), Color.FromArgb(20, 135, 75), True)
 
             Dim doneButton As New Button With {
@@ -2629,6 +3218,10 @@ Public Class Staff
             "Cashier Initials: " & ReceiptStaffInitials(CurrentStaffInitials)
         }
 
+        Dim paymentDescription = If(String.Equals(sale.PaymentMethod, "E-payment", StringComparison.OrdinalIgnoreCase),
+                                    "E-payment" & If(String.IsNullOrWhiteSpace(sale.PaymentProvider), String.Empty, " - " & sale.PaymentProvider),
+                                    If(String.IsNullOrWhiteSpace(sale.PaymentMethod), "Cash", sale.PaymentMethod))
+
         If String.Equals(sale.SaleMode, "Wholesale", StringComparison.OrdinalIgnoreCase) Then
             If selectedWholesaleCustomer IsNot Nothing Then
                 lines.Add("Company: " & selectedWholesaleCustomer.CompanyName)
@@ -2646,9 +3239,6 @@ Public Class Staff
             End If
             If Not String.IsNullOrWhiteSpace(sale.PurchaseOrderNumber) Then lines.Add("Purchase Order No.: " & sale.PurchaseOrderNumber)
             If sale.PurchaseOrderDate.HasValue Then lines.Add("Purchase Order Date: " & sale.PurchaseOrderDate.Value.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture))
-            Dim paymentDescription = If(String.Equals(sale.PaymentMethod, "E-payment", StringComparison.OrdinalIgnoreCase),
-                                        "E-payment" & If(String.IsNullOrWhiteSpace(sale.PaymentProvider), String.Empty, " - " & sale.PaymentProvider),
-                                        If(String.IsNullOrWhiteSpace(sale.PaymentMethod), "Cash", sale.PaymentMethod))
             lines.Add("Mode of Payment: " & paymentDescription)
             If Not String.IsNullOrWhiteSpace(sale.PaymentAccountName) Then lines.Add("Account Name: " & sale.PaymentAccountName)
             If Not String.IsNullOrWhiteSpace(sale.PaymentReferenceNumber) Then lines.Add("Payment Reference No.: " & sale.PaymentReferenceNumber)
@@ -2656,6 +3246,11 @@ Public Class Staff
             lines.Add("Customer Type: " & sale.CustomerType)
             If Not String.IsNullOrWhiteSpace(sale.CustomerName) Then lines.Add("Customer Name: " & sale.CustomerName)
             If Not String.IsNullOrWhiteSpace(sale.CustomerIdNumber) Then lines.Add("Customer ID: " & sale.CustomerIdNumber)
+            lines.Add("Mode of Payment: " & paymentDescription)
+            If String.Equals(sale.PaymentMethod, "E-payment", StringComparison.OrdinalIgnoreCase) Then
+                If Not String.IsNullOrWhiteSpace(sale.PaymentAccountName) Then lines.Add("Account Name: " & sale.PaymentAccountName)
+                If Not String.IsNullOrWhiteSpace(sale.PaymentReferenceNumber) Then lines.Add("Payment Reference No.: " & sale.PaymentReferenceNumber)
+            End If
         End If
 
         lines.Add(New String("-"c, 76))
@@ -2685,7 +3280,7 @@ Public Class Staff
         lines.Add("Subtotal: PHP " & sale.Subtotal.ToString("N2", CultureInfo.InvariantCulture))
         lines.Add("Discount: PHP " & sale.DiscountAmount.ToString("N2", CultureInfo.InvariantCulture))
         lines.Add("TOTAL DUE: PHP " & sale.TotalAmount.ToString("N2", CultureInfo.InvariantCulture))
-        lines.Add("Cash Received: PHP " & sale.AmountReceived.ToString("N2", CultureInfo.InvariantCulture))
+        lines.Add(If(String.Equals(sale.PaymentMethod, "E-payment", StringComparison.OrdinalIgnoreCase), "Amount Paid: PHP ", "Cash Received: PHP ") & sale.AmountReceived.ToString("N2", CultureInfo.InvariantCulture))
         lines.Add("Change: PHP " & sale.ChangeAmount.ToString("N2", CultureInfo.InvariantCulture))
         lines.Add(New String("-"c, 76))
         lines.Add("Thank you for your purchase!")
@@ -2790,6 +3385,7 @@ Public Class Staff
         Dim tableHeader As String() = Nothing
         Dim currentMonthCaption As String = Nothing
         Dim currentMonthSummary As String = Nothing
+        Dim metaLineIndex As Integer = 0
 
         If reportLines.Count > 0 Then AppendCenteredPdfText(pageStreams(0), "F2", 16, 47, 748, 558, ToPdfText(reportLines(0)))
         If reportLines.Count > 1 Then AppendCenteredPdfText(pageStreams(0), "F2", 13, 47, 748, 532, ToPdfText(reportLines(1)))
@@ -2798,16 +3394,16 @@ Public Class Staff
             Dim line = ToPdfText(rawLine)
             If line.StartsWith("@META|", StringComparison.Ordinal) Then
                 Dim fields = line.Split("|"c)
-                If fields.Length >= 3 Then
-                    Dim metadataY = If(fields(1).StartsWith("Report Period:", StringComparison.Ordinal), 498.0R, 476.0R)
-                    AppendPdfKeyValue(pageStreams(0), 58, metadataY, fields(1))
-                    AppendPdfKeyValue(pageStreams(0), 430, metadataY, fields(2))
-                End If
+                Dim metadataY = If(metaLineIndex = 0, 498.0R, 476.0R)
+                metaLineIndex += 1
+                If fields.Length >= 2 Then AppendPdfKeyValue(pageStreams(0), 58, metadataY, fields(1))
+                If fields.Length >= 3 Then AppendPdfKeyValue(pageStreams(0), 430, metadataY, fields(2))
             ElseIf line.StartsWith("@SECTION|", StringComparison.Ordinal) Then
                 Dim sectionName = line.Substring("@SECTION|".Length)
-                Dim sectionY = If(sectionName = "SALES SUMMARY", 448.0R, transactionSectionY)
+                Dim isSummarySection = sectionName.EndsWith("SUMMARY", StringComparison.OrdinalIgnoreCase)
+                Dim sectionY = If(isSummarySection, 448.0R, transactionSectionY)
                 AppendCenteredPdfText(pageStreams(0), "F2", 12, 47, 748, sectionY, sectionName)
-                If sectionName = "SALES SUMMARY" Then DrawPdfSummaryFrame(pageStreams(0), summaryBottom, summaryHeight)
+                If isSummarySection Then DrawPdfSummaryFrame(pageStreams(0), summaryBottom, summaryHeight)
             ElseIf line.StartsWith("@SUMMARY|", StringComparison.Ordinal) Then
                 Dim fields = line.Split("|"c)
                 If fields.Length >= 3 Then
@@ -2834,14 +3430,16 @@ Public Class Staff
                 End If
             ElseIf line.StartsWith("@TOTAL|", StringComparison.Ordinal) Then
                 Dim fields = line.Split("|"c)
+                pageStreams(0).Append("q 0.88 0.95 0.91 rg 101 ").Append((totalY - 14).ToString("0.##", CultureInfo.InvariantCulture)).AppendLine(" 640 28 re f Q")
+                pageStreams(0).Append("0.8 w 100 ").Append((totalY - 14).ToString("0.##", CultureInfo.InvariantCulture)).AppendLine(" 642 29 re S")
+                pageStreams(0).AppendLine("0.08 0.39 0.24 rg")
                 If fields.Length >= 3 Then
-                    pageStreams(0).Append("q 0.88 0.95 0.91 rg 101 ").Append((totalY - 14).ToString("0.##", CultureInfo.InvariantCulture)).AppendLine(" 640 28 re f Q")
-                    pageStreams(0).Append("0.8 w 100 ").Append((totalY - 14).ToString("0.##", CultureInfo.InvariantCulture)).AppendLine(" 642 29 re S")
-                    pageStreams(0).AppendLine("0.08 0.39 0.24 rg")
-                    AppendPdfText(pageStreams(0), "F2", 12, 155, totalY, fields(1))
-                    AppendPdfText(pageStreams(0), "F2", 12, 520, totalY, fields(2))
-                    pageStreams(0).AppendLine("0 g")
+                    AppendPdfText(pageStreams(0), "F2", 11, 120, totalY - 3, fields(1))
+                    AppendPdfText(pageStreams(0), "F2", 11, Math.Max(220, 725 - ApproxPdfTextWidth(fields(2), 11)), totalY - 3, fields(2))
+                ElseIf fields.Length = 2 Then
+                    AppendCenteredPdfText(pageStreams(0), "F2", 10, 105, 632, totalY - 3, fields(1))
                 End If
+                pageStreams(0).AppendLine("0 g")
             ElseIf line.StartsWith("@MONTH|", StringComparison.Ordinal) Then
                 Dim fields = line.Split("|"c)
                 If fields.Length >= 4 Then
@@ -2861,6 +3459,7 @@ Public Class Staff
                 Dim cells = line.Split("|"c).Skip(1).ToArray()
                 If tableHeader Is Nothing Then
                     tableHeader = cells
+                    widths = BuildPdfTableWidths(cells, 748.0R)
                     If currentY - 13 < 38 Then
                         pageStreams.Add(New StringBuilder())
                         currentY = 548
@@ -2937,6 +3536,15 @@ Public Class Staff
         End Using
     End Sub
 
+    Private Shared Function BuildPdfTableWidths(headerCells As String(), totalWidth As Double) As Double()
+        If headerCells Is Nothing OrElse headerCells.Length = 0 Then Return {totalWidth}
+        ' Keep exact Sales Report column proportions for the 9-column transaction item table
+        If headerCells.Length = 9 AndAlso headerCells(0).IndexOf("TRANSACTION", StringComparison.OrdinalIgnoreCase) >= 0 Then
+            Return {55, 98, 95, 90, 55, 170, 50, 75, 60}
+        End If
+        Dim colWidth = totalWidth / headerCells.Length
+        Return Enumerable.Repeat(colWidth, headerCells.Length).ToArray()
+    End Function
     Private Shared Sub AppendCenteredPdfText(builder As StringBuilder, fontName As String, fontSize As Integer, x As Double, width As Double, y As Double, value As String)
         Dim textWidth = ApproxPdfTextWidth(value, fontSize)
         AppendPdfText(builder, fontName, fontSize, x + Math.Max(0, (width - textWidth) / 2), y, value)
