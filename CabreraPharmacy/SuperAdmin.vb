@@ -17,7 +17,8 @@ Public Class SuperAdmin
         MakeButtonRounded(btnDashboard, 15)
         MakeButtonRounded(btnAccounts, 15)
         MakeButtonRounded(btnReports, 15)
-
+        MakeButtonRounded(btnAddAccount, 15)
+        MakeButtonRounded(btnReports, 15)
     End Sub
 
     Private Sub MakeButtonRounded(btn As Button, radius As Integer, Optional borderColor As Color = Nothing, Optional borderThickness As Integer = 0)
@@ -68,6 +69,66 @@ Public Class SuperAdmin
     End Function
 
     'HANGGANG DITO
+
+    'SMOOTH BACKBUTTON LINE 1638
+    Private Sub DrawSmoothEdgeBlend(g As Graphics, size As Size, radius As Integer, blendColor As Color)
+        If g Is Nothing OrElse size.Width <= 0 OrElse size.Height <= 0 Then Return
+        Dim rect As New Rectangle(0, 0, size.Width, size.Height)
+        Using path As GraphicsPath = GetRoundPath(rect, radius),
+          penSurface As New Pen(blendColor, 2.2F)
+            g.DrawPath(penSurface, path)
+        End Using
+    End Sub
+
+    Private Sub ApplySmoothRegion(ctrl As Control, radius As Integer)
+        If ctrl Is Nothing OrElse ctrl.ClientSize.Width <= 0 OrElse ctrl.ClientSize.Height <= 0 Then Return
+        Dim rect As New Rectangle(0, 0, ctrl.ClientSize.Width, ctrl.ClientSize.Height)
+        Using path As GraphicsPath = GetRoundPath(rect, radius)
+            Dim oldRegion = ctrl.Region
+            ctrl.Region = New Region(path)
+            If oldRegion IsNot Nothing Then oldRegion.Dispose()
+        End Using
+    End Sub
+
+    Private Sub ApplySmoothPrintButtonStyle(btn As Button, leftPos As Integer, width As Integer)
+        If btn Is Nothing Then Return
+
+        btn.Text = "▣  Print Report"
+        btn.BackColor = Color.FromArgb(20, 100, 60)
+        btn.ForeColor = Color.White
+        btn.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
+        btn.FlatStyle = FlatStyle.Flat
+        btn.FlatAppearance.BorderSize = 0
+        btn.UseVisualStyleBackColor = False
+        btn.Cursor = Cursors.Hand
+        btn.SetBounds(leftPos, 18, width, 40)
+        ApplySmoothRegion(btn, 8)
+
+        If Not Equals(btn.Tag, "SmoothPrintButton") Then
+            AddHandler btn.Paint,
+                Sub(sender, e)
+                    Dim target = TryCast(sender, Button)
+                    If target Is Nothing OrElse target.ClientSize.Width <= 0 OrElse target.ClientSize.Height <= 0 Then Return
+
+                    e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+                    e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality
+                    e.Graphics.CompositingQuality = CompositingQuality.HighQuality
+                    DrawSmoothEdgeBlend(e.Graphics, target.ClientSize, 8, Color.FromArgb(214, 246, 230))
+                End Sub
+
+            AddHandler btn.Resize,
+                Sub(sender, e)
+                    Dim target = TryCast(sender, Button)
+                    If target Is Nothing Then Return
+                    ApplySmoothRegion(target, 8)
+                    target.Invalidate()
+                End Sub
+
+            btn.Tag = "SmoothPrintButton"
+        End If
+
+        btn.Invalidate()
+    End Sub
 
     Private Shared ReadOnly AllMonthNames As String() = {
         "January", "February", "March", "April", "May", "June",
@@ -1047,6 +1108,8 @@ Public Class SuperAdmin
         accountListCard.Controls.Add(accountsDataGrid)
         pnlAccounts.Controls.Add(accountListCard)
 
+        'ACCOUNT TABLE
+
         accountsDataGrid.BackgroundColor = Color.White
         accountsDataGrid.BorderStyle = BorderStyle.None
         accountsDataGrid.AllowUserToAddRows = False
@@ -1347,22 +1410,58 @@ Public Class SuperAdmin
         Next
     End Sub
 
+    'ROUNDED BUTTONS SA REPORTS BOZXZENGGG
     Private Function CreateSuperAdminReportCard(title As String, description As String, availableWidth As Integer) As Panel
         Dim cardWidth = If(availableWidth > 0, Math.Max(300, (availableWidth - 30) \ 2), 440)
-        Dim card As New Panel With {.Width = cardWidth, .Height = 136, .BackColor = Color.White, .Margin = New Padding(0, 0, 14, 14), .Padding = New Padding(16), .BorderStyle = BorderStyle.None}
-        Dim titleLabel As New Label With {.Text = title, .AutoSize = True, .Font = New Font("Segoe UI", 11.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(35, 45, 40), .Location = New Point(16, 14)}
-        Dim descriptionLabel As New Label With {.Text = description, .Font = New Font("Segoe UI", 9.0F), .ForeColor = Color.Gray, .Location = New Point(16, 44), .Size = New Size(card.Width - 32, 36), .Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right}
-        Dim viewButton As New Button With {.Text = "View Report", .Size = New Size(132, 34), .Location = New Point(16, 88), .BackColor = Color.FromArgb(25, 120, 75), .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat, .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold), .Cursor = Cursors.Hand}
+        Dim card As New Panel With {
+        .Width = cardWidth,
+        .Height = 136,
+        .BackColor = Color.White,
+        .Margin = New Padding(0, 0, 14, 14),
+        .Padding = New Padding(16),
+        .BorderStyle = BorderStyle.None
+    }
+
+        Dim titleLabel As New Label With {
+        .Text = title,
+        .AutoSize = True,
+        .Font = New Font("Segoe UI", 11.0F, FontStyle.Bold),
+        .ForeColor = Color.FromArgb(35, 45, 40),
+        .Location = New Point(16, 14)
+    }
+
+        Dim descriptionLabel As New Label With {
+        .Text = description,
+        .Font = New Font("Segoe UI", 9.0F),
+        .ForeColor = Color.Gray,
+        .Location = New Point(16, 44),
+        .Size = New Size(card.Width - 32, 36),
+        .Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right
+    }
+
+        'THIS IS THE REPORT BUTTON ("View Report")
+        Dim viewButton As New Button With {
+        .Text = "View Report",
+        .Size = New Size(132, 34),
+        .Location = New Point(16, 88),
+        .BackColor = Color.FromArgb(25, 120, 75),
+        .ForeColor = Color.White,
+        .FlatStyle = FlatStyle.Flat,
+        .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
+        .Cursor = Cursors.Hand
+    }
         viewButton.FlatAppearance.BorderSize = 0
+        viewButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(20, 100, 62)
+
         card.Controls.Add(titleLabel)
         card.Controls.Add(descriptionLabel)
         card.Controls.Add(viewButton)
-        AddHandler card.Resize, Sub(s, e)
-                                    ApplyDashboardRoundedCorners(card, 12)
-                                    ApplyDashboardRoundedCorners(viewButton, 8)
-                                End Sub
-        ApplyDashboardRoundedCorners(card, 12)
-        ApplyDashboardRoundedCorners(viewButton, 8)
+
+        ' Smooth rounded corners for viewButton (blends against card.BackColor)
+        ApplySmoothRoundedControl(viewButton, 8, Function() card.BackColor)
+
+        ' Smooth rounded corners for card (blends against card.Parent.BackColor)
+        ApplySmoothRoundedControl(card, 12, Function() If(card.Parent IsNot Nothing, card.Parent.BackColor, Color.White))
 
         Select Case title
             Case "Sales Report"
@@ -1383,6 +1482,39 @@ Public Class SuperAdmin
 
         Return card
     End Function
+
+    Private Sub ApplySmoothRoundedControl(ctrl As Control, radius As Integer, getBlendColor As Func(Of Color))
+        Dim updateRegion =
+        Sub()
+            If ctrl.Width <= 0 OrElse ctrl.Height <= 0 Then Return
+            Dim rect As New Rectangle(0, 0, ctrl.Width, ctrl.Height)
+            Using path As GraphicsPath = GetRoundPath(rect, radius)
+                Dim oldRegion = ctrl.Region
+                ctrl.Region = New Region(path)
+                If oldRegion IsNot Nothing Then oldRegion.Dispose()
+            End Using
+        End Sub
+
+        AddHandler ctrl.Paint,
+        Sub(s, e)
+            If ctrl.Width <= 0 OrElse ctrl.Height <= 0 Then Return
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+            e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality
+            Dim rect As New Rectangle(0, 0, ctrl.Width, ctrl.Height)
+            Using path As GraphicsPath = GetRoundPath(rect, radius),
+                  penSurface As New Pen(getBlendColor(), 2.0F)
+                e.Graphics.DrawPath(penSurface, path)
+            End Using
+        End Sub
+
+        AddHandler ctrl.Resize,
+        Sub(s, e)
+            updateRegion()
+            ctrl.Invalidate()
+        End Sub
+
+        updateRegion()
+    End Sub
 
     Private Sub SetReportFont(control As Control, size As Single, style As FontStyle)
         If control.Font IsNot Nothing AndAlso
@@ -1467,8 +1599,10 @@ Public Class SuperAdmin
                 AddHandler salesReportDetailsPanel.Resize, Sub(sender, e) ApplyDashboardRoundedCorners(DirectCast(sender, Control), 16)
                 salesReportDetailsPanel.Tag = "ReportCard"
             End If
+
             ApplyDashboardRoundedCorners(salesReportFilterPanel, 16)
             ApplyDashboardRoundedCorners(salesReportDetailsPanel, 16)
+
             salesDateFilterLabel.SetBounds(14, 14, Math.Max(1, salesReportFilterPanel.ClientSize.Width - 28), 24)
             salesDateCaption.SetBounds(14, 60, 80, 18)
             salesTransactionDate.SetBounds(14, 82, Math.Max(1, salesReportFilterPanel.ClientSize.Width - 28), 28)
@@ -1541,51 +1675,95 @@ Public Class SuperAdmin
     End Function
 
     Private Sub StyleSuperAdminReportToolbar(toolbar As Panel)
+        If toolbar Is Nothing Then Return
+
         toolbar.BackColor = Color.FromArgb(235, 249, 242)
+
         If reportStyledToolbars.Add(toolbar) Then
             AddHandler toolbar.Paint,
-                Sub(sender, e)
-                    Dim panel = DirectCast(sender, Panel)
-                    Using brush As New LinearGradientBrush(panel.ClientRectangle, Color.White, Color.FromArgb(214, 246, 230), 0.0F)
-                        e.Graphics.FillRectangle(brush, panel.ClientRectangle)
-                    End Using
-                End Sub
-            AddHandler toolbar.Resize, Sub(sender, e) ApplyDashboardRoundedCorners(DirectCast(sender, Control), 16)
+            Sub(sender, e)
+                Dim panel = DirectCast(sender, Panel)
+                If panel.ClientRectangle.Width <= 0 OrElse panel.ClientRectangle.Height <= 0 Then Return
+
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+                e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality
+
+                Using brush As New LinearGradientBrush(panel.ClientRectangle, Color.White, Color.FromArgb(214, 246, 230), 0.0F)
+                    e.Graphics.FillRectangle(brush, panel.ClientRectangle)
+                End Using
+
+                Dim parentBlend = If(panel.Parent IsNot Nothing, panel.Parent.BackColor, Color.White)
+                DrawSmoothEdgeBlend(e.Graphics, panel.ClientSize, 16, parentBlend)
+            End Sub
+
+            AddHandler toolbar.Resize,
+            Sub(sender, e)
+                Dim panel = DirectCast(sender, Panel)
+                ApplySmoothRegion(panel, 16)
+                panel.Invalidate()
+            End Sub
         End If
+
+        ApplySmoothRegion(toolbar, 16)
 
         Dim backButton As Button
         If toolbar Is panelRetailSalesReport Then
             backButton = salesBackToReports
-            backButton.Text = ""
-            backButton.AccessibleName = "Back to Reports"
-            RemoveHandler backButton.Paint, AddressOf SuperAdminReportBackButton_Paint
-            AddHandler backButton.Paint, AddressOf SuperAdminReportBackButton_Paint
+            If backButton IsNot Nothing AndAlso backButton.Parent IsNot toolbar Then
+                toolbar.Controls.Add(backButton)
+            End If
         Else
             backButton = TryCast(toolbar.Controls("reportBackButton"), Button)
             If backButton Is Nothing Then
-                backButton = New Button With {.Name = "reportBackButton", .Text = "", .AccessibleName = "Back to Reports", .Size = New Size(42, 40), .FlatStyle = FlatStyle.Flat, .Cursor = Cursors.Hand, .UseVisualStyleBackColor = False}
+                backButton = New Button With {
+                .Name = "reportBackButton",
+                .Cursor = Cursors.Hand
+            }
                 AddHandler backButton.Click, Sub(sender, e) ShowPrimaryView(pnlReports, "Reports")
-                AddHandler backButton.Paint, AddressOf SuperAdminReportBackButton_Paint
-                AddHandler backButton.Resize, Sub(sender, e) ApplyDashboardRoundedCorners(DirectCast(sender, Control), 8)
                 toolbar.Controls.Add(backButton)
             End If
         End If
-        backButton.SetBounds(18, 18, 42, 40)
-        backButton.BackColor = Color.FromArgb(20, 100, 60)
-        backButton.ForeColor = Color.White
+
+        If backButton Is Nothing Then Return
+
+        backButton.Text = ""
+        backButton.AccessibleName = "Back to Reports"
         backButton.FlatStyle = FlatStyle.Flat
         backButton.FlatAppearance.BorderSize = 0
         backButton.UseVisualStyleBackColor = False
-        ApplyDashboardRoundedCorners(backButton, 8)
-        ApplyDashboardRoundedCorners(toolbar, 16)
+        backButton.BackColor = Color.FromArgb(20, 100, 60)
+        backButton.ForeColor = Color.White
+        backButton.Cursor = Cursors.Hand
+        backButton.SetBounds(18, 18, 42, 40)
+
+        ApplySmoothRegion(backButton, 8)
+
+        If Not Equals(backButton.Tag, "SmoothReportBackButton") Then
+            AddHandler backButton.Paint, AddressOf SuperAdminReportBackButton_Paint
+            AddHandler backButton.Resize,
+            Sub(sender, e)
+                Dim btn = DirectCast(sender, Button)
+                ApplySmoothRegion(btn, 8)
+                btn.Invalidate()
+            End Sub
+            backButton.Tag = "SmoothReportBackButton"
+        End If
+
+        backButton.Invalidate()
+        toolbar.Invalidate()
     End Sub
 
     Private Sub SuperAdminReportBackButton_Paint(sender As Object, e As PaintEventArgs)
         Dim button = TryCast(sender, Button)
-        If button Is Nothing Then Return
+        If button Is Nothing OrElse button.ClientSize.Width <= 0 OrElse button.ClientSize.Height <= 0 Then Return
+
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
-        Dim cx = button.ClientSize.Width \ 2
-        Dim cy = button.ClientSize.Height \ 2
+        e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality
+        e.Graphics.CompositingQuality = CompositingQuality.HighQuality
+
+        ' White back arrow centered inside the button
+        Dim cx As Integer = button.ClientSize.Width \ 2
+        Dim cy As Integer = button.ClientSize.Height \ 2
         Using pen As New Pen(Color.White, 2.2F)
             pen.StartCap = LineCap.Round
             pen.EndCap = LineCap.Round
@@ -1593,6 +1771,13 @@ Public Class SuperAdmin
             e.Graphics.DrawLine(pen, cx - 7, cy, cx + 1, cy - 6)
             e.Graphics.DrawLine(pen, cx - 7, cy, cx + 1, cy + 6)
         End Using
+
+        ' Match the left side of the toolbar gradient where the back button sits
+        Dim blendColor As Color = If(button.Parent Is panelRetailSalesReport OrElse (button.Parent IsNot Nothing AndAlso button.Parent.Name.IndexOf("Report", StringComparison.OrdinalIgnoreCase) >= 0),
+                                 Color.White,
+                                 If(button.Parent IsNot Nothing, button.Parent.BackColor, Color.White))
+
+        DrawSmoothEdgeBlend(e.Graphics, button.ClientSize, 8, blendColor)
     End Sub
 
     Private Sub StyleSuperAdminReportGrid(grid As DataGridView)
@@ -1685,15 +1870,7 @@ Public Class SuperAdmin
         If printButton Is Nothing Then printButton = TryCast(toolbar.Controls("employeePrintReport"), Button)
 
         If printButton IsNot Nothing Then
-            printButton.Text = "▣  Print Report"
-            printButton.BackColor = Color.FromArgb(20, 100, 60)
-            printButton.ForeColor = Color.White
-            printButton.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
-            printButton.FlatStyle = FlatStyle.Flat
-            printButton.FlatAppearance.BorderSize = 0
-            printButton.UseVisualStyleBackColor = False
-            printButton.SetBounds(right - buttonWidth, 18, buttonWidth, 40)
-            ApplyDashboardRoundedCorners(printButton, 8)
+            ApplySmoothPrintButtonStyle(printButton, right - buttonWidth, buttonWidth)
         End If
 
         If toolbar Is panelRetailSalesReport Then
@@ -1710,16 +1887,7 @@ Public Class SuperAdmin
             Dim retailGeneratedWidth = TextRenderer.MeasureText(retailGenerated.Text, retailGenerated.Font).Width + 12
             retailGenerated.SetBounds(82, 51, Math.Min(retailGeneratedWidth, Math.Max(1, toolbar.ClientSize.Width - 260)), 18)
             retailGenerated.Visible = True
-            retailPrintReport.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
-            retailPrintReport.Text = "▣  Print Report"
-            retailPrintReport.BackColor = Color.FromArgb(20, 100, 60)
-            retailPrintReport.ForeColor = Color.White
-            retailPrintReport.FlatStyle = FlatStyle.Flat
-            retailPrintReport.FlatAppearance.BorderSize = 0
-            retailPrintReport.UseVisualStyleBackColor = False
-            retailPrintReport.Cursor = Cursors.Hand
-            retailPrintReport.SetBounds(right - 150, 18, 150, 40)
-            ApplyDashboardRoundedCorners(retailPrintReport, 8)
+            ApplySmoothPrintButtonStyle(retailPrintReport, right - 150, 150)
             salesBackToReports.Font = New Font("Segoe UI", 9.0F)
             salesBackToReports.SetBounds(18, 18, 42, 40)
             ComboBox4.Visible = False
@@ -1950,7 +2118,7 @@ Public Class SuperAdmin
         printBtn.Location = New Point(header.ClientSize.Width - printBtn.Width - 18, 18)
         AddHandler header.Resize, Sub(s, e) printBtn.Left = header.ClientSize.Width - printBtn.Width - 18
         AddHandler printBtn.Click, Sub(s, e) ExportSuperAdminGridToPdf(grid, reportTitle, totalLabel.Text, pdfFolderName)
-        ApplyDashboardRoundedCorners(printBtn, 8)
+        ApplySmoothPrintButtonStyle(printBtn, header.ClientSize.Width - printBtn.Width - 18, printBtn.Width)
         header.Controls.Add(printBtn)
 
         Dim body As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 2, .RowCount = 1, .BackColor = Color.FromArgb(245, 245, 245), .Margin = New Padding(0)}
@@ -2093,7 +2261,7 @@ Public Class SuperAdmin
             printBtn.Location = New Point(addExpenseBtn.Left - printBtn.Width - 10, 18)
             AddHandler header.Resize, Sub(s, e) printBtn.Left = addExpenseBtn.Left - printBtn.Width - 10
             AddHandler printBtn.Click, Sub(s, e) ExportSuperAdminGridToPdf(grid, currentPeriod & " " & reportTitle, totalLabel.Text, pdfFolderName)
-            ApplyDashboardRoundedCorners(printBtn, 8)
+            ApplySmoothPrintButtonStyle(printBtn, addExpenseBtn.Left - printBtn.Width - 10, printBtn.Width)
             header.Controls.Add(printBtn)
         Else
             Dim printBtn As New Button With {.Text = "▣  Print Report", .Size = New Size(150, 40), .Anchor = AnchorStyles.Top Or AnchorStyles.Right, .BackColor = darkGreenColor, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat, .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold), .Cursor = Cursors.Hand}
@@ -2101,7 +2269,7 @@ Public Class SuperAdmin
             printBtn.Location = New Point(header.ClientSize.Width - printBtn.Width - 18, 18)
             AddHandler header.Resize, Sub(s, e) printBtn.Left = header.ClientSize.Width - printBtn.Width - 18
             AddHandler printBtn.Click, Sub(s, e) ExportSuperAdminGridToPdf(grid, currentPeriod & " " & reportTitle, totalLabel.Text, pdfFolderName)
-            ApplyDashboardRoundedCorners(printBtn, 8)
+            ApplySmoothPrintButtonStyle(printBtn, header.ClientSize.Width - printBtn.Width - 18, printBtn.Width)
             header.Controls.Add(printBtn)
         End If
 
@@ -3105,6 +3273,8 @@ Public Class SuperAdmin
         ShowAccountDialog(GetAccountDetails(userId))
     End Sub
 
+
+    'INCLUDED DITO YUNG ROUNDED TOGGLE PILL BRUHH
     Private Sub ToggleAccount(userId As Integer, rowIndex As Integer)
         Dim active As Boolean = accountsDataGrid.Rows(rowIndex).Cells("accountStatus").Value.ToString() = "Active"
         Execute("UPDATE users SET is_active=@active WHERE user_id=@id", Not active, userId)
@@ -3114,8 +3284,12 @@ Public Class SuperAdmin
     Private Sub accountsDataGrid_CellPainting(sender As Object, e As DataGridViewCellPaintingEventArgs) Handles accountsDataGrid.CellPainting
         If e.RowIndex < 0 OrElse e.ColumnIndex < 0 Then Return
         Dim columnName = accountsDataGrid.Columns(e.ColumnIndex).Name
+
         If columnName = "accountRole" OrElse columnName = "accountStatus" Then
             e.PaintBackground(e.CellBounds, True)
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+            e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality
+
             Dim text = Convert.ToString(e.FormattedValue, CultureInfo.CurrentCulture)
             Dim isStatus = columnName = "accountStatus"
             Dim active = String.Equals(text, "Active", StringComparison.OrdinalIgnoreCase)
@@ -3125,6 +3299,7 @@ Public Class SuperAdmin
             Dim pillWidth = Math.Min(e.CellBounds.Width - 12, Math.Max(54, contentWidth))
             Dim pillBounds As New Rectangle(e.CellBounds.Left + (e.CellBounds.Width - pillWidth) \ 2, e.CellBounds.Top + 10, pillWidth, e.CellBounds.Height - 20)
             DrawAccountPill(e.Graphics, pillBounds, fillColor, Color.Transparent, 10)
+
             If isStatus Then
                 Using dotBrush As New SolidBrush(textColor)
                     e.Graphics.FillEllipse(dotBrush, pillBounds.Left + 9, pillBounds.Top + (pillBounds.Height - 6) \ 2, 6, 6)
@@ -3136,8 +3311,12 @@ Public Class SuperAdmin
             e.Handled = True
             Return
         End If
+
         If columnName = "accountEdit" OrElse columnName = "accountResetPassword" Then
             e.PaintBackground(e.CellBounds, True)
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+            e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality
+
             Dim buttonText = Convert.ToString(e.FormattedValue, CultureInfo.CurrentCulture)
             Dim buttonWidth = Math.Min(e.CellBounds.Width - 12, If(columnName = "accountEdit", 76, 92))
             Dim buttonBounds As New Rectangle(e.CellBounds.Left + (e.CellBounds.Width - buttonWidth) \ 2, e.CellBounds.Top + 8, buttonWidth, e.CellBounds.Height - 16)
@@ -3148,6 +3327,7 @@ Public Class SuperAdmin
             e.Handled = True
             Return
         End If
+
         If columnName <> "accountEnableDisable" Then Return
         If accountsDataGrid.Rows(e.RowIndex).Cells("accountStatus").Value Is Nothing Then Return
 
@@ -3155,20 +3335,24 @@ Public Class SuperAdmin
         Dim isActive = statusValue.ToString() = "Active"
 
         e.PaintBackground(e.CellBounds, True)
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+        e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality
 
-        Dim switchWidth = 44.0F
+        Dim switchWidth = 44
         Dim switchHeight = 22
         Dim switchLeft = e.CellBounds.Left + (e.CellBounds.Width - switchWidth) \ 2
         Dim switchTop = e.CellBounds.Top + (e.CellBounds.Height - switchHeight) \ 2
+        Dim switchBounds As New Rectangle(switchLeft, switchTop, switchWidth, switchHeight)
+
         Dim knobSize = 16
         Dim knobLeft As Integer = If(isActive, switchLeft + switchWidth - knobSize - 3, switchLeft + 3)
-        Dim knobTop = switchTop + 3
-        Dim trackColor = If(isActive, Color.ForestGreen, Color.Firebrick)
+        Dim knobTop = switchTop + (switchHeight - knobSize) \ 2
+        Dim trackColor = If(isActive, Color.FromArgb(24, 126, 76), Color.FromArgb(200, 55, 55))
 
-        Using trackBrush As New SolidBrush(trackColor), knobBrush As New SolidBrush(Color.White), borderPen As New Pen(Color.DimGray)
-            e.Graphics.FillEllipse(trackBrush, switchLeft, switchTop, switchHeight, switchHeight)
-            e.Graphics.FillEllipse(trackBrush, switchLeft + switchWidth - switchHeight, switchTop, switchHeight, switchHeight)
-            e.Graphics.FillRectangle(trackBrush, switchLeft + switchHeight \ 2, switchTop, switchWidth - switchHeight, switchHeight)
+        ' Single smooth pill path instead of separate circles + rectangle
+        DrawAccountPill(e.Graphics, switchBounds, trackColor, Color.Transparent, switchHeight \ 2)
+
+        Using knobBrush As New SolidBrush(Color.White), borderPen As New Pen(Color.FromArgb(180, 185, 190), 1.0F)
             e.Graphics.FillEllipse(knobBrush, knobLeft, knobTop, knobSize, knobSize)
             e.Graphics.DrawEllipse(borderPen, knobLeft, knobTop, knobSize, knobSize)
         End Using
@@ -3177,7 +3361,10 @@ Public Class SuperAdmin
     End Sub
 
     Private Sub DrawAccountPill(graphics As Graphics, bounds As Rectangle, fillColor As Color, borderColor As Color, radius As Integer)
-        If bounds.Width <= 0 OrElse bounds.Height <= 0 Then Return
+        If bounds.Width <= 0 OrElse bounds.Height <= 0 OrElse radius <= 0 Then Return
+        graphics.SmoothingMode = SmoothingMode.AntiAlias
+        graphics.PixelOffsetMode = PixelOffsetMode.HighQuality
+
         Using path As New GraphicsPath()
             Dim diameter = Math.Min(radius * 2, Math.Min(bounds.Width, bounds.Height))
             path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90)
