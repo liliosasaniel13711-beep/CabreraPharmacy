@@ -1,5 +1,6 @@
 Imports System.Data
 Imports System.Drawing
+Imports System.ComponentModel
 Imports System.Windows.Forms
 
 Public Class ExpiryManagementForm
@@ -43,7 +44,9 @@ Public Class ExpiryManagementForm
 
         thresholdInput.Minimum = 1
         thresholdInput.Maximum = 3650
-        thresholdInput.Value = ExpiryMonitorSettings.LoadNearExpiryDays()
+        If LicenseManager.UsageMode <> LicenseUsageMode.Designtime Then
+            thresholdInput.Value = ExpiryMonitorSettings.LoadNearExpiryDays()
+        End If
         thresholdInput.Width = 82
         thresholdInput.Margin = New Padding(0, 2, 8, 0)
         toolbar.Controls.Add(thresholdInput)
@@ -147,9 +150,14 @@ Public Class ExpiryManagementForm
         Controls.Add(pages)
         Controls.Add(note)
         Controls.Add(toolbar)
-        RefreshMigrationState()
-        UiSelectionStyler.ApplyToForm(Me)
-        LoadBatches()
+        If LicenseManager.UsageMode = LicenseUsageMode.Designtime Then
+            statusLabel.Text = "Batch data loads when the form runs"
+            migrationStatusLabel.Text = "Runtime database status"
+        Else
+            RefreshMigrationState()
+            UiSelectionStyler.ApplyToForm(Me)
+            LoadBatches()
+        End If
     End Sub
 
     Private Sub SaveThreshold_Click(sender As Object, e As EventArgs)

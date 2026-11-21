@@ -76,20 +76,7 @@ Partial Class Login
         cardPath.CloseFigure()
         NavBar.Region = New Region(cardPath)
         cardPath.Dispose()
-        AddHandler NavBar.SizeChanged,
-            Sub(sender As Object, e As EventArgs)
-                Dim path As New Drawing2D.GraphicsPath()
-                Dim corner As Integer = Math.Min(24, Math.Min(NavBar.Width, NavBar.Height) \ 4)
-                path.AddArc(0, 0, corner, corner, 180, 90)
-                path.AddArc(NavBar.Width - corner, 0, corner, corner, 270, 90)
-                path.AddArc(NavBar.Width - corner, NavBar.Height - corner, corner, corner, 0, 90)
-                path.AddArc(0, NavBar.Height - corner, corner, corner, 90, 90)
-                path.CloseFigure()
-                Dim previousRegion = NavBar.Region
-                NavBar.Region = New Region(path)
-                previousRegion.Dispose()
-                path.Dispose()
-            End Sub
+        AddHandler NavBar.SizeChanged, AddressOf NavBar_SizeChanged
         ' 
         ' hidepass
         ' 
@@ -169,20 +156,7 @@ Partial Class Login
         logoPath.CloseFigure()
         LoginIcon.Region = New Region(logoPath)
         logoPath.Dispose()
-        AddHandler LoginIcon.SizeChanged,
-            Sub(sender As Object, e As EventArgs)
-                Dim path As New Drawing2D.GraphicsPath()
-                Dim corner As Integer = Math.Min(34, Math.Min(LoginIcon.Width, LoginIcon.Height) \ 2)
-                path.AddArc(0, 0, corner, corner, 180, 90)
-                path.AddArc(LoginIcon.Width - corner, 0, corner, corner, 270, 90)
-                path.AddArc(LoginIcon.Width - corner, LoginIcon.Height - corner, corner, corner, 0, 90)
-                path.AddArc(0, LoginIcon.Height - corner, corner, corner, 90, 90)
-                path.CloseFigure()
-                Dim previousRegion = LoginIcon.Region
-                LoginIcon.Region = New Region(path)
-                If previousRegion IsNot Nothing Then previousRegion.Dispose()
-                path.Dispose()
-            End Sub
+        AddHandler LoginIcon.SizeChanged, AddressOf LoginIcon_SizeChanged
         ' 
         ' LoginBtn
         ' 
@@ -209,20 +183,7 @@ Partial Class Login
         buttonPath.CloseFigure()
         LoginBtn.Region = New Region(buttonPath)
         buttonPath.Dispose()
-        AddHandler LoginBtn.SizeChanged,
-            Sub(sender As Object, e As EventArgs)
-                Dim path As New Drawing2D.GraphicsPath()
-                Dim corner As Integer = Math.Min(18, Math.Max(1, LoginBtn.Height \ 2))
-                path.AddArc(0, 0, corner, corner, 180, 90)
-                path.AddArc(LoginBtn.Width - corner, 0, corner, corner, 270, 90)
-                path.AddArc(LoginBtn.Width - corner, LoginBtn.Height - corner, corner, corner, 0, 90)
-                path.AddArc(0, LoginBtn.Height - corner, corner, corner, 90, 90)
-                path.CloseFigure()
-                Dim previousRegion = LoginBtn.Region
-                LoginBtn.Region = New Region(path)
-                If previousRegion IsNot Nothing Then previousRegion.Dispose()
-                path.Dispose()
-            End Sub
+        AddHandler LoginBtn.SizeChanged, AddressOf LoginBtn_SizeChanged
         ' 
         ' PasswordField
         ' 
@@ -299,33 +260,7 @@ Partial Class Login
         imageLogin.SizeMode = PictureBoxSizeMode.Normal
         imageLogin.TabIndex = 0
         imageLogin.TabStop = False
-        AddHandler imageLogin.Paint,
-            Sub(sender As Object, e As PaintEventArgs)
-                Dim bounds = imageLogin.ClientRectangle
-                e.Graphics.SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
-                Using gradient As New Drawing2D.LinearGradientBrush(bounds,
-                        Color.FromArgb(255, 192, 88), Color.FromArgb(239, 126, 66),
-                        Drawing2D.LinearGradientMode.ForwardDiagonal)
-                    e.Graphics.FillRectangle(gradient, bounds)
-                End Using
-                Using lightShape As New SolidBrush(Color.FromArgb(48, Color.White))
-                    e.Graphics.FillPolygon(lightShape, {
-                        New Point(0, 0), New Point(bounds.Width, 0),
-                        New Point(bounds.Width \ 2, bounds.Height \ 3), New Point(0, bounds.Height \ 4)})
-                End Using
-                Using warmShape As New SolidBrush(Color.FromArgb(35, 192, 82, 43))
-                    e.Graphics.FillPolygon(warmShape, {
-                        New Point(0, CInt(bounds.Height * 0.65)),
-                        New Point(CInt(bounds.Width * 0.64), CInt(bounds.Height * 0.42)),
-                        New Point(bounds.Width, CInt(bounds.Height * 0.64)),
-                        New Point(bounds.Width, bounds.Height), New Point(0, bounds.Height)})
-                End Using
-                Using detailPen As New Pen(Color.FromArgb(54, Color.White), 1.0F)
-                    e.Graphics.DrawArc(detailPen, CInt(bounds.Width * 0.45), -40,
-                                       CInt(bounds.Width * 0.70), 170, 15, 145)
-                    e.Graphics.DrawLine(detailPen, 0, CInt(bounds.Height * 0.25), bounds.Width, 0)
-                End Using
-            End Sub
+        AddHandler imageLogin.Paint, AddressOf imageLogin_Paint
         ' 
         ' Login
         ' 

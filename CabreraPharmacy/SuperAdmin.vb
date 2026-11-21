@@ -12,6 +12,63 @@ Imports System.Windows.Forms
 
 Public Class SuperAdmin
 
+    'FOR ROUNDED BUTTONS SA SIDE NAV INI HEHE
+    Private Sub Form_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        MakeButtonRounded(btnDashboard, 15)
+        MakeButtonRounded(btnAccounts, 15)
+        MakeButtonRounded(btnReports, 15)
+
+    End Sub
+
+    Private Sub MakeButtonRounded(btn As Button, radius As Integer, Optional borderColor As Color = Nothing, Optional borderThickness As Integer = 0)
+        ' Disable default rectangular border so it doesn't clash with rounded corners
+        btn.FlatAppearance.BorderSize = 0
+
+        AddHandler btn.Paint, Sub(sender As Object, e As PaintEventArgs)
+                                  Dim g As Graphics = e.Graphics
+                                  g.SmoothingMode = SmoothingMode.AntiAlias
+                                  g.PixelOffsetMode = PixelOffsetMode.HighQuality
+
+                                  Dim rect As New Rectangle(0, 0, btn.Width, btn.Height)
+                                  Using path As GraphicsPath = GetRoundPath(rect, radius),
+                                    penSurface As New Pen(btn.Parent.BackColor, 2)
+
+                                      btn.Region = New Region(path)
+                                      g.DrawPath(penSurface, path)
+
+                                      ' Draw optional smooth rounded border
+                                      If borderThickness > 0 AndAlso borderColor <> Color.Empty Then
+                                          Dim rectBorder As Rectangle = Rectangle.Inflate(rect, -borderThickness, -borderThickness)
+                                          Using pathBorder As GraphicsPath = GetRoundPath(rectBorder, radius - borderThickness),
+                                            penBorder As New Pen(borderColor, borderThickness)
+                                              g.DrawPath(penBorder, pathBorder)
+                                          End Using
+                                      End If
+                                  End Using
+                              End Sub
+
+        ' Redraw properly if the form resizes (important for anchored buttons)
+        AddHandler btn.Resize, Sub(sender As Object, e As EventArgs)
+                                   btn.Invalidate()
+                               End Sub
+    End Sub
+
+    Private Function GetRoundPath(rect As Rectangle, radius As Integer) As GraphicsPath
+        Dim path As New GraphicsPath()
+        Dim curveSize As Single = radius * 2.0F
+
+        path.StartFigure()
+        path.AddArc(rect.X, rect.Y, curveSize, curveSize, 180, 90)
+        path.AddArc(rect.Right - curveSize, rect.Y, curveSize, curveSize, 270, 90)
+        path.AddArc(rect.Right - curveSize, rect.Bottom - curveSize, curveSize, curveSize, 0, 90)
+        path.AddArc(rect.X, rect.Bottom - curveSize, curveSize, curveSize, 90, 90)
+        path.CloseFigure()
+
+        Return path
+    End Function
+
+    'HANGGANG DITO
+
     Private Shared ReadOnly AllMonthNames As String() = {
         "January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December"
@@ -62,6 +119,8 @@ Public Class SuperAdmin
     Private superAdminDynamicReportPanel As Panel
     Private superAdminReportsHubPanel As Panel
     Private superAdminReportsFlow As FlowLayoutPanel
+
+
 
     ' --- 1. INITIALIZATION & NAVIGATION ---
     Private Sub SuperAdmin_Load(sender As Object, e As EventArgs) Handles MyBase.Load

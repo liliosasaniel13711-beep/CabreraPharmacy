@@ -1,4 +1,6 @@
+Imports System.Drawing
 Imports System.Drawing.Drawing2D
+Imports System.Runtime.InteropServices
 Imports System.Windows.Forms
 
 Public NotInheritable Class LogoutConfirmationDialog
@@ -33,8 +35,26 @@ Public NotInheritable Class LogoutConfirmationDialog
     Private NotInheritable Class LogoutPromptForm
         Inherits Form
 
+        <DllImport("dwmapi.dll", CharSet:=CharSet.Unicode, PreserveSig:=False)>
+        Private Shared Sub DwmSetWindowAttribute(hwnd As IntPtr, attribute As Integer, ByRef pvAttribute As Integer, cbAttribute As Integer)
+        End Sub
+
+        Private Const DWMWA_WINDOW_CORNER_PREFERENCE As Integer = 33
+        Private Const DWMWCP_ROUND As Integer = 2
+
         Private ReadOnly cancelActionButton As Button
         Private ReadOnly logoutButton As Button
+
+        Protected Overrides Sub OnHandleCreated(e As EventArgs)
+            MyBase.OnHandleCreated(e)
+            Try
+                ' Enables smooth, anti-aliased rounded corners and native drop shadow (Windows 11+)
+                Dim preference As Integer = DWMWCP_ROUND
+                DwmSetWindowAttribute(Me.Handle, DWMWA_WINDOW_CORNER_PREFERENCE, preference, Marshal.SizeOf(GetType(Integer)))
+            Catch
+                ' Safely ignored on Windows 10 or older
+            End Try
+        End Sub
 
         Public Sub New()
             Text = "Confirm Logout"
@@ -44,6 +64,7 @@ Public NotInheritable Class LogoutConfirmationDialog
             MaximizeBox = False
             MinimizeBox = False
             KeyPreview = True
+            DoubleBuffered = True
             BackColor = Color.White
             ClientSize = New Size(460, 250)
 
@@ -77,8 +98,9 @@ Public NotInheritable Class LogoutConfirmationDialog
             }
             header.Controls.AddRange({headerIcon, headerTitle})
 
+            ' Match form BackColor so only the anti-aliased circle drawn in LogoutIcon_Paint is visible
             Dim icon As New Panel With {
-                .BackColor = Color.FromArgb(255, 246, 232),
+                .BackColor = Color.White,
                 .Location = New Point(28, 86),
                 .Size = New Size(62, 62)
             }
@@ -147,16 +169,14 @@ Public NotInheritable Class LogoutConfirmationDialog
             Controls.AddRange({header, icon, bodyTitle, bodyText, footer})
             CancelButton = cancelActionButton
 
+            MakeButtonSmoothRounded(cancelActionButton, 12)
+            MakeButtonSmoothRounded(logoutButton, 12)
+
             AddHandler Shown,
                 Sub(sender, e)
-                    ApplyRoundedRegion(Me, 16)
                     ApplyRoundedRegion(cancelActionButton, 12)
                     ApplyRoundedRegion(logoutButton, 12)
                 End Sub
-            AddHandler Resize, Sub(sender, e) ApplyRoundedRegion(Me, 16)
-            AddHandler icon.Resize, Sub(sender, e) ApplyRoundedRegion(icon, 46)
-            AddHandler cancelActionButton.Resize, Sub(sender, e) ApplyRoundedRegion(cancelActionButton, 12)
-            AddHandler logoutButton.Resize, Sub(sender, e) ApplyRoundedRegion(logoutButton, 12)
         End Sub
 
         Private Sub CloseWithResult(result As DialogResult)
@@ -166,6 +186,7 @@ Public NotInheritable Class LogoutConfirmationDialog
 
         Private Sub LogoutIcon_Paint(sender As Object, e As PaintEventArgs)
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+            e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality
             Dim iconPanel = DirectCast(sender, Panel)
             e.Graphics.ScaleTransform(iconPanel.Width / 92.0F, iconPanel.Height / 92.0F)
             Dim circleBounds As New Rectangle(8, 8, 76, 76)
@@ -187,16 +208,43 @@ Public NotInheritable Class LogoutConfirmationDialog
             End Using
         End Sub
 
+        Private Shared Sub MakeButtonSmoothRounded(btn As Button, radius As Integer)
+            AddHandler btn.Paint,
+                Sub(sender, e)
+                    If btn.Width <= 0 OrElse btn.Height <= 0 OrElse btn.Parent Is Nothing Then Return
+                    e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+                    e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality
+                    Dim bounds As New Rectangle(0, 0, btn.Width, btn.Height)
+                    Using path As GraphicsPath = CreateRoundPath(bounds, radius),
+                          penSurface As New Pen(btn.Parent.BackColor, 2.0F)
+                        e.Graphics.DrawPath(penSurface, path)
+                    End Using
+                End Sub
+
+            AddHandler btn.Resize,
+                Sub(sender, e)
+                    ApplyRoundedRegion(btn, radius)
+                    btn.Invalidate()
+                End Sub
+        End Sub
+
+        Private Shared Function CreateRoundPath(bounds As Rectangle, radius As Integer) As GraphicsPath
+            Dim path As New GraphicsPath()
+            If bounds.Width <= 0 OrElse bounds.Height <= 0 Then Return path
+            Dim diameter As Single = Math.Min(radius * 2.0F, Math.Min(bounds.Width, bounds.Height))
+            path.StartFigure()
+            path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90)
+            path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90)
+            path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90)
+            path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90)
+            path.CloseFigure()
+            Return path
+        End Function
+
         Private Shared Sub ApplyRoundedRegion(control As Control, radius As Integer)
             If control.Width <= 0 OrElse control.Height <= 0 Then Return
-            Dim diameter = Math.Min(radius * 2, Math.Min(control.Width, control.Height))
             Dim bounds As New Rectangle(0, 0, control.Width, control.Height)
-            Using path As New GraphicsPath()
-                path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90)
-                path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90)
-                path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90)
-                path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90)
-                path.CloseFigure()
+            Using path As GraphicsPath = CreateRoundPath(bounds, radius)
                 Dim previousRegion = control.Region
                 control.Region = New Region(path)
                 If previousRegion IsNot Nothing Then previousRegion.Dispose()

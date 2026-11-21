@@ -69,6 +69,62 @@ Public Class Login
         If passvisible.Visible Then passvisible.BringToFront()
     End Sub
 
+    Private Sub NavBar_SizeChanged(sender As Object, e As EventArgs)
+        ApplyRoundedRegion(NavBar, Math.Min(24, Math.Min(NavBar.Width, NavBar.Height) \ 4))
+    End Sub
+
+    Private Sub LoginIcon_SizeChanged(sender As Object, e As EventArgs)
+        ApplyRoundedRegion(LoginIcon, Math.Min(34, Math.Min(LoginIcon.Width, LoginIcon.Height) \ 2))
+    End Sub
+
+    Private Sub LoginBtn_SizeChanged(sender As Object, e As EventArgs)
+        ApplyRoundedRegion(LoginBtn, Math.Min(18, Math.Max(1, LoginBtn.Height \ 2)))
+    End Sub
+
+    Private Sub ApplyRoundedRegion(control As Control, corner As Integer)
+        If control.Width <= 0 OrElse control.Height <= 0 Then Return
+
+        corner = Math.Max(1, Math.Min(corner, Math.Min(control.Width, control.Height)))
+        Using path As New Drawing2D.GraphicsPath()
+            path.AddArc(0, 0, corner, corner, 180, 90)
+            path.AddArc(control.Width - corner, 0, corner, corner, 270, 90)
+            path.AddArc(control.Width - corner, control.Height - corner, corner, corner, 0, 90)
+            path.AddArc(0, control.Height - corner, corner, corner, 90, 90)
+            path.CloseFigure()
+
+            Dim previousRegion = control.Region
+            control.Region = New Region(path)
+            If previousRegion IsNot Nothing Then previousRegion.Dispose()
+        End Using
+    End Sub
+
+    Private Sub imageLogin_Paint(sender As Object, e As PaintEventArgs)
+        Dim bounds = imageLogin.ClientRectangle
+        e.Graphics.SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
+        Using gradient As New Drawing2D.LinearGradientBrush(bounds,
+                Color.FromArgb(255, 192, 88), Color.FromArgb(239, 126, 66),
+                Drawing2D.LinearGradientMode.ForwardDiagonal)
+            e.Graphics.FillRectangle(gradient, bounds)
+        End Using
+        Using lightShape As New SolidBrush(Color.FromArgb(48, Color.White))
+            e.Graphics.FillPolygon(lightShape, {
+                New Point(0, 0), New Point(bounds.Width, 0),
+                New Point(bounds.Width \ 2, bounds.Height \ 3), New Point(0, bounds.Height \ 4)})
+        End Using
+        Using warmShape As New SolidBrush(Color.FromArgb(35, 192, 82, 43))
+            e.Graphics.FillPolygon(warmShape, {
+                New Point(0, CInt(bounds.Height * 0.65)),
+                New Point(CInt(bounds.Width * 0.64), CInt(bounds.Height * 0.42)),
+                New Point(bounds.Width, CInt(bounds.Height * 0.64)),
+                New Point(bounds.Width, bounds.Height), New Point(0, bounds.Height)})
+        End Using
+        Using detailPen As New Pen(Color.FromArgb(54, Color.White), 1.0F)
+            e.Graphics.DrawArc(detailPen, CInt(bounds.Width * 0.45), -40,
+                               CInt(bounds.Width * 0.7), 170, 15, 145)
+            e.Graphics.DrawLine(detailPen, 0, CInt(bounds.Height * 0.25), bounds.Width, 0)
+        End Using
+    End Sub
+
     Private Sub LoginBtn_Click(sender As Object, e As EventArgs) Handles LoginBtn.Click
         Dim username = UsernameField.Text.Trim()
         Dim password = PasswordField.Text
