@@ -683,14 +683,26 @@ Public Class SalesRepository
         Try
             Using conn = GetConnection()
                 conn.Open()
-                Const sql = "SELECT CONCAT_WS('|', " &
-                            "(SELECT COALESCE(MAX(sale_id), 0) FROM pharmacy_sales), " &
-                            "(SELECT COALESCE(SUM(quantity_remaining), 0) FROM inventory_batch), " &
-                            "(SELECT COALESCE(MAX(batch_id), 0) FROM inventory_batch), " &
-                            "(SELECT COALESCE(MAX(expense_id), 0) FROM pharmacy_expenses), " &
-                            "(SELECT COUNT(*) FROM product), " &
-                            "(SELECT COALESCE(SUM(retail_price + wholesale_price_per_box + is_active), 0) FROM product), " &
-                            "(SELECT COUNT(*) FROM users WHERE is_active = 1))"
+
+                Dim quarantineSql As String = "0"
+                Dim actionSql As String = "0"
+                If BatchControlRepository.IsMigrationApplied(conn, Nothing) Then
+                    quarantineSql = "COALESCE((SELECT CONCAT(COUNT(*), ':', COALESCE(SUM(quantity), 0)) FROM inventory_batch_quarantines WHERE status = 'Active'), '0:0')"
+                    actionSql = "COALESCE((SELECT CONCAT(COUNT(*), ':', COALESCE(SUM(quantity), 0)) FROM inventory_batch_actions WHERE status = 'Pending'), '0:0')"
+                End If
+
+                Dim sql = "SELECT CONCAT_WS('|', " &
+                          "(SELECT COALESCE(MAX(sale_id), 0) FROM pharmacy_sales), " &
+                          "(SELECT COALESCE(SUM(quantity_remaining), 0) FROM inventory_batch), " &
+                          "(SELECT COALESCE(MAX(batch_id), 0) FROM inventory_batch), " &
+                          "(SELECT COALESCE(MAX(expense_id), 0) FROM pharmacy_expenses), " &
+                          "(SELECT COUNT(*) FROM product), " &
+                          "(SELECT COALESCE(SUM(retail_price + wholesale_price_per_box + is_active), 0) FROM product), " &
+                          "(SELECT COALESCE(SUM(CRC32(COALESCE(item_placement, ''))), 0) FROM product), " &
+                          "(" & quarantineSql & "), " &
+                          "(" & actionSql & "), " &
+                          "(SELECT COUNT(*) FROM users WHERE is_active = 1))"
+
                 Using cmd As New MySqlCommand(sql, conn)
                     Return Convert.ToString(cmd.ExecuteScalar())
                 End Using
