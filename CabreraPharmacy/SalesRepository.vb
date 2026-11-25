@@ -688,6 +688,8 @@ Public Class SalesRepository
                             "(SELECT COALESCE(SUM(quantity_remaining), 0) FROM inventory_batch), " &
                             "(SELECT COALESCE(MAX(batch_id), 0) FROM inventory_batch), " &
                             "(SELECT COALESCE(MAX(expense_id), 0) FROM pharmacy_expenses), " &
+                            "(SELECT COUNT(*) FROM product), " &
+                            "(SELECT COALESCE(SUM(retail_price + wholesale_price_per_box + is_active), 0) FROM product), " &
                             "(SELECT COUNT(*) FROM users WHERE is_active = 1))"
                 Using cmd As New MySqlCommand(sql, conn)
                     Return Convert.ToString(cmd.ExecuteScalar())

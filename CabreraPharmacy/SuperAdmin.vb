@@ -180,6 +180,9 @@ Public Class SuperAdmin
     Private superAdminDynamicReportPanel As Panel
     Private superAdminReportsHubPanel As Panel
     Private superAdminReportsFlow As FlowLayoutPanel
+    Private liveSyncTimer As System.Windows.Forms.Timer
+    Private lastSyncSignature As String = String.Empty
+    Private isSyncPolling As Boolean = False
 
 
 
@@ -254,6 +257,7 @@ Public Class SuperAdmin
         LoadSalesDashboardStats()
         WireDashboardCardClicks()
         UiSelectionStyler.ApplyToForm(Me)
+        InitializeLiveSync()
     End Sub
 
     Private Sub WireDashboardCardClicks()
@@ -4369,4 +4373,50 @@ Public Class SuperAdmin
 
     Private Sub navDashboard_Click(sender As Object, e As EventArgs)
     End Sub
+
+    Private Sub InitializeLiveSync()
+        If liveSyncTimer IsNot Nothing Then Return
+        liveSyncTimer = New System.Windows.Forms.Timer With {.Interval = 4000}
+        AddHandler liveSyncTimer.Tick, AddressOf LiveSyncTimer_Tick
+        liveSyncTimer.Start()
+    End Sub
+
+    Private Async Sub LiveSyncTimer_Tick(sender As Object, e As EventArgs)
+        If isSyncPolling OrElse Me.IsDisposed OrElse Not Me.Visible Then Return
+        If Me.OwnedForms.Length > 0 OrElse (Form.ActiveForm IsNot Nothing AndAlso Form.ActiveForm.Modal) Then Return
+
+        isSyncPolling = True
+        Try
+            Dim signature = Await Task.Run(Function() New SalesRepository().GetSyncSignature())
+            If Me.IsDisposed OrElse Not Me.IsHandleCreated OrElse String.IsNullOrEmpty(signature) Then Return
+
+            If String.IsNullOrEmpty(lastSyncSignature) Then
+                lastSyncSignature = signature
+                Return
+            End If
+
+            If Not String.Equals(signature, lastSyncSignature, StringComparison.Ordinal) Then
+                lastSyncSignature = signature
+                If pnlDashboard.Visible Then
+                    LoadSalesDashboardStats()
+                    LoadDashboardTrend(dashboardTrendPeriod)
+                ElseIf pnlAccounts.Visible AndAlso (accountSearchBox Is Nothing OrElse Not accountSearchBox.Focused) Then
+                    LoadAccounts()
+                End If
+            End If
+        Catch
+            ' Ignore transient LAN polling hiccups
+        Finally
+            isSyncPolling = False
+        End Try
+    End Sub
+
+    Private Sub SuperAdmin_FormClosing(sender As Object, e As FormClosingEventArgs) Handles MyBase.FormClosing
+        If liveSyncTimer IsNot Nothing Then
+            liveSyncTimer.Stop()
+            liveSyncTimer.Dispose()
+            liveSyncTimer = Nothing
+        End If
+    End Sub
+
 End Class

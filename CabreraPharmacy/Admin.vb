@@ -6,6 +6,7 @@ Imports System.Globalization
 Imports System.Diagnostics
 Imports System.IO
 Imports MySql.Data.MySqlClient
+Imports System.Threading.Tasks
 
 Public Class Admin
 
@@ -146,6 +147,10 @@ Public Class Admin
     Private dashboardExpired As Integer
     Private dashboardNearExpiry As Integer
     Private dashboardTodayTransactions As Integer
+    Private activeTrendPeriod As String = "7 Days"
+    Private liveSyncTimer As System.Windows.Forms.Timer
+    Private lastSyncSignature As String = String.Empty
+    Private isSyncPolling As Boolean = False
 
     Private Sub Admin_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         Me.WindowState = FormWindowState.Maximized
@@ -181,6 +186,7 @@ Public Class Admin
         UiSelectionStyler.ApplyToForm(Me)
         ShowView("Dashboard")
         LoadSalesTrend("7 Days")
+        InitializeLiveSync()
     End Sub
 
     Private Sub WireDashboardCardClicks()
@@ -663,6 +669,7 @@ Public Class Admin
                 startDate = today.AddDays(-6)
         End Select
 
+        activeTrendPeriod = period
         trendLabels.Clear()
         trendValues.Clear()
         dashboardTodayTransactions = 0
@@ -4054,6 +4061,53 @@ Public Class Admin
                 LoadDashboardStats()
             End If
         End Using
+    End Sub
+
+    Private Sub InitializeLiveSync()
+        If liveSyncTimer IsNot Nothing Then Return
+        liveSyncTimer = New System.Windows.Forms.Timer With {.Interval = 4000}
+        AddHandler liveSyncTimer.Tick, AddressOf LiveSyncTimer_Tick
+        liveSyncTimer.Start()
+    End Sub
+
+    Private Async Sub LiveSyncTimer_Tick(sender As Object, e As EventArgs)
+        If isSyncPolling OrElse Me.IsDisposed OrElse Not Me.Visible Then Return
+        If Me.OwnedForms.Length > 0 OrElse (Form.ActiveForm IsNot Nothing AndAlso Form.ActiveForm.Modal) Then Return
+
+        isSyncPolling = True
+        Try
+            Dim signature = Await Task.Run(Function() New SalesRepository().GetSyncSignature())
+            If Me.IsDisposed OrElse Not Me.IsHandleCreated OrElse String.IsNullOrEmpty(signature) Then Return
+
+            If String.IsNullOrEmpty(lastSyncSignature) Then
+                lastSyncSignature = signature
+                Return
+            End If
+
+            If Not String.Equals(signature, lastSyncSignature, StringComparison.Ordinal) Then
+                lastSyncSignature = signature
+                If dashboardView.Visible Then
+                    LoadDashboardStats()
+                    LoadSalesTrend(activeTrendPeriod)
+                ElseIf inventoryView.Visible AndAlso (inventorySearchBox Is Nothing OrElse Not inventorySearchBox.Focused) Then
+                    LoadInventoryData()
+                ElseIf priceManagerView.Visible AndAlso (priceManagerSearchBox Is Nothing OrElse Not priceManagerSearchBox.Focused) Then
+                    LoadPriceManagerData()
+                End If
+            End If
+        Catch
+            ' Ignore transient LAN polling hiccups
+        Finally
+            isSyncPolling = False
+        End Try
+    End Sub
+
+    Private Sub Admin_FormClosing(sender As Object, e As FormClosingEventArgs) Handles MyBase.FormClosing
+        If liveSyncTimer IsNot Nothing Then
+            liveSyncTimer.Stop()
+            liveSyncTimer.Dispose()
+            liveSyncTimer = Nothing
+        End If
     End Sub
 
 End Class

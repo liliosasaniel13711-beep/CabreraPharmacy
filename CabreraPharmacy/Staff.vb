@@ -8,6 +8,7 @@ Imports System.IO
 Imports System.Text
 Imports System.Diagnostics
 Imports MySql.Data.MySqlClient
+Imports System.Threading.Tasks
 
 Public Class Staff
 
@@ -158,6 +159,9 @@ Public Class Staff
     Private restockExpiryDatePicker As DateTimePicker
     Private restockSupplierCombo As ComboBox
     Private restockSubmitButton As Button
+    Private liveSyncTimer As System.Windows.Forms.Timer
+    Private lastSyncSignature As String = String.Empty
+    Private isSyncPolling As Boolean = False
 
     Private Sub Staff_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         Me.WindowState = FormWindowState.Maximized
@@ -207,6 +211,7 @@ Public Class Staff
         LoadProducts()
         UiSelectionStyler.ApplyToForm(Me)
         ApplyStaffGridSelectionColors(Me)
+        InitializeLiveSync()
     End Sub
 
     Private Sub LoadStaffHeaderAvatar()
@@ -3951,4 +3956,53 @@ Public Class Staff
     Private Sub headerPanel_Paint(sender As Object, e As PaintEventArgs) Handles headerPanel.Paint
 
     End Sub
+
+    Private Sub InitializeLiveSync()
+        If liveSyncTimer IsNot Nothing Then Return
+        liveSyncTimer = New System.Windows.Forms.Timer With {.Interval = 4000}
+        AddHandler liveSyncTimer.Tick, AddressOf LiveSyncTimer_Tick
+        liveSyncTimer.Start()
+    End Sub
+
+    Private Async Sub LiveSyncTimer_Tick(sender As Object, e As EventArgs)
+        If isSyncPolling OrElse Me.IsDisposed OrElse Not Me.Visible Then Return
+        If checkoutView.Visible OrElse Me.OwnedForms.Length > 0 OrElse (Form.ActiveForm IsNot Nothing AndAlso Form.ActiveForm.Modal) Then Return
+
+        isSyncPolling = True
+        Try
+            Dim signature = Await Task.Run(Function() New SalesRepository().GetSyncSignature())
+            If Me.IsDisposed OrElse Not Me.IsHandleCreated OrElse String.IsNullOrEmpty(signature) Then Return
+
+            If String.IsNullOrEmpty(lastSyncSignature) Then
+                lastSyncSignature = signature
+                Return
+            End If
+
+            If Not String.Equals(signature, lastSyncSignature, StringComparison.Ordinal) Then
+                lastSyncSignature = signature
+                If transactionView.Visible Then
+                    If currentProduct Is Nothing AndAlso Not searchTextBox.Focused Then
+                        LoadProducts()
+                    ElseIf currentProduct IsNot Nothing Then
+                        RefreshSelectedProductInventoryWarnings()
+                    End If
+                ElseIf restockView.Visible AndAlso restockSelectedProductId <= 0 AndAlso (restockSearchBox Is Nothing OrElse Not restockSearchBox.Focused) Then
+                    LoadRestockProducts()
+                End If
+            End If
+        Catch
+            ' Ignore transient LAN polling hiccups
+        Finally
+            isSyncPolling = False
+        End Try
+    End Sub
+
+    Private Sub Staff_FormClosing(sender As Object, e As FormClosingEventArgs) Handles MyBase.FormClosing
+        If liveSyncTimer IsNot Nothing Then
+            liveSyncTimer.Stop()
+            liveSyncTimer.Dispose()
+            liveSyncTimer = Nothing
+        End If
+    End Sub
+
 End Class
