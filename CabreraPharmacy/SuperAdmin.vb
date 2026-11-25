@@ -252,7 +252,84 @@ Public Class SuperAdmin
         ' Load the database data into the Accounts grid
         LoadAccounts()
         LoadSalesDashboardStats()
+        WireDashboardCardClicks()
         UiSelectionStyler.ApplyToForm(Me)
+    End Sub
+
+    Private Sub WireDashboardCardClicks()
+        ' 8 Dashboard Summary KPI Cards
+        MakeDashboardCardClickable(Panel1, Sub() OpenSalesReportFromDashboard("Daily", "All"))
+        MakeDashboardCardClickable(Panel2, Sub() OpenSalesReportFromDashboard("Yearly", "Retail"))
+        MakeDashboardCardClickable(Panel3, Sub() OpenSalesReportFromDashboard("Yearly", "Wholesale"))
+        MakeDashboardCardClickable(Panel4, Sub() OpenInventoryStockReport("All"))
+        MakeDashboardCardClickable(Panel5, Sub() OpenInventoryStockReport("Low Stock"))
+        MakeDashboardCardClickable(Panel6, Sub() SuperAdminExpiredReport_Click(Panel6, EventArgs.Empty))
+        MakeDashboardCardClickable(Panel7, Sub() wholesaleViewReport_Click(Panel7, EventArgs.Empty))
+        MakeDashboardCardClickable(Panel8, Sub() SuperAdminExpensesReport_Click(Panel8, EventArgs.Empty))
+
+        ' Revenue vs. Expenses card -> Financial Report
+        MakeDashboardCardClickable(Panel12, Sub() financialViewReport_Click(Panel12, EventArgs.Empty), applyHoverTint:=False)
+
+        ' Low Stock alert card -> Inventory Stock Report (Low Stock)
+        MakeDashboardCardClickable(inventoryAlertLowStock, Sub() OpenInventoryStockReport("Low Stock"), applyHoverTint:=False)
+    End Sub
+
+    Private Sub MakeDashboardCardClickable(card As Control, onClick As Action, Optional applyHoverTint As Boolean = True)
+        If card Is Nothing Then Return
+        Dim normalColor = card.BackColor
+        Dim hoverColor = Color.FromArgb(242, 250, 245)
+
+        Dim setCardBg As Action(Of Color) =
+            Sub(bg As Color)
+                If Not applyHoverTint Then Return
+                card.BackColor = bg
+                For Each child As Control In card.Controls
+                    If TypeOf child Is TextBox OrElse TypeOf child Is Label Then
+                        child.BackColor = bg
+                    End If
+                Next
+            End Sub
+
+        Dim attachControl As Action(Of Control) = Nothing
+        attachControl =
+            Sub(ctrl As Control)
+                ctrl.Cursor = Cursors.Hand
+                AddHandler ctrl.Click, Sub(s, e) onClick()
+                If applyHoverTint Then
+                    AddHandler ctrl.MouseEnter, Sub(s, e) setCardBg(hoverColor)
+                    AddHandler ctrl.MouseLeave,
+                        Sub(s, e)
+                            If Not card.ClientRectangle.Contains(card.PointToClient(Cursor.Position)) Then
+                                setCardBg(normalColor)
+                            End If
+                        End Sub
+                End If
+                For Each child As Control In ctrl.Controls
+                    attachControl(child)
+                Next
+            End Sub
+
+        attachControl(card)
+    End Sub
+
+    Private Async Sub OpenSalesReportFromDashboard(period As String, saleMode As String)
+        If Not salesFiltersInitialized Then InitializeSalesReportFilters()
+
+        If ComboBox4.Items.Contains(period) Then ComboBox4.SelectedItem = period
+        If salesTransactionFilter.Items.Contains(saleMode) Then salesTransactionFilter.SelectedItem = saleMode
+
+        If String.Equals(period, "Daily", StringComparison.OrdinalIgnoreCase) Then
+            salesTransactionDate.Value = Date.Today
+        ElseIf String.Equals(period, "Monthly", StringComparison.OrdinalIgnoreCase) Then
+            salesReportMonthCombo.SelectedItem = Date.Today.ToString("MMMM", CultureInfo.InvariantCulture)
+            salesReportYearCombo.SelectedItem = Date.Today.Year.ToString(CultureInfo.InvariantCulture)
+        Else
+            salesReportYearCombo.SelectedItem = Date.Today.Year.ToString(CultureInfo.InvariantCulture)
+        End If
+
+        ConfigureSuperAdminSalesReportFilters()
+        Await ShowSalesReport(pnlRetailSalesReport, retailDataGrid, Nothing,
+                              "retailTransactionID", "retailDate", "retailCustomer", "retailCashier", "retailType", "retailTotal", "retailStatus", retailGenerated, True)
     End Sub
 
     Private Sub SuperAdmin_Resize(sender As Object, e As EventArgs)
@@ -1480,6 +1557,14 @@ Public Class SuperAdmin
                 AddHandler viewButton.Click, Sub(s, e) employeeViewReport_Click(viewButton, EventArgs.Empty)
         End Select
 
+        ' Allow clicking anywhere on the report card (title, description, or card body)
+        card.Cursor = Cursors.Hand
+        titleLabel.Cursor = Cursors.Hand
+        descriptionLabel.Cursor = Cursors.Hand
+        AddHandler card.Click, Sub(s, e) viewButton.PerformClick()
+        AddHandler titleLabel.Click, Sub(s, e) viewButton.PerformClick()
+        AddHandler descriptionLabel.Click, Sub(s, e) viewButton.PerformClick()
+
         Return card
     End Function
 
@@ -1925,6 +2010,10 @@ Public Class SuperAdmin
     End Sub
 
     Private Sub inventoryViewReport_Click(sender As Object, e As EventArgs) Handles inventoryViewReport.Click
+        OpenInventoryStockReport("All")
+    End Sub
+
+    Private Sub OpenInventoryStockReport(Optional initialStatusFilter As String = "All")
         ShowSuperAdminDatasetReport(
             "Inventory Stock Report",
             "Filter by status",
@@ -1948,7 +2037,8 @@ Public Class SuperAdmin
             End Function,
             "No inventory records found",
             "Try selecting a different status filter.",
-            "inventory_stock_report")
+            "inventory_stock_report",
+            initialStatusFilter)
     End Sub
 
     Private Sub wholesaleViewReport_Click(sender As Object, e As EventArgs) Handles wholesaleViewReport.Click
@@ -2079,7 +2169,8 @@ Public Class SuperAdmin
                                             summaryFormatter As Func(Of DataTable, String),
                                             emptyHeading As String,
                                             emptyMessage As String,
-                                            pdfFolderName As String)
+                                            pdfFolderName As String,
+                                            Optional initialFilter As String = Nothing)
         EnsureSuperAdminDynamicReportPanel()
         Dim darkGreenColor = Color.FromArgb(20, 100, 60)
 
@@ -2131,7 +2222,11 @@ Public Class SuperAdmin
         filterPanel.Controls.Add(New Label With {.Text = "Option", .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(14, 60)})
         Dim filterCombo As New ComboBox With {.DropDownStyle = ComboBoxStyle.DropDownList, .Font = New Font("Segoe UI", 9.5F), .Location = New Point(14, 82), .Width = 220}
         filterCombo.Items.AddRange(filterOptions.Cast(Of Object)().ToArray())
-        filterCombo.SelectedIndex = 0
+        If Not String.IsNullOrWhiteSpace(initialFilter) AndAlso filterCombo.Items.Contains(initialFilter) Then
+            filterCombo.SelectedItem = initialFilter
+        Else
+            filterCombo.SelectedIndex = 0
+        End If
         filterPanel.Controls.Add(filterCombo)
 
         Dim reportPanel As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(8)}
@@ -2360,46 +2455,69 @@ Public Class SuperAdmin
     End Sub
 
     Private Sub ShowSuperAdminAddExpenseModal()
-        Dim darkGreenColor = Color.FromArgb(20, 100, 60)
-        Using modal As New Form()
-            modal.Text = "Log Financial Expense"
-            modal.Size = New Size(410, 390)
-            modal.StartPosition = FormStartPosition.CenterParent
-            modal.FormBorderStyle = FormBorderStyle.FixedDialog
-            modal.MaximizeBox = False
-            modal.MinimizeBox = False
-            modal.BackColor = Color.White
+        Using modal As New Form With {
+            .Text = "Log Financial Expense",
+            .ClientSize = New Size(450, 440),
+            .StartPosition = FormStartPosition.CenterParent,
+            .FormBorderStyle = FormBorderStyle.None,
+            .ControlBox = False,
+            .MaximizeBox = False,
+            .MinimizeBox = False,
+            .ShowInTaskbar = False,
+            .BackColor = Color.White,
+            .Font = New Font("Segoe UI", 9.0F)
+        }
+            AddDialogFrameBorder(modal)
+            Dim header = CreateModalHeader("Log Financial Expense", "Record a business expense entry")
 
-            modal.Controls.Add(New Label With {.Text = "Expense Date:", .Location = New Point(25, 23), .Size = New Size(120, 22), .Font = New Font("Segoe UI", 9.5F, FontStyle.Bold)})
-            Dim dtpExpenseDate As New DateTimePicker() With {.Format = DateTimePickerFormat.Custom, .CustomFormat = "MMMM dd, yyyy", .MinDate = New DateTime(2020, 1, 1), .MaxDate = Date.Today.AddYears(2), .Value = Date.Today, .Location = New Point(150, 20), .Width = 210, .Font = New Font("Segoe UI", 9.5F)}
-            modal.Controls.Add(dtpExpenseDate)
-
-            modal.Controls.Add(New Label With {.Text = "Expense Category:", .Location = New Point(25, 63), .Size = New Size(120, 22), .Font = New Font("Segoe UI", 9.5F, FontStyle.Bold)})
-            Dim cboCategory As New ComboBox() With {.DropDownStyle = ComboBoxStyle.DropDownList, .Location = New Point(150, 60), .Width = 210, .Font = New Font("Segoe UI", 9.5F)}
+            Dim body As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(22, 14, 22, 10)}
+            Dim dtpExpenseDate As New DateTimePicker With {.Format = DateTimePickerFormat.Custom, .CustomFormat = "MMMM dd, yyyy", .MinDate = New DateTime(2020, 1, 1), .MaxDate = Date.Today.AddYears(2), .Value = Date.Today, .Location = New Point(22, 34), .Width = 406, .Font = New Font("Segoe UI", 9.5F)}
+            Dim cboCategory As New ComboBox With {.DropDownStyle = ComboBoxStyle.DropDownList, .Location = New Point(22, 92), .Width = 406, .Font = New Font("Segoe UI", 9.5F), .BackColor = Color.FromArgb(243, 246, 244)}
             cboCategory.Items.AddRange({"Utilities", "Payroll", "Store Supplies", "Maintenance", "Marketing", "Logistics", "Other"})
             cboCategory.SelectedIndex = 0
-            modal.Controls.Add(cboCategory)
+            Dim numAmount As New NumericUpDown With {.DecimalPlaces = 2, .Maximum = 1000000, .Location = New Point(22, 150), .Width = 406, .Font = New Font("Segoe UI", 9.5F), .BackColor = Color.FromArgb(243, 246, 244)}
+            Dim txtDesc = CreateModalTextBox()
+            txtDesc.Multiline = True
+            txtDesc.Location = New Point(22, 208)
+            txtDesc.Size = New Size(406, 78)
+            txtDesc.PlaceholderText = "Optional notes or receipt details..."
 
-            modal.Controls.Add(New Label With {.Text = "Amount (₱):", .Location = New Point(25, 103), .Size = New Size(120, 22), .Font = New Font("Segoe UI", 9.5F, FontStyle.Bold)})
-            Dim numAmount As New NumericUpDown() With {.DecimalPlaces = 2, .Maximum = 1000000, .Location = New Point(150, 100), .Width = 210, .Font = New Font("Segoe UI", 9.5F)}
-            modal.Controls.Add(numAmount)
+            body.Controls.Add(New Label With {.Text = "Expense Date *", .AutoSize = True, .Location = New Point(22, 14), .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.FromArgb(105, 115, 110)})
+            body.Controls.Add(dtpExpenseDate)
+            body.Controls.Add(New Label With {.Text = "Expense Category *", .AutoSize = True, .Location = New Point(22, 72), .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.FromArgb(105, 115, 110)})
+            body.Controls.Add(cboCategory)
+            body.Controls.Add(New Label With {.Text = "Amount (₱) *", .AutoSize = True, .Location = New Point(22, 130), .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.FromArgb(105, 115, 110)})
+            body.Controls.Add(numAmount)
+            body.Controls.Add(New Label With {.Text = "Description", .AutoSize = True, .Location = New Point(22, 188), .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.FromArgb(105, 115, 110)})
+            body.Controls.Add(txtDesc)
 
-            modal.Controls.Add(New Label With {.Text = "Description:", .Location = New Point(25, 143), .Size = New Size(120, 22), .Font = New Font("Segoe UI", 9.5F, FontStyle.Bold)})
-            Dim txtDesc As New TextBox() With {.Multiline = True, .Location = New Point(150, 140), .Size = New Size(210, 80), .Font = New Font("Segoe UI", 9.5F)}
-            modal.Controls.Add(txtDesc)
+            Dim footer As New Panel With {.Dock = DockStyle.Bottom, .Height = 62, .BackColor = Color.White}
+            footer.Controls.Add(New Panel With {.Dock = DockStyle.Top, .Height = 1, .BackColor = Color.FromArgb(230, 236, 232)})
+            Dim actions As New FlowLayoutPanel With {.Dock = DockStyle.Fill, .FlowDirection = FlowDirection.RightToLeft, .WrapContents = False, .Padding = New Padding(0, 12, 20, 0)}
+            Dim btnSave = CreateModalPrimaryButton("Save Expense", 130)
+            Dim btnCancel = CreateModalSecondaryButton("Cancel", 92)
+            btnCancel.DialogResult = DialogResult.Cancel
+            actions.Controls.Add(btnSave)
+            actions.Controls.Add(btnCancel)
+            footer.Controls.Add(actions)
 
-            Dim btnSave As New Button() With {.Text = "Save Expense", .BackColor = darkGreenColor, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .Size = New Size(130, 38), .Location = New Point(230, 245)}
             AddHandler btnSave.Click, Sub(s, ev)
                                           If numAmount.Value <= 0 Then
-                                              MessageBox.Show("Please enter a valid amount.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                                              MessageBox.Show("Please enter an amount greater than 0.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                                              numAmount.Focus()
                                               Return
                                           End If
                                           Dim repo As New SalesRepository()
-                                          repo.AddExpense(cboCategory.Text, txtDesc.Text, numAmount.Value, dtpExpenseDate.Value.Date)
+                                          repo.AddExpense(cboCategory.Text, txtDesc.Text.Trim(), numAmount.Value, dtpExpenseDate.Value.Date)
                                           modal.DialogResult = DialogResult.OK
                                           modal.Close()
                                       End Sub
-            modal.Controls.Add(btnSave)
+
+            modal.Controls.Add(body)
+            modal.Controls.Add(footer)
+            modal.Controls.Add(header)
+            modal.AcceptButton = btnSave
+            modal.CancelButton = btnCancel
 
             If modal.ShowDialog(Me) = DialogResult.OK Then
                 LoadSalesDashboardStats()
@@ -2867,45 +2985,95 @@ Public Class SuperAdmin
 
                 Dim itemHeadingTop = If(isWholesaleReceipt, 368, If(isEPaymentReceipt, 314, 252))
                 Dim itemHeading As New Label With {.Text = "ITEMS", .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(20, 100, 60), .Location = New Point(22, itemHeadingTop)}
+                Dim itemsContainer As New Panel With {
+                    .Location = New Point(20, itemHeadingTop + 30),
+                    .Size = New Size(646, 224),
+                    .BorderStyle = BorderStyle.FixedSingle,
+                    .BackColor = Color.White
+                }
+
                 Dim itemGrid As New DataGridView With {
-                    .Location = New Point(20, itemHeadingTop + 30), .Size = New Size(646, 224), .ReadOnly = True,
-                    .AllowUserToAddRows = False, .AllowUserToDeleteRows = False, .AllowUserToResizeRows = False,
-                    .AutoGenerateColumns = False, .AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                    .SelectionMode = DataGridViewSelectionMode.FullRowSelect, .MultiSelect = False,
-                    .RowHeadersVisible = False, .BackgroundColor = Color.White, .BorderStyle = BorderStyle.FixedSingle,
-                    .GridColor = Color.FromArgb(230, 234, 231), .EnableHeadersVisualStyles = False
+                    .Dock = DockStyle.Fill,
+                    .ReadOnly = True,
+                    .AllowUserToAddRows = False,
+                    .AllowUserToDeleteRows = False,
+                    .AllowUserToResizeRows = False,
+                    .AutoGenerateColumns = False,
+                    .AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                    .SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                    .MultiSelect = False,
+                    .RowHeadersVisible = False,
+                    .BackgroundColor = Color.White,
+                    .BorderStyle = BorderStyle.None,
+                    .GridColor = Color.FromArgb(230, 234, 231),
+                    .EnableHeadersVisualStyles = False
                 }
                 itemGrid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(235, 245, 239)
+                itemGrid.ColumnHeadersDefaultCellStyle.ForeColor = Color.Black
+                itemGrid.ColumnHeadersDefaultCellStyle.SelectionBackColor = Color.FromArgb(235, 245, 239)
+                itemGrid.ColumnHeadersDefaultCellStyle.SelectionForeColor = Color.Black
                 itemGrid.ColumnHeadersDefaultCellStyle.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
                 itemGrid.DefaultCellStyle.Font = New Font("Segoe UI", 9.0F)
                 itemGrid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(225, 245, 230)
                 itemGrid.DefaultCellStyle.SelectionForeColor = Color.Black
                 itemGrid.RowTemplate.Height = 30
                 itemGrid.Columns.AddRange(New DataGridViewColumn() {
-                    New DataGridViewTextBoxColumn With {.Name = "Product", .DataPropertyName = "Product", .HeaderText = "Product", .FillWeight = 240, .SortMode = DataGridViewColumnSortMode.NotSortable},
-                    New DataGridViewTextBoxColumn With {.Name = "ProductID", .DataPropertyName = "ProductID", .HeaderText = "Product ID", .FillWeight = 55, .SortMode = DataGridViewColumnSortMode.NotSortable},
-                    New DataGridViewTextBoxColumn With {.Name = "Quantity", .DataPropertyName = "Quantity", .HeaderText = "Quantity", .FillWeight = 55, .SortMode = DataGridViewColumnSortMode.NotSortable},
-                    New DataGridViewTextBoxColumn With {.Name = "UnitPrice", .DataPropertyName = "UnitPrice", .HeaderText = "Unit Price", .FillWeight = 70, .SortMode = DataGridViewColumnSortMode.NotSortable, .DefaultCellStyle = New DataGridViewCellStyle With {.Format = "₱#,##0.00"}},
-                    New DataGridViewTextBoxColumn With {.Name = "LineTotal", .DataPropertyName = "LineTotal", .HeaderText = "Line Total", .FillWeight = 75, .SortMode = DataGridViewColumnSortMode.NotSortable, .DefaultCellStyle = New DataGridViewCellStyle With {.Format = "₱#,##0.00"}}
+                    New DataGridViewTextBoxColumn With {.Name = "Product", .DataPropertyName = "Product", .HeaderText = "Product", .FillWeight = 225, .SortMode = DataGridViewColumnSortMode.NotSortable},
+                    New DataGridViewTextBoxColumn With {.Name = "ProductID", .DataPropertyName = "ProductID", .HeaderText = "Product ID", .FillWeight = 75, .SortMode = DataGridViewColumnSortMode.NotSortable},
+                    New DataGridViewTextBoxColumn With {.Name = "Quantity", .DataPropertyName = "Quantity", .HeaderText = "Quantity", .FillWeight = 60, .SortMode = DataGridViewColumnSortMode.NotSortable},
+                    New DataGridViewTextBoxColumn With {.Name = "UnitPrice", .DataPropertyName = "UnitPrice", .HeaderText = "Unit Price", .FillWeight = 75, .SortMode = DataGridViewColumnSortMode.NotSortable, .DefaultCellStyle = New DataGridViewCellStyle With {.Format = "₱#,##0.00"}},
+                    New DataGridViewTextBoxColumn With {.Name = "LineTotal", .DataPropertyName = "LineTotal", .HeaderText = "Line Total", .FillWeight = 80, .SortMode = DataGridViewColumnSortMode.NotSortable, .DefaultCellStyle = New DataGridViewCellStyle With {.Format = "₱#,##0.00"}}
                 })
+
                 Dim itemRows As New DataTable()
                 itemRows.Columns.Add("Product", GetType(String))
                 itemRows.Columns.Add("ProductID", GetType(String))
                 itemRows.Columns.Add("Quantity", GetType(Integer))
                 itemRows.Columns.Add("UnitPrice", GetType(Decimal))
                 itemRows.Columns.Add("LineTotal", GetType(Decimal))
+                Dim itemsTotalAmount As Decimal = 0D
                 For Each row As DataRow In details.Rows
                     If row.IsNull("sale_item_id") Then Continue For
                     Dim productName = DbText(row, "brand_name")
                     If Not String.IsNullOrWhiteSpace(DbText(row, "generic_name")) Then productName &= " - " & DbText(row, "generic_name")
                     If Not String.IsNullOrWhiteSpace(DbText(row, "dosage")) Then productName &= " - " & DbText(row, "dosage")
                     If Not String.IsNullOrWhiteSpace(DbText(row, "unit")) Then productName &= " (" & DbText(row, "unit") & ")"
-                    itemRows.Rows.Add(productName, DbText(row, "product_id"), Convert.ToInt32(row("quantity")), Convert.ToDecimal(row("unit_price")), Convert.ToDecimal(row("line_total")))
+                    Dim lineTotal = Convert.ToDecimal(row("line_total"))
+                    itemsTotalAmount += lineTotal
+                    itemRows.Rows.Add(productName, DbText(row, "product_id"), Convert.ToInt32(row("quantity")), Convert.ToDecimal(row("unit_price")), lineTotal)
                 Next
                 itemGrid.DataSource = itemRows
 
+                Dim itemsTotalBar As New Panel With {
+                    .Dock = DockStyle.Bottom,
+                    .Height = 36,
+                    .BackColor = Color.FromArgb(235, 245, 239),
+                    .Padding = New Padding(10, 0, 12, 0)
+                }
+                itemsTotalBar.Controls.Add(New Panel With {.Dock = DockStyle.Top, .Height = 1, .BackColor = Color.FromArgb(205, 224, 214)})
+                itemsTotalBar.Controls.Add(New Label With {
+                    .Text = "TOTAL",
+                    .Dock = DockStyle.Left,
+                    .Width = 120,
+                    .Font = New Font("Segoe UI", 9.5F, FontStyle.Bold),
+                    .ForeColor = Color.FromArgb(20, 100, 60),
+                    .TextAlign = ContentAlignment.MiddleLeft
+                })
+                itemsTotalBar.Controls.Add(New Label With {
+                    .Text = "₱" & itemsTotalAmount.ToString("N2", CultureInfo.CurrentCulture),
+                    .Dock = DockStyle.Right,
+                    .Width = 180,
+                    .Font = New Font("Segoe UI", 9.5F, FontStyle.Bold),
+                    .ForeColor = Color.FromArgb(20, 100, 60),
+                    .TextAlign = ContentAlignment.MiddleRight
+                })
+
+                itemsContainer.Controls.Add(itemGrid)
+                itemsContainer.Controls.Add(itemsTotalBar)
+
                 Dim totalTop = itemHeadingTop + 274
-                Dim hasPrescription = details.AsEnumerable().Any(Function(row) Not row.IsNull("is_prescription") AndAlso Convert.ToBoolean(row("is_prescription")))
+                Dim hasPrescription = Not isWholesaleReceipt AndAlso
+                                      details.AsEnumerable().Any(Function(row) Not row.IsNull("is_prescription") AndAlso Convert.ToBoolean(row("is_prescription")))
                 If hasPrescription Then
                     Dim prescriptionPanel As New Panel With {.Location = New Point(20, totalTop), .Size = New Size(646, 186), .BorderStyle = BorderStyle.FixedSingle, .BackColor = Color.White}
                     prescriptionPanel.Controls.Add(New Label With {.Text = "PRESCRIPTION INFORMATION", .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(20, 100, 60), .Location = New Point(16, 12)})
@@ -2916,7 +3084,9 @@ Public Class SuperAdmin
                     content.Controls.Add(prescriptionPanel)
                     totalTop += 202
                 End If
-                Dim totalPanel As New Panel With {.Location = New Point(20, totalTop), .Size = New Size(646, 188), .BorderStyle = BorderStyle.FixedSingle, .BackColor = Color.FromArgb(248, 250, 248)}
+
+                Dim summaryHeading As New Label With {.Text = "SUMMARY", .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(20, 100, 60), .Location = New Point(22, totalTop)}
+                Dim totalPanel As New Panel With {.Location = New Point(20, totalTop + 28), .Size = New Size(646, 188), .BorderStyle = BorderStyle.FixedSingle, .BackColor = Color.FromArgb(248, 250, 248)}
                 AddReceiptDetailField(totalPanel, "Subtotal", "₱" & Convert.ToDecimal(sale("subtotal")).ToString("N2", CultureInfo.CurrentCulture), 16, 18)
                 AddReceiptDetailField(totalPanel, "Discount", "₱" & Convert.ToDecimal(sale("discount_amount")).ToString("N2", CultureInfo.CurrentCulture), 326, 18)
                 AddReceiptDetailField(totalPanel, "Total Due", "₱" & Convert.ToDecimal(sale("total_amount")).ToString("N2", CultureInfo.CurrentCulture), 16, 78, True)
@@ -2924,7 +3094,8 @@ Public Class SuperAdmin
                 AddReceiptDetailField(totalPanel, "Change", "₱" & Convert.ToDecimal(sale("change_amount")).ToString("N2", CultureInfo.CurrentCulture), 16, 138)
                 content.Controls.Add(salePanel)
                 content.Controls.Add(itemHeading)
-                content.Controls.Add(itemGrid)
+                content.Controls.Add(itemsContainer)
+                content.Controls.Add(summaryHeading)
                 content.Controls.Add(totalPanel)
 
                 Dim footer As New Panel With {.Dock = DockStyle.Bottom, .Height = 72, .BackColor = Color.White}
@@ -3578,197 +3749,404 @@ Public Class SuperAdmin
     End Function
 
     ' --- 5. DYNAMIC POPUP DIALOGS ---
+    Private Sub AddDialogFrameBorder(dialog As Form)
+        AddHandler dialog.Paint,
+            Sub(sender, e)
+                If dialog.ClientSize.Width < 2 OrElse dialog.ClientSize.Height < 2 Then Return
+                Using borderPen As New Pen(Color.FromArgb(40, 55, 48), 1.5F)
+                    e.Graphics.DrawRectangle(borderPen, 0, 0, dialog.ClientSize.Width - 1, dialog.ClientSize.Height - 1)
+                End Using
+            End Sub
+    End Sub
+
+    Private Function CreateModalHeader(titleText As String, subtitleText As String) As Panel
+        Dim header As New Panel With {.Dock = DockStyle.Top, .Height = 76, .BackColor = Color.White}
+        header.Controls.Add(New Label With {
+            .Text = titleText,
+            .AutoSize = True,
+            .Font = New Font("Segoe UI", 14.0F, FontStyle.Bold),
+            .ForeColor = Color.FromArgb(20, 100, 60),
+            .Location = New Point(22, 14)
+        })
+        header.Controls.Add(New Label With {
+            .Text = subtitleText,
+            .AutoSize = True,
+            .Font = New Font("Segoe UI", 8.5F),
+            .ForeColor = Color.Gray,
+            .Location = New Point(23, 44)
+        })
+        header.Controls.Add(New Panel With {
+            .Dock = DockStyle.Bottom,
+            .Height = 1,
+            .BackColor = Color.FromArgb(230, 236, 232)
+        })
+        Return header
+    End Function
+
+    Private Function CreateModalTextBox(Optional value As String = "", Optional isPassword As Boolean = False, Optional maxLen As Integer = 32767) As TextBox
+        Return New TextBox With {
+            .Text = If(value, String.Empty),
+            .BorderStyle = BorderStyle.FixedSingle,
+            .BackColor = Color.FromArgb(243, 246, 244),
+            .ForeColor = Color.FromArgb(35, 45, 40),
+            .Font = New Font("Segoe UI", 9.5F),
+            .UseSystemPasswordChar = isPassword,
+            .MaxLength = maxLen,
+            .Height = 28
+        }
+    End Function
+
+    Private Function CreateModalSection(title As String, fieldRowCount As Integer) As TableLayoutPanel
+        Dim section As New TableLayoutPanel With {
+            .Dock = DockStyle.Top,
+            .AutoSize = True,
+            .AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            .ColumnCount = 2,
+            .RowCount = fieldRowCount + 1,
+            .BackColor = Color.White,
+            .Margin = New Padding(0, 0, 0, 8),
+            .Padding = New Padding(0, 4, 0, 6)
+        }
+        section.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 50.0F))
+        section.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 50.0F))
+        section.RowStyles.Add(New RowStyle(SizeType.Absolute, 28))
+        For r = 0 To fieldRowCount - 1
+            section.RowStyles.Add(New RowStyle(SizeType.Absolute, 58))
+        Next
+        Dim heading As New Label With {
+            .Text = "▣  " & title,
+            .Dock = DockStyle.Fill,
+            .TextAlign = ContentAlignment.MiddleLeft,
+            .ForeColor = Color.FromArgb(25, 105, 68),
+            .Font = New Font("Segoe UI", 8.5F, FontStyle.Bold),
+            .Margin = New Padding(0)
+        }
+        section.Controls.Add(heading, 0, 0)
+        section.SetColumnSpan(heading, 2)
+        Return section
+    End Function
+
+    Private Sub AddModalField(section As TableLayoutPanel, caption As String, editor As Control, row As Integer, column As Integer, Optional columnSpan As Integer = 1)
+        Dim fieldPanel As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = New Padding(0, 2, 12, 2)}
+        Dim lbl As New Label With {
+            .Text = caption,
+            .Location = New Point(0, 0),
+            .AutoSize = True,
+            .ForeColor = Color.FromArgb(105, 115, 110),
+            .Font = New Font("Segoe UI", 8.0F)
+        }
+        editor.Location = New Point(0, 19)
+        editor.Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right
+        editor.Width = Math.Max(180, fieldPanel.ClientSize.Width)
+        AddHandler fieldPanel.Resize, Sub(s, e) editor.Width = Math.Max(120, fieldPanel.ClientSize.Width - 2)
+        fieldPanel.Controls.Add(lbl)
+        fieldPanel.Controls.Add(editor)
+        section.Controls.Add(fieldPanel, column, row)
+        If columnSpan > 1 Then section.SetColumnSpan(fieldPanel, columnSpan)
+    End Sub
+
+    Private Function CreateModalPrimaryButton(text As String, width As Integer) As Button
+        Dim btn As New Button With {
+            .Text = text,
+            .Size = New Size(width, 36),
+            .BackColor = Color.FromArgb(20, 100, 60),
+            .ForeColor = Color.White,
+            .FlatStyle = FlatStyle.Flat,
+            .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
+            .Cursor = Cursors.Hand,
+            .UseVisualStyleBackColor = False
+        }
+        btn.FlatAppearance.BorderSize = 0
+        AddHandler btn.Resize, Sub(s, e) ApplySmoothRegion(btn, 8)
+        ApplySmoothRegion(btn, 8)
+        Return btn
+    End Function
+
+    Private Function CreateModalSecondaryButton(text As String, width As Integer) As Button
+        Dim btn As New Button With {
+            .Text = text,
+            .Size = New Size(width, 36),
+            .BackColor = Color.White,
+            .ForeColor = Color.FromArgb(55, 65, 60),
+            .FlatStyle = FlatStyle.Flat,
+            .Font = New Font("Segoe UI", 9.0F),
+            .Cursor = Cursors.Hand,
+            .UseVisualStyleBackColor = False
+        }
+        btn.FlatAppearance.BorderColor = Color.FromArgb(195, 205, 200)
+        btn.FlatAppearance.BorderSize = 1
+        Return btn
+    End Function
+
+    Private Function IsPasswordStrong(password As String) As Boolean
+        Return Not String.IsNullOrEmpty(password) AndAlso
+               password.Length >= 8 AndAlso
+               Regex.IsMatch(password, "[A-Z]") AndAlso
+               Regex.IsMatch(password, "\d") AndAlso
+               Regex.IsMatch(password, "[^a-zA-Z0-9]")
+    End Function
+
+    Private Function AreByteArraysEqual(first As Byte(), second As Byte()) As Boolean
+        Dim firstEmpty = (first Is Nothing OrElse first.Length = 0)
+        Dim secondEmpty = (second Is Nothing OrElse second.Length = 0)
+        If firstEmpty AndAlso secondEmpty Then Return True
+        If firstEmpty OrElse secondEmpty Then Return False
+        If first.Length <> second.Length Then Return False
+        For i = 0 To first.Length - 1
+            If first(i) <> second(i) Then Return False
+        Next
+        Return True
+    End Function
+
     Private Sub ShowAccountDialog(account As AccountDetails)
         Dim isNew = account Is Nothing
         If isNew Then account = New AccountDetails With {.Role = "Staff", .IsActive = True}
 
-        Dim dialog As New Form With {.Text = If(isNew, "Add Employee", "Edit Employee"), .Size = New Size(680, 780), .StartPosition = FormStartPosition.CenterParent, .FormBorderStyle = FormBorderStyle.FixedDialog, .MaximizeBox = False, .MinimizeBox = False, .BackColor = Color.White}
-        Dim fields As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 2, .AutoScroll = True, .Padding = New Padding(24, 20, 24, 10)}
-        fields.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 32.0F))
-        fields.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 68.0F))
-
-        Dim currentPhotoBytes As Byte() = account.ProfilePhoto
-        Dim firstNameBox = New TextBox With {.Text = account.FirstName, .Dock = DockStyle.Fill}
-        Dim lastNameBox = New TextBox With {.Text = account.LastName, .Dock = DockStyle.Fill}
-        Dim initialsBox = New TextBox With {.Text = account.StaffInitials, .Dock = DockStyle.Fill}
-        Dim usernameBox = New TextBox With {.Text = account.Username, .Dock = DockStyle.Fill}
-        Dim roleBox As New ComboBox With {.Dock = DockStyle.Fill, .DropDownStyle = ComboBoxStyle.DropDownList}
-        roleBox.Items.AddRange({"Staff", "Admin", "Super Admin"})
-        roleBox.SelectedItem = If(roleBox.Items.Contains(account.Role), account.Role, "Staff")
-        Dim workShiftBox = New TextBox With {.Text = account.WorkShift, .Dock = DockStyle.Fill}
-        Dim emailBox = New TextBox With {.Text = account.EmailAddress, .Dock = DockStyle.Fill}
-        Dim contactBox = New TextBox With {.Text = account.ContactNumber, .Dock = DockStyle.Fill}
-        Dim hireDateBox = CreateDatePicker(account.HireDate)
-        Dim birthDateBox = CreateDatePicker(account.BirthDate)
-        Dim passwordBox = New TextBox With {.Dock = DockStyle.Fill, .UseSystemPasswordChar = True}
-        Dim confirmPasswordBox = New TextBox With {.Dock = DockStyle.Fill, .UseSystemPasswordChar = True}
-        Dim showPasswordsBox As New CheckBox With {.Text = "Show passwords", .AutoSize = True}
-
-        Dim photoPreview As New PictureBox With {.Size = New Size(88, 88), .SizeMode = PictureBoxSizeMode.Normal, .BackColor = Color.White, .BorderStyle = BorderStyle.None, .Margin = New Padding(0, 0, 14, 0)}
-        Dim uploadPhotoButton As New Button With {
-            .Text = If(currentPhotoBytes IsNot Nothing AndAlso currentPhotoBytes.Length > 0, "Change Photo...", "Upload Photo..."),
-            .Size = New Size(124, 30),
-            .BackColor = Color.FromArgb(20, 100, 60),
-            .ForeColor = Color.White,
-            .FlatStyle = FlatStyle.Flat,
-            .Font = New Font("Segoe UI", 8.5F, FontStyle.Bold),
-            .Cursor = Cursors.Hand
-        }
-        uploadPhotoButton.FlatAppearance.BorderSize = 0
-
-        Dim removePhotoButton As New Button With {
-            .Text = "Remove",
-            .Size = New Size(84, 30),
+        Using dialog As New Form With {
+            .Text = If(isNew, "Add Employee", "Edit Employee"),
+            .ClientSize = New Size(660, 720),
+            .StartPosition = FormStartPosition.CenterParent,
+            .FormBorderStyle = FormBorderStyle.None,
+            .ControlBox = False,
+            .MinimizeBox = False,
+            .MaximizeBox = False,
+            .ShowInTaskbar = False,
             .BackColor = Color.White,
-            .ForeColor = Color.Firebrick,
-            .FlatStyle = FlatStyle.Flat,
-            .Font = New Font("Segoe UI", 8.5F),
-            .Cursor = Cursors.Hand,
-            .Enabled = (currentPhotoBytes IsNot Nothing AndAlso currentPhotoBytes.Length > 0)
+            .Font = New Font("Segoe UI", 9.0F)
         }
-        removePhotoButton.FlatAppearance.BorderColor = Color.Firebrick
-        removePhotoButton.FlatAppearance.BorderSize = 1
+            AddDialogFrameBorder(dialog)
 
-        Dim photoStatusLabel As New Label With {
-            .Text = If(currentPhotoBytes IsNot Nothing AndAlso currentPhotoBytes.Length > 0, "Circular profile photo active", "JPG, PNG, or BMP (max 5 MB)"),
-            .AutoSize = True,
-            .Font = New Font("Segoe UI", 8.0F),
-            .ForeColor = Color.Gray,
-            .Margin = New Padding(0, 6, 0, 0)
-        }
+            Dim header = CreateModalHeader(
+                If(isNew, "Add Employee", "Edit Employee"),
+                If(isNew, "Create a new staff or administrator account", "Update employee profile, role, and account details"))
 
-        Dim refreshPhotoPreview As Action =
-            Sub()
-                Dim oldImage = photoPreview.Image
-                Dim hasPhoto = (currentPhotoBytes IsNot Nothing AndAlso currentPhotoBytes.Length > 0)
-                photoPreview.Image = CreateCircularAvatarImage(currentPhotoBytes, initialsBox.Text, 88)
-                uploadPhotoButton.Text = If(hasPhoto, "Change Photo...", "Upload Photo...")
-                removePhotoButton.Enabled = hasPhoto
-                oldImage?.Dispose()
-            End Sub
-        refreshPhotoPreview()
+            Dim currentPhotoBytes As Byte() = If(account.ProfilePhoto IsNot Nothing, DirectCast(account.ProfilePhoto.Clone(), Byte()), Nothing)
+            Dim firstNameBox = CreateModalTextBox(account.FirstName)
+            Dim lastNameBox = CreateModalTextBox(account.LastName)
+            Dim initialsBox = CreateModalTextBox(account.StaffInitials, False, 6)
+            Dim usernameBox = CreateModalTextBox(account.Username)
+            Dim roleBox As New ComboBox With {.DropDownStyle = ComboBoxStyle.DropDownList, .BackColor = Color.FromArgb(243, 246, 244), .Font = New Font("Segoe UI", 9.5F)}
+            roleBox.Items.AddRange({"Staff", "Admin", "Super Admin"})
+            roleBox.SelectedItem = If(roleBox.Items.Contains(account.Role), account.Role, "Staff")
+            Dim workShiftBox = CreateModalTextBox(account.WorkShift)
+            Dim emailBox = CreateModalTextBox(account.EmailAddress)
+            Dim contactBox = CreateModalTextBox(account.ContactNumber)
+            Dim hireDateBox = CreateDatePicker(account.HireDate)
+            hireDateBox.Dock = DockStyle.None
+            Dim birthDateBox = CreateDatePicker(account.BirthDate)
+            birthDateBox.Dock = DockStyle.None
+            Dim pinBox = CreateModalTextBox("", True, 4)
+            pinBox.PlaceholderText = If(isNew, "Optional 4-digit PIN", "Leave blank to keep current PIN")
+            Dim activeBox As New CheckBox With {.Text = "Account is Active", .Checked = account.IsActive, .AutoSize = True, .Font = New Font("Segoe UI", 9.0F), .ForeColor = Color.FromArgb(35, 55, 45)}
 
-        AddHandler initialsBox.TextChanged, Sub()
-                                                If currentPhotoBytes Is Nothing OrElse currentPhotoBytes.Length = 0 Then refreshPhotoPreview()
-                                            End Sub
+            Dim passwordBox = CreateModalTextBox("", True)
+            Dim confirmPasswordBox = CreateModalTextBox("", True)
+            Dim showPasswordsBox As New CheckBox With {.Text = "Show passwords", .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray}
 
-        AddHandler uploadPhotoButton.Click,
-            Sub()
-                Using openDialog As New OpenFileDialog()
-                    openDialog.Title = "Select Employee Photo"
-                    openDialog.Filter = "Image Files (*.jpg;*.jpeg;*.png;*.bmp)|*.jpg;*.jpeg;*.png;*.bmp"
-                    If openDialog.ShowDialog(dialog) = DialogResult.OK Then
-                        Try
-                            Dim info As New FileInfo(openDialog.FileName)
-                            If info.Length > 5 * 1024 * 1024 Then
-                                MessageBox.Show("Please select an image smaller than 5 MB.", "Employee Photo", MessageBoxButtons.OK, MessageBoxIcon.Warning)
-                                Return
-                            End If
-                            Dim bytes = File.ReadAllBytes(openDialog.FileName)
-                            Dim testImg = BytesToImage(bytes)
-                            If testImg Is Nothing Then
-                                MessageBox.Show("The selected file is not a valid image.", "Employee Photo", MessageBoxButtons.OK, MessageBoxIcon.Warning)
-                                Return
-                            End If
-                            testImg.Dispose()
-                            currentPhotoBytes = bytes
-                            photoStatusLabel.Text = Path.GetFileName(openDialog.FileName)
-                            refreshPhotoPreview()
-                        Catch ex As Exception
-                            MessageBox.Show("Could not load photo. " & ex.Message, "Employee Photo", MessageBoxButtons.OK, MessageBoxIcon.Error)
-                        End Try
+            ' Photo Bar
+            Dim photoBar As New Panel With {.Dock = DockStyle.Top, .Height = 96, .BackColor = Color.FromArgb(248, 250, 248), .Padding = New Padding(14, 8, 14, 8), .Margin = New Padding(0, 0, 0, 10)}
+            Dim photoPreview As New PictureBox With {.Size = New Size(76, 76), .Location = New Point(14, 10), .SizeMode = PictureBoxSizeMode.Normal, .BackColor = Color.Transparent}
+            Dim uploadPhotoButton = CreateModalPrimaryButton("Upload Photo...", 122)
+            uploadPhotoButton.Height = 30
+            uploadPhotoButton.Location = New Point(108, 18)
+            Dim removePhotoButton = CreateModalSecondaryButton("Remove", 80)
+            removePhotoButton.Height = 30
+            removePhotoButton.ForeColor = Color.Firebrick
+            removePhotoButton.FlatAppearance.BorderColor = Color.Firebrick
+            removePhotoButton.Location = New Point(238, 18)
+            Dim photoStatusLabel As New Label With {
+                .Text = If(currentPhotoBytes IsNot Nothing AndAlso currentPhotoBytes.Length > 0, "Circular profile photo active", "JPG, PNG, or BMP (max 5 MB)"),
+                .AutoSize = True,
+                .Font = New Font("Segoe UI", 8.0F),
+                .ForeColor = Color.Gray,
+                .Location = New Point(108, 56)
+            }
+            photoBar.Controls.AddRange({photoPreview, uploadPhotoButton, removePhotoButton, photoStatusLabel})
+
+            Dim refreshPhotoPreview As Action =
+                Sub()
+                    Dim oldImage = photoPreview.Image
+                    Dim hasPhoto = (currentPhotoBytes IsNot Nothing AndAlso currentPhotoBytes.Length > 0)
+                    photoPreview.Image = CreateCircularAvatarImage(currentPhotoBytes, initialsBox.Text, 76)
+                    uploadPhotoButton.Text = If(hasPhoto, "Change Photo...", "Upload Photo...")
+                    removePhotoButton.Enabled = hasPhoto
+                    oldImage?.Dispose()
+                End Sub
+            refreshPhotoPreview()
+
+            AddHandler initialsBox.TextChanged, Sub()
+                                                    If currentPhotoBytes Is Nothing OrElse currentPhotoBytes.Length = 0 Then refreshPhotoPreview()
+                                                End Sub
+            AddHandler uploadPhotoButton.Click,
+                Sub()
+                    Using openDialog As New OpenFileDialog() With {.Title = "Select Employee Photo", .Filter = "Image Files (*.jpg;*.jpeg;*.png;*.bmp)|*.jpg;*.jpeg;*.png;*.bmp"}
+                        If openDialog.ShowDialog(dialog) = DialogResult.OK Then
+                            Try
+                                Dim info As New FileInfo(openDialog.FileName)
+                                If info.Length > 5 * 1024 * 1024 Then
+                                    MessageBox.Show("Please select an image smaller than 5 MB.", "Employee Photo", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                                    Return
+                                End If
+                                Dim bytes = File.ReadAllBytes(openDialog.FileName)
+                                Dim testImg = BytesToImage(bytes)
+                                If testImg Is Nothing Then
+                                    MessageBox.Show("The selected file is not a valid image.", "Employee Photo", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                                    Return
+                                End If
+                                testImg.Dispose()
+                                currentPhotoBytes = bytes
+                                photoStatusLabel.Text = Path.GetFileName(openDialog.FileName)
+                                refreshPhotoPreview()
+                            Catch ex As Exception
+                                MessageBox.Show("Could not load photo. " & ex.Message, "Employee Photo", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                            End Try
+                        End If
+                    End Using
+                End Sub
+            AddHandler removePhotoButton.Click,
+                Sub()
+                    currentPhotoBytes = Nothing
+                    photoStatusLabel.Text = "Photo removed (default circular initials)"
+                    refreshPhotoPreview()
+                End Sub
+
+            ' Sections
+            Dim personalSection = CreateModalSection("Personal Information", 3)
+            AddModalField(personalSection, "First Name *", firstNameBox, 1, 0)
+            AddModalField(personalSection, "Last Name *", lastNameBox, 1, 1)
+            AddModalField(personalSection, "Birth Date *", birthDateBox, 2, 0)
+            AddModalField(personalSection, "Contact Number", contactBox, 2, 1)
+            AddModalField(personalSection, "Email Address", emailBox, 3, 0, 2)
+
+            Dim employmentSection = CreateModalSection("Employment Information", 3)
+            AddModalField(employmentSection, "Staff Initials *", initialsBox, 1, 0)
+            AddModalField(employmentSection, "Work Shift *", workShiftBox, 1, 1)
+            AddModalField(employmentSection, "Role *", roleBox, 2, 0)
+            AddModalField(employmentSection, "Hire Date *", hireDateBox, 2, 1)
+            AddModalField(employmentSection, "Account Status", activeBox, 3, 0, 2)
+
+            Dim loginRows = If(isNew, 3, 1)
+            Dim loginSection = CreateModalSection("Login Credentials", loginRows)
+            AddModalField(loginSection, "Username *", usernameBox, 1, 0)
+            AddModalField(loginSection, "Account PIN (4 digits)", pinBox, 1, 1)
+
+            Dim lengthRule As New Label With {.AutoSize = True, .Font = New Font("Segoe UI", 8.0F)}
+            Dim capitalRule As New Label With {.AutoSize = True, .Font = New Font("Segoe UI", 8.0F)}
+            Dim numberRule As New Label With {.AutoSize = True, .Font = New Font("Segoe UI", 8.0F)}
+            Dim symbolRule As New Label With {.AutoSize = True, .Font = New Font("Segoe UI", 8.0F)}
+            Dim rulesPanel As New FlowLayoutPanel With {.Dock = DockStyle.Top, .AutoSize = True, .FlowDirection = FlowDirection.LeftToRight, .WrapContents = True, .BackColor = Color.FromArgb(248, 250, 248), .Padding = New Padding(10, 6, 10, 6), .Visible = isNew}
+            rulesPanel.Controls.AddRange({lengthRule, capitalRule, numberRule, symbolRule})
+
+            If isNew Then
+                AddModalField(loginSection, "Password *", passwordBox, 2, 0)
+                AddModalField(loginSection, "Confirm Password *", confirmPasswordBox, 2, 1)
+                AddModalField(loginSection, "Visibility", showPasswordsBox, 3, 0, 2)
+                UpdatePasswordRules(passwordBox.Text, lengthRule, capitalRule, numberRule, symbolRule)
+                AddHandler passwordBox.TextChanged, Sub() UpdatePasswordRules(passwordBox.Text, lengthRule, capitalRule, numberRule, symbolRule)
+                AddHandler showPasswordsBox.CheckedChanged, Sub()
+                                                                passwordBox.UseSystemPasswordChar = Not showPasswordsBox.Checked
+                                                                confirmPasswordBox.UseSystemPasswordChar = Not showPasswordsBox.Checked
+                                                            End Sub
+            End If
+
+            Dim content As New TableLayoutPanel With {.Dock = DockStyle.Top, .AutoSize = True, .AutoSizeMode = AutoSizeMode.GrowAndShrink, .ColumnCount = 1, .BackColor = Color.White, .Margin = New Padding(0)}
+            content.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100.0F))
+            content.Controls.Add(photoBar)
+            content.Controls.Add(personalSection)
+            content.Controls.Add(employmentSection)
+            content.Controls.Add(loginSection)
+            If isNew Then content.Controls.Add(rulesPanel)
+
+            Dim scrollHost As New Panel With {.Dock = DockStyle.Fill, .AutoScroll = True, .BackColor = Color.White, .Padding = New Padding(22, 12, 22, 12)}
+            scrollHost.Controls.Add(content)
+            AddHandler scrollHost.Resize, Sub(s, e) content.Width = Math.Max(300, scrollHost.ClientSize.Width - 46)
+
+            Dim footer As New Panel With {.Dock = DockStyle.Bottom, .Height = 62, .BackColor = Color.White}
+            footer.Controls.Add(New Panel With {.Dock = DockStyle.Top, .Height = 1, .BackColor = Color.FromArgb(230, 236, 232)})
+            Dim actions As New FlowLayoutPanel With {.Dock = DockStyle.Fill, .FlowDirection = FlowDirection.RightToLeft, .WrapContents = False, .Padding = New Padding(0, 12, 20, 0)}
+            Dim saveButton = CreateModalPrimaryButton(If(isNew, "Add Employee", "Save Changes"), 130)
+            Dim cancelButton = CreateModalSecondaryButton("Cancel", 92)
+            cancelButton.DialogResult = DialogResult.Cancel
+            actions.Controls.Add(saveButton)
+            actions.Controls.Add(cancelButton)
+            footer.Controls.Add(actions)
+
+            AddHandler saveButton.Click,
+                Sub()
+                    Dim newFirst = firstNameBox.Text.Trim()
+                    Dim newLast = lastNameBox.Text.Trim()
+                    Dim newInitials = initialsBox.Text.Trim()
+                    Dim newUsername = usernameBox.Text.Trim()
+                    Dim newShift = workShiftBox.Text.Trim()
+                    Dim newRole = roleBox.Text
+                    Dim newEmail = emailBox.Text.Trim()
+                    Dim newContact = contactBox.Text.Trim()
+                    Dim newHireDate As DateTime? = If(hireDateBox.Checked, CType(hireDateBox.Value.Date, DateTime?), Nothing)
+                    Dim newBirthDate As DateTime? = If(birthDateBox.Checked, CType(birthDateBox.Value.Date, DateTime?), Nothing)
+                    Dim newPin = pinBox.Text.Trim()
+
+                    If String.IsNullOrWhiteSpace(newFirst) OrElse String.IsNullOrWhiteSpace(newLast) OrElse String.IsNullOrWhiteSpace(newUsername) OrElse String.IsNullOrWhiteSpace(newInitials) Then
+                        MessageBox.Show("Please complete all required (*) fields.", "Employee Management", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                        Return
                     End If
-                End Using
-            End Sub
+                    If newPin.Length > 0 AndAlso (newPin.Length <> 4 OrElse Not newPin.All(AddressOf Char.IsDigit)) Then
+                        MessageBox.Show("Account PIN must be exactly 4 numeric digits.", "Employee Management", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                        pinBox.Focus()
+                        Return
+                    End If
+                    If isNew Then
+                        If Not IsPasswordStrong(passwordBox.Text) Then
+                            MessageBox.Show("Password does not meet all security requirements.", "Employee Management", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                            passwordBox.Focus()
+                            Return
+                        End If
+                        If passwordBox.Text <> confirmPasswordBox.Text Then
+                            MessageBox.Show("Passwords do not match.", "Employee Management", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                            confirmPasswordBox.Focus()
+                            Return
+                        End If
+                    Else
+                        Dim changed = Not String.Equals(If(account.FirstName, ""), newFirst, StringComparison.Ordinal) OrElse
+                                      Not String.Equals(If(account.LastName, ""), newLast, StringComparison.Ordinal) OrElse
+                                      Not String.Equals(If(account.StaffInitials, ""), newInitials, StringComparison.Ordinal) OrElse
+                                      Not String.Equals(If(account.Username, ""), newUsername, StringComparison.Ordinal) OrElse
+                                      Not String.Equals(If(account.WorkShift, ""), newShift, StringComparison.Ordinal) OrElse
+                                      Not String.Equals(If(account.Role, ""), newRole, StringComparison.Ordinal) OrElse
+                                      Not String.Equals(If(account.EmailAddress, ""), newEmail, StringComparison.Ordinal) OrElse
+                                      Not String.Equals(If(account.ContactNumber, ""), newContact, StringComparison.Ordinal) OrElse
+                                      Not Nullable.Equals(account.HireDate, newHireDate) OrElse
+                                      Not Nullable.Equals(account.BirthDate, newBirthDate) OrElse
+                                      account.IsActive <> activeBox.Checked OrElse
+                                      newPin.Length > 0 OrElse
+                                      Not AreByteArraysEqual(account.ProfilePhoto, currentPhotoBytes)
+                        If Not changed Then
+                            MessageBox.Show("No changes were made to this employee.", "Nothing to Save", MessageBoxButtons.OK, MessageBoxIcon.Information)
+                            Return
+                        End If
+                    End If
 
-        AddHandler removePhotoButton.Click,
-            Sub()
-                currentPhotoBytes = Nothing
-                photoStatusLabel.Text = "Photo removed (default circular initials)"
-                refreshPhotoPreview()
-            End Sub
+                    Try
+                        SaveAccount(account.UserId, isNew, newUsername, newFirst & " " & newLast, newFirst, newLast, newInitials, newRole, newShift, newEmail, newContact, DateFromPicker(hireDateBox), DateFromPicker(birthDateBox), newPin, passwordBox.Text, activeBox.Checked, currentPhotoBytes)
+                        dialog.DialogResult = DialogResult.OK
+                        dialog.Close()
+                        LoadAccounts()
+                        RefreshAllHeaderAvatars()
+                    Catch ex As MySqlException When ex.Number = 1062
+                        MessageBox.Show("That username is already in use. Choose a different username.", "Duplicate Username", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                    Catch ex As MySqlException
+                        MessageBox.Show("Could not save the employee. " & ex.Message, "Employee Management", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                    End Try
+                End Sub
 
-        Dim photoButtonsRow As New FlowLayoutPanel With {.FlowDirection = FlowDirection.LeftToRight, .AutoSize = True, .WrapContents = False, .Margin = New Padding(0)}
-        photoButtonsRow.Controls.Add(uploadPhotoButton)
-        photoButtonsRow.Controls.Add(removePhotoButton)
+            AddHandler dialog.FormClosed, Sub() photoPreview.Image?.Dispose()
 
-        Dim photoActionsStack As New FlowLayoutPanel With {.FlowDirection = FlowDirection.TopDown, .AutoSize = True, .WrapContents = False, .Margin = New Padding(0, 14, 0, 0)}
-        photoActionsStack.Controls.Add(photoButtonsRow)
-        photoActionsStack.Controls.Add(photoStatusLabel)
-
-        Dim photoContainer As New FlowLayoutPanel With {.FlowDirection = FlowDirection.LeftToRight, .AutoSize = True, .WrapContents = False, .Dock = DockStyle.Fill}
-        photoContainer.Controls.Add(photoPreview)
-        photoContainer.Controls.Add(photoActionsStack)
-
-        Dim lengthRule As New Label With {.AutoSize = True}
-        Dim capitalRule As New Label With {.AutoSize = True}
-        Dim numberRule As New Label With {.AutoSize = True}
-        Dim symbolRule As New Label With {.AutoSize = True}
-        Dim passwordRules As New FlowLayoutPanel With {.FlowDirection = FlowDirection.TopDown, .WrapContents = False, .AutoSize = True}
-        passwordRules.Controls.AddRange({lengthRule, capitalRule, numberRule, symbolRule})
-
-        UpdatePasswordRules(passwordBox.Text, lengthRule, capitalRule, numberRule, symbolRule)
-        AddHandler passwordBox.TextChanged, Sub() UpdatePasswordRules(passwordBox.Text, lengthRule, capitalRule, numberRule, symbolRule)
-        AddHandler showPasswordsBox.CheckedChanged, Sub()
-                                                        passwordBox.UseSystemPasswordChar = Not showPasswordsBox.Checked
-                                                        confirmPasswordBox.UseSystemPasswordChar = Not showPasswordsBox.Checked
-                                                    End Sub
-
-        Dim pinBox = New TextBox With {.Dock = DockStyle.Fill, .UseSystemPasswordChar = True, .MaxLength = 4}
-        Dim activeBox = New CheckBox With {.Text = "Employee is active", .Checked = account.IsActive, .AutoSize = True}
-
-        AddSection(fields, "PERSONAL INFORMATION")
-        AddField(fields, "Employee photo", photoContainer)
-        AddField(fields, "First name *", firstNameBox)
-        AddField(fields, "Last name *", lastNameBox)
-        AddField(fields, "Birth date *", birthDateBox)
-        AddField(fields, "Email address", emailBox)
-        AddField(fields, "Contact number", contactBox)
-        AddSection(fields, "EMPLOYMENT INFORMATION")
-        AddField(fields, "Staff initials *", initialsBox)
-        AddField(fields, "Work shift *", workShiftBox)
-        AddField(fields, "Role *", roleBox)
-        AddField(fields, "Hire date *", hireDateBox)
-        AddField(fields, "Status", activeBox)
-        AddSection(fields, "LOGIN CREDENTIALS")
-        AddField(fields, "Username *", usernameBox)
-
-        If isNew Then
-            AddField(fields, "Password *", passwordBox)
-            AddField(fields, "Confirm password *", confirmPasswordBox)
-            AddField(fields, "Show password", showPasswordsBox)
-            AddField(fields, "Password requirements", passwordRules)
-        End If
-
-        Dim buttons As New FlowLayoutPanel With {.Dock = DockStyle.Bottom, .Height = 56, .FlowDirection = FlowDirection.RightToLeft, .Padding = New Padding(12)}
-        Dim cancelButton As New Button With {.Text = "Cancel", .DialogResult = DialogResult.Cancel, .Width = 90}
-        Dim saveButton As New Button With {.Text = "Save Employee", .Width = 110, .BackColor = Color.SeaGreen, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat}
-
-        AddHandler saveButton.Click, Sub()
-                                         If String.IsNullOrWhiteSpace(firstNameBox.Text) OrElse String.IsNullOrWhiteSpace(lastNameBox.Text) OrElse String.IsNullOrWhiteSpace(usernameBox.Text) Then
-                                             MessageBox.Show("Required fields missing.", "Employee management", MessageBoxButtons.OK, MessageBoxIcon.Warning)
-                                             Return
-                                         End If
-                                         Try
-                                             SaveAccount(account.UserId, isNew, usernameBox.Text.Trim(), firstNameBox.Text.Trim() & " " & lastNameBox.Text.Trim(), firstNameBox.Text.Trim(), lastNameBox.Text.Trim(), initialsBox.Text.Trim(), roleBox.Text, workShiftBox.Text.Trim(), emailBox.Text.Trim(), contactBox.Text.Trim(), DateFromPicker(hireDateBox), DateFromPicker(birthDateBox), pinBox.Text, passwordBox.Text, activeBox.Checked, currentPhotoBytes)
-                                             dialog.DialogResult = DialogResult.OK
-                                             dialog.Close()
-                                             LoadAccounts()
-                                             RefreshAllHeaderAvatars()
-                                         Catch ex As MySqlException
-                                             MessageBox.Show("Could not save the employee. " & ex.Message, "Employee management", MessageBoxButtons.OK, MessageBoxIcon.Error)
-                                         End Try
-                                     End Sub
-
-        AddHandler dialog.FormClosed, Sub() photoPreview.Image?.Dispose()
-
-        buttons.Controls.Add(saveButton)
-        buttons.Controls.Add(cancelButton)
-        dialog.AcceptButton = saveButton
-        dialog.CancelButton = cancelButton
-        dialog.Controls.Add(fields)
-        dialog.Controls.Add(buttons)
-        dialog.ShowDialog(Me)
+            dialog.Controls.Add(scrollHost)
+            dialog.Controls.Add(footer)
+            dialog.Controls.Add(header)
+            dialog.AcceptButton = saveButton
+            dialog.CancelButton = cancelButton
+            dialog.ShowDialog(Me)
+        End Using
     End Sub
 
     Private Sub ResetPassword(userId As Integer)
@@ -3776,50 +4154,151 @@ Public Class SuperAdmin
     End Sub
 
     Private Sub ShowResetPasswordDialog(userId As Integer)
-        Dim dialog As New Form With {.Text = "Reset Password", .StartPosition = FormStartPosition.CenterParent, .FormBorderStyle = FormBorderStyle.FixedDialog, .ClientSize = New Size(440, 390)}
+        Dim targetName As String = "Employee"
+        Dim targetUsername As String = String.Empty
+        Dim existingHash As String = String.Empty
 
-        Dim fields As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 2, .AutoScroll = True, .Padding = New Padding(20)}
-        fields.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 36.0F))
-        fields.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 64.0F))
+        Try
+            Using conn = GetConnection()
+                conn.Open()
+                Using cmd As New MySqlCommand("SELECT full_name, username, password_hash FROM users WHERE user_id = @id LIMIT 1", conn)
+                    cmd.Parameters.AddWithValue("@id", userId)
+                    Using reader = cmd.ExecuteReader()
+                        If reader.Read() Then
+                            targetName = ReadText(reader, "full_name")
+                            targetUsername = ReadText(reader, "username")
+                            existingHash = ReadText(reader, "password_hash")
+                        End If
+                    End Using
+                End Using
+            End Using
+        Catch ex As Exception
+            MessageBox.Show("Could not load employee account details. " & ex.Message, "Reset Password", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            Return
+        End Try
 
-        Dim passwordBox As New TextBox With {.Dock = DockStyle.Fill, .UseSystemPasswordChar = True}
-        Dim confirmPasswordBox As New TextBox With {.Dock = DockStyle.Fill, .UseSystemPasswordChar = True}
-        Dim showPasswordsBox As New CheckBox With {.Text = "Show passwords", .AutoSize = True}
+        Using dialog As New Form With {
+            .Text = "Reset Password",
+            .StartPosition = FormStartPosition.CenterParent,
+            .FormBorderStyle = FormBorderStyle.None,
+            .ControlBox = False,
+            .ClientSize = New Size(460, 440),
+            .MinimizeBox = False,
+            .MaximizeBox = False,
+            .ShowInTaskbar = False,
+            .BackColor = Color.White,
+            .Font = New Font("Segoe UI", 9.0F)
+        }
+            AddDialogFrameBorder(dialog)
 
-        AddHandler showPasswordsBox.CheckedChanged, Sub()
-                                                        passwordBox.UseSystemPasswordChar = Not showPasswordsBox.Checked
-                                                        confirmPasswordBox.UseSystemPasswordChar = Not showPasswordsBox.Checked
-                                                    End Sub
+            Dim subtitle = If(String.IsNullOrWhiteSpace(targetUsername), targetName, targetName & " (@" & targetUsername & ")")
+            Dim header = CreateModalHeader("Reset Password", "Set a new password for " & subtitle)
 
-        AddField(fields, "New password *", passwordBox)
-        AddField(fields, "Confirm password *", confirmPasswordBox)
-        AddField(fields, "Password visibility", showPasswordsBox)
+            Dim body As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(22, 16, 22, 10)}
+            Dim passwordBox = CreateModalTextBox("", True)
+            passwordBox.Location = New Point(22, 36)
+            passwordBox.Width = 416
+            Dim confirmPasswordBox = CreateModalTextBox("", True)
+            confirmPasswordBox.Location = New Point(22, 100)
+            confirmPasswordBox.Width = 416
+            Dim showPasswordsBox As New CheckBox With {.Text = "Show passwords", .AutoSize = True, .Location = New Point(22, 136), .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray}
 
-        Dim buttons As New FlowLayoutPanel With {.Dock = DockStyle.Bottom, .Height = 60, .FlowDirection = FlowDirection.RightToLeft, .Padding = New Padding(12)}
-        Dim cancelButton As New Button With {.Text = "Cancel", .DialogResult = DialogResult.Cancel, .Width = 90}
-        Dim saveButton As New Button With {.Text = "Save Password", .Width = 115, .BackColor = Color.SeaGreen, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat}
+            Dim rulesCard As New Panel With {.Location = New Point(22, 168), .Size = New Size(416, 120), .BackColor = Color.FromArgb(248, 250, 248), .BorderStyle = BorderStyle.FixedSingle}
+            Dim lengthRule As New Label With {.AutoSize = True, .Location = New Point(12, 10), .Font = New Font("Segoe UI", 8.5F)}
+            Dim capitalRule As New Label With {.AutoSize = True, .Location = New Point(12, 32), .Font = New Font("Segoe UI", 8.5F)}
+            Dim numberRule As New Label With {.AutoSize = True, .Location = New Point(12, 54), .Font = New Font("Segoe UI", 8.5F)}
+            Dim symbolRule As New Label With {.AutoSize = True, .Location = New Point(12, 76), .Font = New Font("Segoe UI", 8.5F)}
+            Dim matchRule As New Label With {.AutoSize = True, .Location = New Point(12, 98), .Font = New Font("Segoe UI", 8.5F)}
+            rulesCard.Controls.AddRange({lengthRule, capitalRule, numberRule, symbolRule, matchRule})
 
-        AddHandler saveButton.Click, Sub()
-                                         If passwordBox.Text <> confirmPasswordBox.Text Then
-                                             MessageBox.Show("Passwords do not match.", "Reset Password", MessageBoxButtons.OK, MessageBoxIcon.Warning)
-                                             Return
-                                         End If
-                                         Try
-                                             Execute("UPDATE users SET password_hash=@passwordHash WHERE user_id=@id", HashPassword(passwordBox.Text), userId)
-                                             MessageBox.Show("Password reset successfully.", "Employee Management", MessageBoxButtons.OK, MessageBoxIcon.Information)
-                                             dialog.Close()
-                                         Catch ex As Exception
-                                             MessageBox.Show("Error resetting password.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
-                                         End Try
-                                     End Sub
+            body.Controls.Add(New Label With {.Text = "New Password *", .AutoSize = True, .Location = New Point(22, 16), .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.FromArgb(105, 115, 110)})
+            body.Controls.Add(passwordBox)
+            body.Controls.Add(New Label With {.Text = "Confirm New Password *", .AutoSize = True, .Location = New Point(22, 80), .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.FromArgb(105, 115, 110)})
+            body.Controls.Add(confirmPasswordBox)
+            body.Controls.Add(showPasswordsBox)
+            body.Controls.Add(rulesCard)
 
-        buttons.Controls.Add(saveButton)
-        buttons.Controls.Add(cancelButton)
-        dialog.AcceptButton = saveButton
-        dialog.CancelButton = cancelButton
-        dialog.Controls.Add(fields)
-        dialog.Controls.Add(buttons)
-        dialog.ShowDialog(Me)
+            Dim footer As New Panel With {.Dock = DockStyle.Bottom, .Height = 62, .BackColor = Color.White}
+            footer.Controls.Add(New Panel With {.Dock = DockStyle.Top, .Height = 1, .BackColor = Color.FromArgb(230, 236, 232)})
+            Dim actions As New FlowLayoutPanel With {.Dock = DockStyle.Fill, .FlowDirection = FlowDirection.RightToLeft, .WrapContents = False, .Padding = New Padding(0, 12, 20, 0)}
+            Dim saveButton = CreateModalPrimaryButton("Save Password", 132)
+            Dim cancelButton = CreateModalSecondaryButton("Cancel", 92)
+            cancelButton.DialogResult = DialogResult.Cancel
+            actions.Controls.Add(saveButton)
+            actions.Controls.Add(cancelButton)
+            footer.Controls.Add(actions)
+
+            Dim refreshValidation As Action =
+                Sub()
+                    UpdatePasswordRules(passwordBox.Text, lengthRule, capitalRule, numberRule, symbolRule)
+                    Dim hasText = Not String.IsNullOrWhiteSpace(passwordBox.Text)
+                    Dim matches = hasText AndAlso String.Equals(passwordBox.Text, confirmPasswordBox.Text, StringComparison.Ordinal)
+                    SetPasswordRule(matchRule, matches, "Passwords match")
+                    Dim canSave = hasText AndAlso IsPasswordStrong(passwordBox.Text) AndAlso matches
+                    saveButton.Enabled = canSave
+                    saveButton.BackColor = If(canSave, Color.FromArgb(20, 100, 60), Color.LightGray)
+                    saveButton.ForeColor = If(canSave, Color.White, Color.DimGray)
+                End Sub
+
+            AddHandler passwordBox.TextChanged, Sub() refreshValidation()
+            AddHandler confirmPasswordBox.TextChanged, Sub() refreshValidation()
+            AddHandler showPasswordsBox.CheckedChanged, Sub()
+                                                            passwordBox.UseSystemPasswordChar = Not showPasswordsBox.Checked
+                                                            confirmPasswordBox.UseSystemPasswordChar = Not showPasswordsBox.Checked
+                                                        End Sub
+            refreshValidation()
+
+            AddHandler saveButton.Click,
+                Sub()
+                    If String.IsNullOrWhiteSpace(passwordBox.Text) Then
+                        MessageBox.Show("Enter a new password before saving.", "No Changes Made", MessageBoxButtons.OK, MessageBoxIcon.Information)
+                        passwordBox.Focus()
+                        Return
+                    End If
+                    If Not IsPasswordStrong(passwordBox.Text) Then
+                        MessageBox.Show("Password does not meet all security requirements.", "Reset Password", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                        passwordBox.Focus()
+                        Return
+                    End If
+                    If Not String.Equals(passwordBox.Text, confirmPasswordBox.Text, StringComparison.Ordinal) Then
+                        MessageBox.Show("Passwords do not match.", "Reset Password", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                        confirmPasswordBox.Focus()
+                        Return
+                    End If
+
+                    ' Block saving if the new password matches the existing stored password
+                    Dim isSamePassword = False
+                    If Not String.IsNullOrWhiteSpace(existingHash) Then
+                        Try
+                            isSamePassword = VerifyPassword(passwordBox.Text, existingHash)
+                        Catch
+                            isSamePassword = False
+                        End Try
+                    End If
+                    If isSamePassword Then
+                        MessageBox.Show("The new password is the same as the current password. No changes were saved.", "No Changes Made", MessageBoxButtons.OK, MessageBoxIcon.Information)
+                        passwordBox.Focus()
+                        passwordBox.SelectAll()
+                        Return
+                    End If
+
+                    Try
+                        Execute("UPDATE users SET password_hash=@passwordHash WHERE user_id=@id", HashPassword(passwordBox.Text), userId)
+                        MessageBox.Show("Password reset successfully.", "Employee Management", MessageBoxButtons.OK, MessageBoxIcon.Information)
+                        dialog.DialogResult = DialogResult.OK
+                        dialog.Close()
+                    Catch ex As Exception
+                        MessageBox.Show("Error resetting password: " & ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                    End Try
+                End Sub
+
+            dialog.Controls.Add(body)
+            dialog.Controls.Add(footer)
+            dialog.Controls.Add(header)
+            dialog.AcceptButton = saveButton
+            dialog.CancelButton = cancelButton
+            dialog.ShowDialog(Me)
+        End Using
     End Sub
 
     Private Sub UpdatePasswordRules(password As String, lengthRule As Label, capitalRule As Label, numberRule As Label, symbolRule As Label)

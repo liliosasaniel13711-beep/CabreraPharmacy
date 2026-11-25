@@ -138,6 +138,8 @@ Public Class Staff
     Private currentWholesalePurchaseOrderNumber As String = String.Empty
     Private currentWholesalePurchaseOrderDate As Date = Date.Today
     Private updatingWholesalePaymentUi As Boolean
+    Private tinIdLabel As Label
+    Private tinIdTextBox As TextBox
 
     ' Restock View Controls
     Private restockGrid As DataGridView
@@ -993,6 +995,29 @@ Public Class Staff
         paymentCard.Controls.Add(wholesalePaymentReferenceBox)
         AddHandler wholesalePaymentModeCombo.SelectedIndexChanged, Sub(sender, e) UpdateWholesaleCheckoutPaymentUi()
         AddHandler wholesalePaymentReferenceBox.TextChanged, Sub(sender, e) UpdateConfirmButtonAvailability()
+
+        tinIdLabel = New Label With {
+            .Text = "TIN ID:",
+            .AutoSize = True,
+            .Font = idNumberLabel.Font,
+            .ForeColor = idNumberLabel.ForeColor,
+            .BackColor = Color.Transparent
+        }
+        tinIdTextBox = New TextBox With {
+            .Size = idNumberTextBox.Size,
+            .Font = idNumberTextBox.Font,
+            .BorderStyle = idNumberTextBox.BorderStyle,
+            .BackColor = Color.White,
+            .MaxLength = 20
+        }
+        AddHandler tinIdTextBox.KeyPress,
+            Sub(s, ev)
+                If Not Char.IsControl(ev.KeyChar) AndAlso Not Char.IsDigit(ev.KeyChar) AndAlso ev.KeyChar <> "-"c Then
+                    ev.Handled = True
+                End If
+            End Sub
+        orderReviewCard.Controls.Add(tinIdLabel)
+        orderReviewCard.Controls.Add(tinIdTextBox)
     End Sub
 
     Private Function IsElectronicPaymentSelected() As Boolean
@@ -1086,14 +1111,26 @@ Public Class Staff
             wholesalePurchaseOrderDateLabel.Left = Math.Max(415, wholesalePurchaseOrderPanel.ClientSize.Width - 170)
             wholesalePurchaseOrderNumberLabel.Width = Math.Max(120, wholesalePurchaseOrderDateLabel.Left - wholesalePurchaseOrderNumberLabel.Left - 12)
             wholesalePurchaseOrderDateLabel.Width = Math.Max(120, wholesalePurchaseOrderPanel.ClientSize.Width - wholesalePurchaseOrderDateLabel.Left - 10)
-            orderSummaryLabel.Top = 278
-            summaryTop = 306
+            If tinIdLabel IsNot Nothing AndAlso tinIdTextBox IsNot Nothing Then
+                tinIdLabel.Location = New Point(idNumberLabel.Left, 276)
+                tinIdTextBox.SetBounds(idNumberTextBox.Left, 272, idNumberTextBox.Width, idNumberTextBox.Height)
+            End If
+            orderSummaryLabel.Top = 312
+            summaryTop = 340
             prescriptionLabel.Visible = False
             prescriptionValueLabel.Visible = False
             rxRecordedLabel.Visible = False
         Else
-            orderSummaryLabel.Top = 220
-            summaryTop = 250
+            Dim labelRowGap = Math.Max(30, idNumberLabel.Top - customerNameLabel.Top)
+            Dim inputRowGap = Math.Max(30, idNumberTextBox.Top - customerNameTextBox.Top)
+            If tinIdLabel IsNot Nothing AndAlso tinIdTextBox IsNot Nothing Then
+                tinIdLabel.Location = New Point(idNumberLabel.Left, idNumberLabel.Top + labelRowGap)
+                tinIdTextBox.SetBounds(idNumberTextBox.Left, idNumberTextBox.Top + inputRowGap, idNumberTextBox.Width, idNumberTextBox.Height)
+                orderSummaryLabel.Top = Math.Max(220, tinIdTextBox.Bottom + 18)
+            Else
+                orderSummaryLabel.Top = 220
+            End If
+            summaryTop = orderSummaryLabel.Top + 28
             prescriptionLabel.Top = Math.Max(520, viewHeight - 95)
             prescriptionValueLabel.Top = prescriptionLabel.Top + 25
             prescriptionLabel.Visible = cart.Any(Function(item) item.IsRx)
@@ -1158,9 +1195,7 @@ Public Class Staff
         Dim leavingPosWithCart = transactionView.Visible AndAlso cart.Count > 0 AndAlso
                                  String.Equals(destination, "Restock", StringComparison.OrdinalIgnoreCase)
         If leavingCheckout OrElse leavingPosWithCart Then
-            Dim answer = MessageBox.Show("Are you sure? The current transaction will be canceled.",
-                                         "Cancel Transaction", MessageBoxButtons.YesNo, MessageBoxIcon.Warning)
-            If answer <> DialogResult.Yes Then Return
+            If Not ConfirmCancelTransaction() Then Return
             CancelCurrentTransaction()
         End If
 
@@ -2982,16 +3017,148 @@ Public Class Staff
     End Sub
 
     Private Sub cancelButton_Click(sender As Object, e As EventArgs) Handles cancelButton.Click
-        Dim answer = MessageBox.Show("Are you sure? The current transaction will be canceled.",
-                                     "Cancel Transaction", MessageBoxButtons.YesNo, MessageBoxIcon.Warning)
-        If answer = DialogResult.Yes Then CancelCurrentTransaction()
+        If ConfirmCancelTransaction() Then CancelCurrentTransaction()
     End Sub
+
+    Private Function ConfirmCancelTransaction() As Boolean
+        Using dialog As New Form With {
+            .Text = "Cancel Transaction",
+            .StartPosition = FormStartPosition.CenterParent,
+            .FormBorderStyle = FormBorderStyle.None,
+            .ControlBox = False,
+            .ClientSize = New Size(430, 260),
+            .MinimizeBox = False,
+            .MaximizeBox = False,
+            .ShowInTaskbar = False,
+            .BackColor = Color.White,
+            .Font = New Font("Segoe UI", 9.0F)
+        }
+            AddHandler dialog.Paint,
+                Sub(s, e)
+                    If dialog.ClientSize.Width < 2 OrElse dialog.ClientSize.Height < 2 Then Return
+                    Using borderPen As New Pen(Color.FromArgb(40, 55, 48), 1.5F)
+                        e.Graphics.DrawRectangle(borderPen, 0, 0, dialog.ClientSize.Width - 1, dialog.ClientSize.Height - 1)
+                    End Using
+                End Sub
+
+            ' Header
+            Dim header As New Panel With {.Dock = DockStyle.Top, .Height = 74, .BackColor = Color.White}
+            header.Controls.Add(New Label With {
+                .Text = "Cancel Transaction",
+                .AutoSize = True,
+                .Font = New Font("Segoe UI", 14.0F, FontStyle.Bold),
+                .ForeColor = darkGreen,
+                .Location = New Point(22, 14)
+            })
+            header.Controls.Add(New Label With {
+                .Text = "Confirm before discarding the current order",
+                .AutoSize = True,
+                .Font = New Font("Segoe UI", 8.5F),
+                .ForeColor = Color.Gray,
+                .Location = New Point(23, 44)
+            })
+            header.Controls.Add(New Panel With {
+                .Dock = DockStyle.Bottom,
+                .Height = 1,
+                .BackColor = Color.FromArgb(230, 236, 232)
+            })
+
+            ' Body
+            Dim body As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White}
+            Dim itemCount = cart.Sum(Function(item) item.Quantity)
+            Dim callout As New Panel With {
+                .Location = New Point(22, 18),
+                .Size = New Size(386, 86),
+                .BackColor = Color.FromArgb(253, 244, 244),
+                .BorderStyle = BorderStyle.FixedSingle
+            }
+            Dim warnBadge As New Label With {
+                .Text = "!",
+                .Size = New Size(34, 34),
+                .Location = New Point(14, 26),
+                .BackColor = Color.FromArgb(245, 214, 214),
+                .ForeColor = Color.FromArgb(180, 45, 45),
+                .Font = New Font("Segoe UI", 13.0F, FontStyle.Bold),
+                .TextAlign = ContentAlignment.MiddleCenter
+            }
+            ApplyStaffRoundedCorners(warnBadge, 17)
+            Dim promptText As New Label With {
+                .Text = "Are you sure you want to cancel this transaction?" & Environment.NewLine &
+                        "All " & itemCount.ToString(CultureInfo.InvariantCulture) & " cart item(s) and entered customer details will be cleared.",
+                .Location = New Point(60, 14),
+                .Size = New Size(314, 60),
+                .Font = New Font("Segoe UI", 9.0F),
+                .ForeColor = Color.FromArgb(60, 40, 40)
+            }
+            callout.Controls.Add(warnBadge)
+            callout.Controls.Add(promptText)
+            body.Controls.Add(callout)
+
+            ' Footer
+            Dim footer As New Panel With {.Dock = DockStyle.Bottom, .Height = 62, .BackColor = Color.White}
+            footer.Controls.Add(New Panel With {
+                .Dock = DockStyle.Top,
+                .Height = 1,
+                .BackColor = Color.FromArgb(230, 236, 232)
+            })
+
+            Dim actions As New FlowLayoutPanel With {
+                .Dock = DockStyle.Fill,
+                .FlowDirection = FlowDirection.RightToLeft,
+                .WrapContents = False,
+                .Padding = New Padding(0, 12, 20, 0)
+            }
+
+            Dim confirmCancelBtn As New Button With {
+                .Text = "Cancel Transaction",
+                .Size = New Size(146, 36),
+                .BackColor = Color.FromArgb(185, 45, 45),
+                .ForeColor = Color.White,
+                .FlatStyle = FlatStyle.Flat,
+                .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
+                .Cursor = Cursors.Hand,
+                .DialogResult = DialogResult.Yes,
+                .UseVisualStyleBackColor = False
+            }
+            confirmCancelBtn.FlatAppearance.BorderSize = 0
+            confirmCancelBtn.FlatAppearance.MouseOverBackColor = Color.FromArgb(160, 35, 35)
+            AddHandler confirmCancelBtn.Resize, Sub(s, e) ApplyStaffRoundedCorners(confirmCancelBtn, 8)
+            ApplyStaffRoundedCorners(confirmCancelBtn, 8)
+
+            Dim keepBtn As New Button With {
+                .Text = "Keep Order",
+                .Size = New Size(106, 36),
+                .BackColor = Color.White,
+                .ForeColor = Color.FromArgb(55, 65, 60),
+                .FlatStyle = FlatStyle.Flat,
+                .Font = New Font("Segoe UI", 9.0F),
+                .Cursor = Cursors.Hand,
+                .DialogResult = DialogResult.No,
+                .UseVisualStyleBackColor = False,
+                .Margin = New Padding(0, 0, 8, 0)
+            }
+            keepBtn.FlatAppearance.BorderColor = Color.FromArgb(195, 205, 200)
+            keepBtn.FlatAppearance.BorderSize = 1
+
+            actions.Controls.Add(confirmCancelBtn)
+            actions.Controls.Add(keepBtn)
+            footer.Controls.Add(actions)
+
+            dialog.Controls.Add(body)
+            dialog.Controls.Add(footer)
+            dialog.Controls.Add(header)
+            dialog.CancelButton = keepBtn
+
+            Return dialog.ShowDialog(Me) = DialogResult.Yes
+        End Using
+    End Function
 
     Private Sub CancelCurrentTransaction()
         cart.Clear()
         RenderCart()
         customerTypeCombo.SelectedIndex = 0
         customerNameTextBox.Clear()
+        If tinIdTextBox IsNot Nothing Then tinIdTextBox.Clear()
         idNumberTextBox.Clear()
         rxNoTextBox.Clear()
         rxPractitionerTextBox.Clear()
@@ -3068,6 +3235,7 @@ Public Class Staff
             .CustomerType = If(checkoutModeIsWholesale, "Wholesale", customerTypeCombo.Text),
             .CustomerName = If(checkoutModeIsWholesale, contactPersonTextBox.Text.Trim(), customerNameTextBox.Text.Trim()),
             .CustomerIdNumber = If(checkoutModeIsWholesale, customerLicenseTextBox.Text.Trim(), idNumberTextBox.Text.Trim()),
+            .CustomerTin = If(tinIdTextBox IsNot Nothing AndAlso Not String.IsNullOrWhiteSpace(tinIdTextBox.Text), tinIdTextBox.Text.Trim(), Nothing),
             .Subtotal = subtotal,
             .DiscountAmount = discount,
             .TotalAmount = totalDue,
@@ -3132,6 +3300,7 @@ Public Class Staff
         subtitleLabel.Text = If(isWholesale, "Wholesale Box Price", "Retail Unit Price")
         customerNameTextBox.Clear()
         idNumberTextBox.Clear()
+        If tinIdTextBox IsNot Nothing Then tinIdTextBox.Clear()
     End Sub
 
     Private Sub ShowPaymentSuccessDialog(transactionNumber As Long,
@@ -3307,6 +3476,10 @@ Public Class Staff
                 If Not String.IsNullOrWhiteSpace(sale.PaymentAccountName) Then lines.Add("Account Name: " & sale.PaymentAccountName)
                 If Not String.IsNullOrWhiteSpace(sale.PaymentReferenceNumber) Then lines.Add("Payment Reference No.: " & sale.PaymentReferenceNumber)
             End If
+        End If
+
+        If Not String.IsNullOrWhiteSpace(sale.CustomerTin) Then
+            lines.Add("TIN: " & sale.CustomerTin)
         End If
 
         lines.Add(New String("-"c, 76))
