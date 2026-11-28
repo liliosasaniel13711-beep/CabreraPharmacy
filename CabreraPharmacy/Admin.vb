@@ -6,6 +6,7 @@ Imports System.Globalization
 Imports System.Diagnostics
 Imports System.IO
 Imports MySql.Data.MySqlClient
+Imports System.Threading.Tasks
 
 Public Class Admin
 
@@ -149,6 +150,10 @@ Public Class Admin
     Private dashboardExpired As Integer
     Private dashboardNearExpiry As Integer
     Private dashboardTodayTransactions As Integer
+    Private activeTrendPeriod As String = "7 Days"
+    Private liveSyncTimer As System.Windows.Forms.Timer
+    Private lastSyncSignature As String = String.Empty
+    Private isSyncPolling As Boolean = False
 
     Private Sub Admin_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         Me.WindowState = FormWindowState.Maximized
@@ -184,9 +189,101 @@ Public Class Admin
         InitializeInventoryUi()
         InitializePriceManagerUi()
         InitializeReportsUi()
+        WireDashboardCardClicks()
         UiSelectionStyler.ApplyToForm(Me)
         ShowView("Dashboard")
         LoadSalesTrend("7 Days")
+        InitializeLiveSync()
+    End Sub
+
+    Private Sub WireDashboardCardClicks()
+        ' 8 Dashboard Summary KPI Cards
+        MakeDashboardCardClickable(card1, Sub() OpenSalesReportFromDashboard("Daily", "All"))
+        MakeDashboardCardClickable(card2, Sub() OpenSalesReportFromDashboard("Yearly", "Retail"))
+        MakeDashboardCardClickable(card3, Sub() OpenSalesReportFromDashboard("Yearly", "Wholesale"))
+        MakeDashboardCardClickable(card4, Sub() OpenInventoryReportFromDashboard("All"))
+        MakeDashboardCardClickable(card5, Sub() OpenInventoryReportFromDashboard("Low Stock"))
+        MakeDashboardCardClickable(card6, Sub()
+                                              ShowView("Reports")
+                                              ShowExpiredStockReport()
+                                          End Sub)
+        MakeDashboardCardClickable(card7, Sub()
+                                              ShowView("Reports")
+                                              ShowNearExpiryReport()
+                                          End Sub)
+        MakeDashboardCardClickable(card8, Sub()
+                                              expReportPeriod = "Daily"
+                                              ShowView("Reports")
+                                              ShowExpenseReport()
+                                          End Sub)
+
+        ' Revenue vs. Expenses card -> Financial Report (Daily)
+        MakeDashboardCardClickable(revenuePanel, Sub()
+                                                     finReportPeriod = "Daily"
+                                                     ShowView("Reports")
+                                                     ShowFinancialReport()
+                                                 End Sub, applyHoverTint:=False)
+
+        ' Inventory Alert cards -> Matching Reports
+        MakeDashboardCardClickable(inventoryAlertLowStock, Sub() OpenInventoryReportFromDashboard("Low Stock"), applyHoverTint:=False)
+        MakeDashboardCardClickable(inventoryAlertNearExpiry, Sub()
+                                                                 ShowView("Reports")
+                                                                 ShowNearExpiryReport()
+                                                             End Sub, applyHoverTint:=False)
+        MakeDashboardCardClickable(inventoryAlertExpired, Sub()
+                                                              ShowView("Reports")
+                                                              ShowExpiredStockReport()
+                                                          End Sub, applyHoverTint:=False)
+    End Sub
+
+    Private Sub MakeDashboardCardClickable(card As Control, onClick As Action, Optional applyHoverTint As Boolean = True)
+        If card Is Nothing Then Return
+        Dim normalColor = card.BackColor
+        Dim hoverColor = Color.FromArgb(242, 250, 245)
+
+        Dim setCardBg As Action(Of Color) =
+            Sub(bg As Color)
+                If Not applyHoverTint Then Return
+                card.BackColor = bg
+                For Each child As Control In card.Controls
+                    If TypeOf child Is TextBox OrElse TypeOf child Is Label Then
+                        If child.BackColor <> Color.Transparent Then child.BackColor = bg
+                    End If
+                Next
+            End Sub
+
+        Dim attachControl As Action(Of Control) = Nothing
+        attachControl =
+            Sub(ctrl As Control)
+                ctrl.Cursor = Cursors.Hand
+                AddHandler ctrl.Click, Sub(s, e) onClick()
+                If applyHoverTint Then
+                    AddHandler ctrl.MouseEnter, Sub(s, e) setCardBg(hoverColor)
+                    AddHandler ctrl.MouseLeave,
+                        Sub(s, e)
+                            If Not card.ClientRectangle.Contains(card.PointToClient(Cursor.Position)) Then
+                                setCardBg(normalColor)
+                            End If
+                        End Sub
+                End If
+                For Each child As Control In ctrl.Controls
+                    attachControl(child)
+                Next
+            End Sub
+
+        attachControl(card)
+    End Sub
+
+    Private Sub OpenSalesReportFromDashboard(period As String, saleType As String)
+        salesReportPeriod = period
+        salesReportType = saleType
+        ShowView("Reports")
+        ShowSalesReport()
+    End Sub
+
+    Private Sub OpenInventoryReportFromDashboard(statusFilter As String)
+        ShowView("Reports")
+        ShowInventoryStockReport(statusFilter)
     End Sub
 
     ' Keep the user info panel pinned to the top-right corner
@@ -604,6 +701,7 @@ Public Class Admin
                 startDate = today.AddDays(-6)
         End Select
 
+        activeTrendPeriod = period
         trendLabels.Clear()
         trendValues.Clear()
         dashboardTodayTransactions = 0
@@ -809,6 +907,13 @@ Public Class Admin
             Case "Employee Sales Report"
                 AddHandler viewButton.Click, Sub(sender, e) ShowEmployeeSalesReport()
         End Select
+
+        card.Cursor = Cursors.Hand
+        titleLabel.Cursor = Cursors.Hand
+        descriptionLabel.Cursor = Cursors.Hand
+        AddHandler card.Click, Sub(s, e) viewButton.PerformClick()
+        AddHandler titleLabel.Click, Sub(s, e) viewButton.PerformClick()
+        AddHandler descriptionLabel.Click, Sub(s, e) viewButton.PerformClick()
 
         Return card
     End Function
@@ -1363,9 +1468,15 @@ Public Class Admin
 
                 Dim itemHeadingTop = If(isWholesaleReceipt, 368, If(isEPaymentReceipt, 314, 252))
                 Dim itemHeading As New Label With {.Text = "ITEMS", .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(22, itemHeadingTop)}
-                Dim itemGrid As New DataGridView With {
+                Dim itemsContainer As New Panel With {
                     .Location = New Point(20, itemHeadingTop + 30),
                     .Size = New Size(646, 224),
+                    .BorderStyle = BorderStyle.FixedSingle,
+                    .BackColor = Color.White
+                }
+
+                Dim itemGrid As New DataGridView With {
+                    .Dock = DockStyle.Fill,
                     .ReadOnly = True,
                     .AllowUserToAddRows = False,
                     .AllowUserToDeleteRows = False,
@@ -1376,42 +1487,76 @@ Public Class Admin
                     .MultiSelect = False,
                     .RowHeadersVisible = False,
                     .BackgroundColor = Color.White,
-                    .BorderStyle = BorderStyle.FixedSingle,
+                    .BorderStyle = BorderStyle.None,
                     .GridColor = Color.FromArgb(230, 234, 231),
                     .EnableHeadersVisualStyles = False
                 }
                 itemGrid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(235, 245, 239)
                 itemGrid.ColumnHeadersDefaultCellStyle.ForeColor = Color.Black
+                itemGrid.ColumnHeadersDefaultCellStyle.SelectionBackColor = Color.FromArgb(235, 245, 239)
+                itemGrid.ColumnHeadersDefaultCellStyle.SelectionForeColor = Color.Black
                 itemGrid.ColumnHeadersDefaultCellStyle.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
                 itemGrid.DefaultCellStyle.Font = New Font("Segoe UI", 9.0F)
                 itemGrid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(225, 245, 230)
                 itemGrid.DefaultCellStyle.SelectionForeColor = Color.Black
                 itemGrid.RowTemplate.Height = 30
                 itemGrid.Columns.AddRange(New DataGridViewColumn() {
-                    New DataGridViewTextBoxColumn With {.Name = "Product", .DataPropertyName = "Product", .HeaderText = "Product", .FillWeight = 240, .SortMode = DataGridViewColumnSortMode.NotSortable},
-                    New DataGridViewTextBoxColumn With {.Name = "ProductID", .DataPropertyName = "ProductID", .HeaderText = "Product ID", .FillWeight = 55, .SortMode = DataGridViewColumnSortMode.NotSortable},
-                    New DataGridViewTextBoxColumn With {.Name = "Quantity", .DataPropertyName = "Quantity", .HeaderText = "Quantity", .FillWeight = 55, .SortMode = DataGridViewColumnSortMode.NotSortable},
-                    New DataGridViewTextBoxColumn With {.Name = "UnitPrice", .DataPropertyName = "UnitPrice", .HeaderText = "Unit Price", .FillWeight = 70, .SortMode = DataGridViewColumnSortMode.NotSortable, .DefaultCellStyle = New DataGridViewCellStyle With {.Format = "₱#,##0.00"}},
-                    New DataGridViewTextBoxColumn With {.Name = "LineTotal", .DataPropertyName = "LineTotal", .HeaderText = "Line Total", .FillWeight = 75, .SortMode = DataGridViewColumnSortMode.NotSortable, .DefaultCellStyle = New DataGridViewCellStyle With {.Format = "₱#,##0.00"}}
+                    New DataGridViewTextBoxColumn With {.Name = "Product", .DataPropertyName = "Product", .HeaderText = "Product", .FillWeight = 225, .SortMode = DataGridViewColumnSortMode.NotSortable},
+                    New DataGridViewTextBoxColumn With {.Name = "ProductID", .DataPropertyName = "ProductID", .HeaderText = "Product ID", .FillWeight = 75, .SortMode = DataGridViewColumnSortMode.NotSortable},
+                    New DataGridViewTextBoxColumn With {.Name = "Quantity", .DataPropertyName = "Quantity", .HeaderText = "Quantity", .FillWeight = 60, .SortMode = DataGridViewColumnSortMode.NotSortable},
+                    New DataGridViewTextBoxColumn With {.Name = "UnitPrice", .DataPropertyName = "UnitPrice", .HeaderText = "Unit Price", .FillWeight = 75, .SortMode = DataGridViewColumnSortMode.NotSortable, .DefaultCellStyle = New DataGridViewCellStyle With {.Format = "₱#,##0.00"}},
+                    New DataGridViewTextBoxColumn With {.Name = "LineTotal", .DataPropertyName = "LineTotal", .HeaderText = "Line Total", .FillWeight = 80, .SortMode = DataGridViewColumnSortMode.NotSortable, .DefaultCellStyle = New DataGridViewCellStyle With {.Format = "₱#,##0.00"}}
                 })
+
                 Dim itemRows As New DataTable()
                 itemRows.Columns.Add("Product", GetType(String))
                 itemRows.Columns.Add("ProductID", GetType(String))
                 itemRows.Columns.Add("Quantity", GetType(Integer))
                 itemRows.Columns.Add("UnitPrice", GetType(Decimal))
                 itemRows.Columns.Add("LineTotal", GetType(Decimal))
+                Dim itemsTotalAmount As Decimal = 0D
                 For Each row As DataRow In details.Rows
                     If row.IsNull("sale_item_id") Then Continue For
                     Dim productName = DbText(row, "brand_name")
                     If Not String.IsNullOrWhiteSpace(DbText(row, "generic_name")) Then productName &= " - " & DbText(row, "generic_name")
                     If Not String.IsNullOrWhiteSpace(DbText(row, "dosage")) Then productName &= " - " & DbText(row, "dosage")
                     If Not String.IsNullOrWhiteSpace(DbText(row, "unit")) Then productName &= " (" & DbText(row, "unit") & ")"
-                    itemRows.Rows.Add(productName, DbText(row, "product_id"), Convert.ToInt32(row("quantity")), Convert.ToDecimal(row("unit_price")), Convert.ToDecimal(row("line_total")))
+                    Dim lineTotal = Convert.ToDecimal(row("line_total"))
+                    itemsTotalAmount += lineTotal
+                    itemRows.Rows.Add(productName, DbText(row, "product_id"), Convert.ToInt32(row("quantity")), Convert.ToDecimal(row("unit_price")), lineTotal)
                 Next
                 itemGrid.DataSource = itemRows
 
+                Dim itemsTotalBar As New Panel With {
+                    .Dock = DockStyle.Bottom,
+                    .Height = 36,
+                    .BackColor = Color.FromArgb(235, 245, 239),
+                    .Padding = New Padding(10, 0, 12, 0)
+                }
+                itemsTotalBar.Controls.Add(New Panel With {.Dock = DockStyle.Top, .Height = 1, .BackColor = Color.FromArgb(205, 224, 214)})
+                itemsTotalBar.Controls.Add(New Label With {
+                    .Text = "TOTAL",
+                    .Dock = DockStyle.Left,
+                    .Width = 120,
+                    .Font = New Font("Segoe UI", 9.5F, FontStyle.Bold),
+                    .ForeColor = darkGreen,
+                    .TextAlign = ContentAlignment.MiddleLeft
+                })
+                itemsTotalBar.Controls.Add(New Label With {
+                    .Text = "₱" & itemsTotalAmount.ToString("N2", CultureInfo.CurrentCulture),
+                    .Dock = DockStyle.Right,
+                    .Width = 180,
+                    .Font = New Font("Segoe UI", 9.5F, FontStyle.Bold),
+                    .ForeColor = darkGreen,
+                    .TextAlign = ContentAlignment.MiddleRight
+                })
+
+                itemsContainer.Controls.Add(itemGrid)
+                itemsContainer.Controls.Add(itemsTotalBar)
+
                 Dim rxTop = itemHeadingTop + 274
-                Dim hasPrescription = details.AsEnumerable().Any(Function(row) Not row.IsNull("is_prescription") AndAlso Convert.ToBoolean(row("is_prescription")))
+                Dim hasPrescription = Not isWholesaleReceipt AndAlso
+                                      details.AsEnumerable().Any(Function(row) Not row.IsNull("is_prescription") AndAlso Convert.ToBoolean(row("is_prescription")))
                 If hasPrescription Then
                     Dim rxPanel As New Panel With {.Location = New Point(20, rxTop), .Size = New Size(646, 186), .BorderStyle = BorderStyle.FixedSingle, .BackColor = Color.White}
                     rxPanel.Controls.Add(New Label With {.Text = "PRESCRIPTION INFORMATION", .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(16, 12)})
@@ -1423,7 +1568,8 @@ Public Class Admin
                     rxTop += 202
                 End If
 
-                Dim totalPanel As New Panel With {.Location = New Point(20, rxTop), .Size = New Size(646, 188), .BorderStyle = BorderStyle.FixedSingle, .BackColor = Color.FromArgb(248, 250, 248)}
+                Dim summaryHeading As New Label With {.Text = "SUMMARY", .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(22, rxTop)}
+                Dim totalPanel As New Panel With {.Location = New Point(20, rxTop + 28), .Size = New Size(646, 188), .BorderStyle = BorderStyle.FixedSingle, .BackColor = Color.FromArgb(248, 250, 248)}
                 AddReceiptDetailField(totalPanel, "Subtotal", "₱" & Convert.ToDecimal(sale("subtotal")).ToString("N2", CultureInfo.CurrentCulture), 16, 18)
                 AddReceiptDetailField(totalPanel, "Discount", "₱" & Convert.ToDecimal(sale("discount_amount")).ToString("N2", CultureInfo.CurrentCulture), 326, 18)
                 AddReceiptDetailField(totalPanel, "Total Due", "₱" & Convert.ToDecimal(sale("total_amount")).ToString("N2", CultureInfo.CurrentCulture), 16, 78, True)
@@ -1432,7 +1578,8 @@ Public Class Admin
 
                 content.Controls.Add(customerPanel)
                 content.Controls.Add(itemHeading)
-                content.Controls.Add(itemGrid)
+                content.Controls.Add(itemsContainer)
+                content.Controls.Add(summaryHeading)
                 content.Controls.Add(totalPanel)
 
                 Dim footer As New Panel With {.Dock = DockStyle.Bottom, .Height = 72, .BackColor = Color.White, .Padding = New Padding(16, 12, 16, 12)}
@@ -2248,19 +2395,59 @@ Public Class Admin
         Using prompt As New Form With {
             .Text = "Verify PIN",
             .StartPosition = FormStartPosition.CenterParent,
-            .FormBorderStyle = FormBorderStyle.FixedDialog,
-            .ClientSize = New Size(340, 140),
+            .FormBorderStyle = FormBorderStyle.None,
+            .ControlBox = False,
+            .ClientSize = New Size(380, 224),
             .MinimizeBox = False,
             .MaximizeBox = False,
-            .BackColor = Color.White
+            .ShowInTaskbar = False,
+            .BackColor = Color.White,
+            .Font = New Font("Segoe UI", 9.0F)
         }
-            prompt.Controls.Add(New Label With {.Text = "Enter your account PIN to confirm:", .AutoSize = True, .Location = New Point(18, 18)})
-            Dim pinBox As New TextBox With {.Location = New Point(18, 48), .Width = 300, .UseSystemPasswordChar = True, .MaxLength = 12}
-            prompt.Controls.Add(pinBox)
-            Dim okButton As New Button With {.Text = "Verify", .DialogResult = DialogResult.OK, .Location = New Point(150, 90), .Size = New Size(80, 30)}
-            Dim cancelButton As New Button With {.Text = "Cancel", .DialogResult = DialogResult.Cancel, .Location = New Point(238, 90), .Size = New Size(80, 30)}
-            prompt.Controls.Add(okButton)
-            prompt.Controls.Add(cancelButton)
+            AddBlackDialogBorder(prompt)
+
+            Dim header As New Panel With {.Dock = DockStyle.Top, .Height = 72, .BackColor = Color.White}
+            header.Controls.Add(New Label With {.Text = "Verify Account PIN", .AutoSize = True, .Font = New Font("Segoe UI", 13.0F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(20, 14)})
+            header.Controls.Add(New Label With {.Text = "Enter your 4-digit PIN to authorize this action", .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(21, 42)})
+            header.Controls.Add(New Panel With {.Dock = DockStyle.Bottom, .Height = 1, .BackColor = Color.FromArgb(230, 236, 232)})
+
+            Dim body As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White}
+            body.Controls.Add(New Label With {.Text = "Account PIN *", .AutoSize = True, .Location = New Point(20, 16), .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.FromArgb(105, 115, 110)})
+            Dim pinBox As New TextBox With {
+                .Location = New Point(20, 38),
+                .Width = 340,
+                .UseSystemPasswordChar = True,
+                .MaxLength = 12,
+                .BorderStyle = BorderStyle.FixedSingle,
+                .BackColor = Color.FromArgb(243, 246, 244),
+                .Font = New Font("Segoe UI", 10.0F)
+            }
+            body.Controls.Add(pinBox)
+
+            Dim footer As New Panel With {.Dock = DockStyle.Bottom, .Height = 58, .BackColor = Color.White}
+            footer.Controls.Add(New Panel With {.Dock = DockStyle.Top, .Height = 1, .BackColor = Color.FromArgb(230, 236, 232)})
+            Dim okButton As New Button With {.Text = "Verify", .Size = New Size(96, 34), .Location = New Point(168, 12), .BackColor = darkGreen, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat, .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold), .Cursor = Cursors.Hand}
+            okButton.FlatAppearance.BorderSize = 0
+            ApplyRoundedRegion(okButton, 8)
+            Dim cancelButton As New Button With {.Text = "Cancel", .DialogResult = DialogResult.Cancel, .Size = New Size(86, 34), .Location = New Point(274, 12), .BackColor = Color.White, .ForeColor = Color.FromArgb(55, 65, 60), .FlatStyle = FlatStyle.Flat, .Cursor = Cursors.Hand}
+            cancelButton.FlatAppearance.BorderColor = Color.FromArgb(195, 205, 200)
+
+            AddHandler okButton.Click,
+                Sub(s, e)
+                    If String.IsNullOrWhiteSpace(pinBox.Text) Then
+                        MessageBox.Show("Please enter your PIN.", "Verify PIN", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                        pinBox.Focus()
+                        Return
+                    End If
+                    prompt.DialogResult = DialogResult.OK
+                    prompt.Close()
+                End Sub
+
+            footer.Controls.Add(okButton)
+            footer.Controls.Add(cancelButton)
+            prompt.Controls.Add(body)
+            prompt.Controls.Add(footer)
+            prompt.Controls.Add(header)
             prompt.AcceptButton = okButton
             prompt.CancelButton = cancelButton
             If prompt.ShowDialog(owner) = DialogResult.OK Then Return pinBox.Text
@@ -3471,46 +3658,73 @@ Public Class Admin
     End Sub
 
     ' --- Add Expense Modal ---
+    ' --- Add Expense Modal ---
     Private Sub ShowAddExpenseModal()
-        Using modal As New Form()
-            modal.Text = "Log Financial Expense"
-            modal.Size = New Size(410, 390)
-            modal.StartPosition = FormStartPosition.CenterParent
-            modal.FormBorderStyle = FormBorderStyle.FixedDialog
-            modal.MaximizeBox = False
-            modal.MinimizeBox = False
-            modal.BackColor = Color.White
+        Using modal As New Form With {
+            .Text = "Log Financial Expense",
+            .ClientSize = New Size(450, 440),
+            .StartPosition = FormStartPosition.CenterParent,
+            .FormBorderStyle = FormBorderStyle.None,
+            .ControlBox = False,
+            .MaximizeBox = False,
+            .MinimizeBox = False,
+            .ShowInTaskbar = False,
+            .BackColor = Color.White,
+            .Font = New Font("Segoe UI", 9.0F)
+        }
+            AddBlackDialogBorder(modal)
 
-            modal.Controls.Add(New Label With {.Text = "Expense Date:", .Location = New Point(25, 23), .Size = New Size(120, 22), .Font = New Font("Segoe UI", 9.5F, FontStyle.Bold)})
-            Dim dtpExpenseDate As New DateTimePicker() With {.Format = DateTimePickerFormat.Custom, .CustomFormat = "MMMM dd, yyyy", .MinDate = New DateTime(2020, 1, 1), .MaxDate = Date.Today.AddYears(2), .Value = Date.Today, .Location = New Point(150, 20), .Width = 210, .Font = New Font("Segoe UI", 9.5F)}
-            modal.Controls.Add(dtpExpenseDate)
+            Dim header As New Panel With {.Dock = DockStyle.Top, .Height = 74, .BackColor = Color.White}
+            header.Controls.Add(New Label With {.Text = "Log Financial Expense", .AutoSize = True, .Font = New Font("Segoe UI", 14.0F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(22, 14)})
+            header.Controls.Add(New Label With {.Text = "Record a business expense entry", .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(23, 44)})
+            header.Controls.Add(New Panel With {.Dock = DockStyle.Bottom, .Height = 1, .BackColor = Color.FromArgb(230, 236, 232)})
 
-            modal.Controls.Add(New Label With {.Text = "Expense Category:", .Location = New Point(25, 63), .Size = New Size(120, 22), .Font = New Font("Segoe UI", 9.5F, FontStyle.Bold)})
-            Dim cboCategory As New ComboBox() With {.DropDownStyle = ComboBoxStyle.DropDownList, .Location = New Point(150, 60), .Width = 210, .Font = New Font("Segoe UI", 9.5F)}
+            Dim body As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White}
+            Dim dtpExpenseDate As New DateTimePicker With {.Format = DateTimePickerFormat.Custom, .CustomFormat = "MMMM dd, yyyy", .MinDate = New DateTime(2020, 1, 1), .MaxDate = Date.Today.AddYears(2), .Value = Date.Today, .Location = New Point(22, 34), .Width = 406, .Font = New Font("Segoe UI", 9.5F)}
+            Dim cboCategory As New ComboBox With {.DropDownStyle = ComboBoxStyle.DropDownList, .Location = New Point(22, 92), .Width = 406, .Font = New Font("Segoe UI", 9.5F), .BackColor = Color.FromArgb(243, 246, 244)}
             cboCategory.Items.AddRange({"Utilities", "Payroll", "Store Supplies", "Maintenance", "Marketing", "Logistics", "Other"})
             cboCategory.SelectedIndex = 0
-            modal.Controls.Add(cboCategory)
+            Dim numAmount As New NumericUpDown With {.DecimalPlaces = 2, .Maximum = 1000000, .Location = New Point(22, 150), .Width = 406, .Font = New Font("Segoe UI", 9.5F), .BackColor = Color.FromArgb(243, 246, 244)}
+            Dim txtDesc As New TextBox With {.Multiline = True, .Location = New Point(22, 208), .Size = New Size(406, 78), .Font = New Font("Segoe UI", 9.5F), .BorderStyle = BorderStyle.FixedSingle, .BackColor = Color.FromArgb(243, 246, 244), .PlaceholderText = "Optional notes or receipt details..."}
 
-            modal.Controls.Add(New Label With {.Text = "Amount (₱):", .Location = New Point(25, 103), .Size = New Size(120, 22), .Font = New Font("Segoe UI", 9.5F, FontStyle.Bold)})
-            Dim numAmount As New NumericUpDown() With {.DecimalPlaces = 2, .Maximum = 1000000, .Location = New Point(150, 100), .Width = 210, .Font = New Font("Segoe UI", 9.5F)}
-            modal.Controls.Add(numAmount)
+            body.Controls.Add(New Label With {.Text = "Expense Date *", .AutoSize = True, .Location = New Point(22, 14), .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.FromArgb(105, 115, 110)})
+            body.Controls.Add(dtpExpenseDate)
+            body.Controls.Add(New Label With {.Text = "Expense Category *", .AutoSize = True, .Location = New Point(22, 72), .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.FromArgb(105, 115, 110)})
+            body.Controls.Add(cboCategory)
+            body.Controls.Add(New Label With {.Text = "Amount (₱) *", .AutoSize = True, .Location = New Point(22, 130), .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.FromArgb(105, 115, 110)})
+            body.Controls.Add(numAmount)
+            body.Controls.Add(New Label With {.Text = "Description", .AutoSize = True, .Location = New Point(22, 188), .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.FromArgb(105, 115, 110)})
+            body.Controls.Add(txtDesc)
 
-            modal.Controls.Add(New Label With {.Text = "Description:", .Location = New Point(25, 143), .Size = New Size(120, 22), .Font = New Font("Segoe UI", 9.5F, FontStyle.Bold)})
-            Dim txtDesc As New TextBox() With {.Multiline = True, .Location = New Point(150, 140), .Size = New Size(210, 80), .Font = New Font("Segoe UI", 9.5F)}
-            modal.Controls.Add(txtDesc)
+            Dim footer As New Panel With {.Dock = DockStyle.Bottom, .Height = 62, .BackColor = Color.White}
+            footer.Controls.Add(New Panel With {.Dock = DockStyle.Top, .Height = 1, .BackColor = Color.FromArgb(230, 236, 232)})
+            Dim actions As New FlowLayoutPanel With {.Dock = DockStyle.Fill, .FlowDirection = FlowDirection.RightToLeft, .WrapContents = False, .Padding = New Padding(0, 12, 20, 0)}
+            Dim btnSave As New Button With {.Text = "Save Expense", .BackColor = darkGreen, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat, .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold), .Size = New Size(130, 36), .Cursor = Cursors.Hand}
+            btnSave.FlatAppearance.BorderSize = 0
+            ApplyRoundedRegion(btnSave, 8)
+            Dim btnCancel As New Button With {.Text = "Cancel", .DialogResult = DialogResult.Cancel, .BackColor = Color.White, .ForeColor = Color.FromArgb(55, 65, 60), .FlatStyle = FlatStyle.Flat, .Font = New Font("Segoe UI", 9.0F), .Size = New Size(92, 36), .Cursor = Cursors.Hand}
+            btnCancel.FlatAppearance.BorderColor = Color.FromArgb(195, 205, 200)
+            actions.Controls.Add(btnSave)
+            actions.Controls.Add(btnCancel)
+            footer.Controls.Add(actions)
 
-            Dim btnSave As New Button() With {.Text = "Save Expense", .BackColor = darkGreen, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .Size = New Size(130, 38), .Location = New Point(230, 245)}
             AddHandler btnSave.Click, Sub(s, ev)
                                           If numAmount.Value <= 0 Then
-                                              MessageBox.Show("Please enter a valid amount.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                                              MessageBox.Show("Please enter an amount greater than 0.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                                              numAmount.Focus()
                                               Return
                                           End If
                                           Dim repo As New SalesRepository()
-                                          repo.AddExpense(cboCategory.Text, txtDesc.Text, numAmount.Value, dtpExpenseDate.Value.Date)
+                                          repo.AddExpense(cboCategory.Text, txtDesc.Text.Trim(), numAmount.Value, dtpExpenseDate.Value.Date)
                                           modal.DialogResult = DialogResult.OK
                                           modal.Close()
                                       End Sub
-            modal.Controls.Add(btnSave)
+
+            modal.Controls.Add(body)
+            modal.Controls.Add(footer)
+            modal.Controls.Add(header)
+            modal.AcceptButton = btnSave
+            modal.CancelButton = btnCancel
 
             If modal.ShowDialog(Me) = DialogResult.OK Then
                 LoadExpenseReportRows()
@@ -3553,7 +3767,7 @@ Public Class Admin
         Return grid
     End Function
 
-    Private Sub ShowInventoryStockReport()
+    Private Sub ShowInventoryStockReport(Optional initialStatusFilter As String = "All")
         ShowAdminDatasetReport(
             reportTitle:="Inventory Stock Report",
             filterHeading:="Filter by status",
@@ -3577,7 +3791,8 @@ Public Class Admin
                               End Function,
             emptyHeading:="No inventory records found",
             emptyMessage:="Try selecting a different status filter.",
-            pdfFolderName:="inventory_stock_report")
+            pdfFolderName:="inventory_stock_report",
+            initialFilter:=initialStatusFilter)
     End Sub
 
     Private Sub ShowNearExpiryReport()
@@ -3625,7 +3840,8 @@ Public Class Admin
                                        summaryFormatter As Func(Of DataTable, String),
                                        emptyHeading As String,
                                        emptyMessage As String,
-                                       pdfFolderName As String)
+                                       pdfFolderName As String,
+                                       Optional initialFilter As String = Nothing)
         reportsView.Controls.Clear()
         reportsView.Padding = New Padding(14)
         reportsView.BackColor = lightGray
@@ -3671,7 +3887,11 @@ Public Class Admin
         filterPanel.Controls.Add(New Label With {.Text = "Option", .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(14, 60)})
         Dim filterCombo As New ComboBox With {.DropDownStyle = ComboBoxStyle.DropDownList, .Font = New Font("Segoe UI", 9.5F), .Location = New Point(14, 82), .Width = 220}
         filterCombo.Items.AddRange(filterOptions.Cast(Of Object)().ToArray())
-        filterCombo.SelectedIndex = 0
+        If Not String.IsNullOrWhiteSpace(initialFilter) AndAlso filterCombo.Items.Contains(initialFilter) Then
+            filterCombo.SelectedItem = initialFilter
+        Else
+            filterCombo.SelectedIndex = 0
+        End If
         filterPanel.Controls.Add(filterCombo)
 
         Dim reportPanel As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(8), .Margin = New Padding(0)}
@@ -3938,66 +4158,129 @@ Public Class Admin
 
         Using modal As New Form With {
             .Text = "Add New Product",
-            .Size = New Size(560, 560),
+            .ClientSize = New Size(660, 640),
             .StartPosition = FormStartPosition.CenterParent,
-            .FormBorderStyle = FormBorderStyle.FixedDialog,
+            .FormBorderStyle = FormBorderStyle.None,
+            .ControlBox = False,
             .MaximizeBox = False,
             .MinimizeBox = False,
+            .ShowInTaskbar = False,
             .BackColor = Color.White,
             .Font = New Font("Segoe UI", 9.0F)
         }
-            Dim tbl As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 2, .Padding = New Padding(20, 14, 20, 10), .AutoScroll = True}
-            tbl.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 36.0F))
-            tbl.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 64.0F))
+            AddBlackDialogBorder(modal)
 
-            Dim addRow = Sub(lbl As String, ctrl As Control)
-                             Dim r = tbl.RowCount
-                             tbl.RowCount += 1
-                             tbl.RowStyles.Add(New RowStyle(SizeType.Absolute, 34))
-                             tbl.Controls.Add(New Label With {.Text = lbl, .Dock = DockStyle.Fill, .TextAlign = ContentAlignment.MiddleLeft, .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)}, 0, r)
-                             ctrl.Dock = DockStyle.Fill
-                             tbl.Controls.Add(ctrl, 1, r)
-                         End Sub
+            Dim header As New Panel With {.Dock = DockStyle.Top, .Height = 76, .BackColor = Color.White}
+            header.Controls.Add(New Label With {.Text = "Add New Product", .AutoSize = True, .Font = New Font("Segoe UI", 14.0F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(22, 14)})
+            header.Controls.Add(New Label With {.Text = "Register a new medicine or medical supply item into inventory", .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.Gray, .Location = New Point(23, 44)})
+            header.Controls.Add(New Panel With {.Dock = DockStyle.Bottom, .Height = 1, .BackColor = Color.FromArgb(230, 236, 232)})
 
-            Dim cboCategory As New ComboBox With {.DropDownStyle = ComboBoxStyle.DropDownList, .DataSource = categories, .DisplayMember = "display_name", .ValueMember = "category_ID"}
-            Dim cboSupplier As New ComboBox With {.DropDownStyle = ComboBoxStyle.DropDownList, .DataSource = suppliers, .DisplayMember = "company_name", .ValueMember = "supplier_ID"}
-            Dim txtBrand As New TextBox()
-            Dim txtGeneric As New TextBox()
-            Dim txtCpr As New TextBox With {.CharacterCasing = CharacterCasing.Upper, .PlaceholderText = "e.g., DR-XY1011"}
-            Dim txtPlacement As New TextBox With {.Text = "Shelf A - Row 1"}
-            Dim txtDosage As New TextBox With {.PlaceholderText = "e.g., 500 mg"}
-            Dim txtUnit As New TextBox With {.PlaceholderText = "e.g., Tablet, Capsule, Bottle"}
-            Dim txtMfg As New TextBox()
-            Dim numQtyBox As New NumericUpDown With {.Minimum = 1, .Maximum = 10000, .Value = 100}
-            Dim numReorder As New NumericUpDown With {.Minimum = 0, .Maximum = 10000, .Value = 25}
-            Dim numRetail As New NumericUpDown With {.DecimalPlaces = 2, .Minimum = 0.01D, .Maximum = 100000, .Value = 10D}
-            Dim numWholesale As New NumericUpDown With {.DecimalPlaces = 2, .Minimum = 0.01D, .Maximum = 1000000, .Value = 900D}
+            Dim makeInput = Function(placeholder As String) As TextBox
+                                Return New TextBox With {
+                                    .PlaceholderText = placeholder,
+                                    .BorderStyle = BorderStyle.FixedSingle,
+                                    .BackColor = Color.FromArgb(243, 246, 244),
+                                    .ForeColor = Color.FromArgb(35, 45, 40),
+                                    .Font = New Font("Segoe UI", 9.5F),
+                                    .Height = 28
+                                }
+                            End Function
 
-            Dim recalcWholesale = Sub(s As Object, ev As EventArgs)
-                                      Dim calc = Decimal.Round(numRetail.Value * numQtyBox.Value * 0.9D, 2)
-                                      If calc >= numWholesale.Minimum AndAlso calc <= numWholesale.Maximum Then numWholesale.Value = calc
-                                  End Sub
+            Dim makeSection = Function(title As String, rowCount As Integer) As TableLayoutPanel
+                                  Dim sec As New TableLayoutPanel With {
+                                      .Dock = DockStyle.Top,
+                                      .AutoSize = True,
+                                      .AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                                      .ColumnCount = 2,
+                                      .RowCount = rowCount + 1,
+                                      .BackColor = Color.White,
+                                      .Margin = New Padding(0, 0, 0, 8),
+                                      .Padding = New Padding(0, 4, 0, 6)
+                                  }
+                                  sec.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 50.0F))
+                                  sec.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 50.0F))
+                                  sec.RowStyles.Add(New RowStyle(SizeType.Absolute, 28))
+                                  For r = 0 To rowCount - 1
+                                      sec.RowStyles.Add(New RowStyle(SizeType.Absolute, 58))
+                                  Next
+                                  Dim secTitle As New Label With {.Text = "▣  " & title, .Dock = DockStyle.Fill, .TextAlign = ContentAlignment.MiddleLeft, .ForeColor = Color.FromArgb(25, 105, 68), .Font = New Font("Segoe UI", 8.5F, FontStyle.Bold)}
+                                  sec.Controls.Add(secTitle, 0, 0)
+                                  sec.SetColumnSpan(secTitle, 2)
+                                  Return sec
+                              End Function
+
+            Dim addField = Sub(sec As TableLayoutPanel, caption As String, ctrl As Control, r As Integer, c As Integer, span As Integer)
+                               Dim p As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = New Padding(0, 2, 12, 2)}
+                               p.Controls.Add(New Label With {.Text = caption, .Location = New Point(0, 0), .AutoSize = True, .ForeColor = Color.FromArgb(105, 115, 110), .Font = New Font("Segoe UI", 8.0F)})
+                               ctrl.Location = New Point(0, 19)
+                               ctrl.Width = Math.Max(180, p.ClientSize.Width)
+                               AddHandler p.Resize, Sub(s, e) ctrl.Width = Math.Max(120, p.ClientSize.Width - 2)
+                               p.Controls.Add(ctrl)
+                               sec.Controls.Add(p, c, r)
+                               If span > 1 Then sec.SetColumnSpan(p, span)
+                           End Sub
+
+            Dim cboCategory As New ComboBox With {.DropDownStyle = ComboBoxStyle.DropDownList, .DataSource = categories, .DisplayMember = "display_name", .ValueMember = "category_ID", .BackColor = Color.FromArgb(243, 246, 244), .Font = New Font("Segoe UI", 9.5F)}
+            Dim cboSupplier As New ComboBox With {.DropDownStyle = ComboBoxStyle.DropDownList, .DataSource = suppliers, .DisplayMember = "company_name", .ValueMember = "supplier_ID", .BackColor = Color.FromArgb(243, 246, 244), .Font = New Font("Segoe UI", 9.5F)}
+            Dim txtBrand = makeInput("e.g., Biogesic")
+            Dim txtGeneric = makeInput("e.g., Paracetamol")
+            Dim txtCpr = makeInput("e.g., DR-XY1011")
+            txtCpr.CharacterCasing = CharacterCasing.Upper
+            Dim txtPlacement = makeInput("e.g., Shelf A - Row 1")
+            txtPlacement.Text = "Shelf A - Row 1"
+            Dim txtDosage = makeInput("e.g., 500 mg")
+            Dim txtUnit = makeInput("e.g., Tablet, Capsule, Bottle")
+            Dim txtMfg = makeInput("e.g., Unilab")
+            Dim numQtyBox As New NumericUpDown With {.Minimum = 1, .Maximum = 10000, .Value = 100, .BackColor = Color.FromArgb(243, 246, 244), .Font = New Font("Segoe UI", 9.5F)}
+            Dim numReorder As New NumericUpDown With {.Minimum = 0, .Maximum = 10000, .Value = 25, .BackColor = Color.FromArgb(243, 246, 244), .Font = New Font("Segoe UI", 9.5F)}
+            Dim numRetail As New NumericUpDown With {.DecimalPlaces = 2, .Minimum = 0.01D, .Maximum = 100000, .Value = 10D, .BackColor = Color.FromArgb(243, 246, 244), .Font = New Font("Segoe UI", 9.5F)}
+            Dim numWholesale As New NumericUpDown With {.DecimalPlaces = 2, .Minimum = 0.01D, .Maximum = 1000000, .Value = 900D, .BackColor = Color.FromArgb(243, 246, 244), .Font = New Font("Segoe UI", 9.5F)}
+
+            Dim recalcWholesale As EventHandler =
+                Sub(s, ev)
+                    Dim calc = Decimal.Round(numRetail.Value * numQtyBox.Value * 0.9D, 2)
+                    If calc >= numWholesale.Minimum AndAlso calc <= numWholesale.Maximum Then numWholesale.Value = calc
+                End Sub
             AddHandler numRetail.ValueChanged, recalcWholesale
             AddHandler numQtyBox.ValueChanged, recalcWholesale
 
-            addRow("Category *", cboCategory)
-            addRow("Supplier *", cboSupplier)
-            addRow("Brand Name *", txtBrand)
-            addRow("Generic Name *", txtGeneric)
-            addRow("CPR Number *", txtCpr)
-            addRow("Item Placement *", txtPlacement)
-            addRow("Dosage Strength *", txtDosage)
-            addRow("Unit of Measure *", txtUnit)
-            addRow("Manufacturer *", txtMfg)
-            addRow("Qty per Box *", numQtyBox)
-            addRow("Reorder Point *", numReorder)
-            addRow("Retail Price (₱) *", numRetail)
-            addRow("Wholesale / Box (₱) *", numWholesale)
+            Dim productSection = makeSection("Product Information", 4)
+            addField(productSection, "Category *", cboCategory, 1, 0, 1)
+            addField(productSection, "Supplier *", cboSupplier, 1, 1, 1)
+            addField(productSection, "Brand Name *", txtBrand, 2, 0, 1)
+            addField(productSection, "Generic Name *", txtGeneric, 2, 1, 1)
+            addField(productSection, "Dosage Strength *", txtDosage, 3, 0, 1)
+            addField(productSection, "Unit of Measure *", txtUnit, 3, 1, 1)
+            addField(productSection, "Manufacturer *", txtMfg, 4, 0, 1)
+            addField(productSection, "CPR Number *", txtCpr, 4, 1, 1)
 
-            Dim footer As New FlowLayoutPanel With {.Dock = DockStyle.Bottom, .Height = 54, .FlowDirection = FlowDirection.RightToLeft, .Padding = New Padding(14, 8, 14, 8)}
-            Dim btnSave As New Button With {.Text = "Save Product", .Size = New Size(124, 36), .BackColor = darkGreen, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat, .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)}
+            Dim stockPriceSection = makeSection("Placement, Packaging & Pricing", 3)
+            addField(stockPriceSection, "Item Placement *", txtPlacement, 1, 0, 2)
+            addField(stockPriceSection, "Qty per Box *", numQtyBox, 2, 0, 1)
+            addField(stockPriceSection, "Reorder Point *", numReorder, 2, 1, 1)
+            addField(stockPriceSection, "Retail Price (₱) *", numRetail, 3, 0, 1)
+            addField(stockPriceSection, "Wholesale / Box (₱) *", numWholesale, 3, 1, 1)
+
+            Dim content As New TableLayoutPanel With {.Dock = DockStyle.Top, .AutoSize = True, .AutoSizeMode = AutoSizeMode.GrowAndShrink, .ColumnCount = 1, .BackColor = Color.White}
+            content.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100.0F))
+            content.Controls.Add(productSection)
+            content.Controls.Add(stockPriceSection)
+
+            Dim scrollHost As New Panel With {.Dock = DockStyle.Fill, .AutoScroll = True, .BackColor = Color.White, .Padding = New Padding(22, 12, 22, 12)}
+            scrollHost.Controls.Add(content)
+            AddHandler scrollHost.Resize, Sub(s, e) content.Width = Math.Max(300, scrollHost.ClientSize.Width - 46)
+
+            Dim footer As New Panel With {.Dock = DockStyle.Bottom, .Height = 62, .BackColor = Color.White}
+            footer.Controls.Add(New Panel With {.Dock = DockStyle.Top, .Height = 1, .BackColor = Color.FromArgb(230, 236, 232)})
+            Dim actions As New FlowLayoutPanel With {.Dock = DockStyle.Fill, .FlowDirection = FlowDirection.RightToLeft, .WrapContents = False, .Padding = New Padding(0, 12, 20, 0)}
+            Dim btnSave As New Button With {.Text = "Save Product", .Size = New Size(130, 36), .BackColor = darkGreen, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat, .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold), .Cursor = Cursors.Hand}
             btnSave.FlatAppearance.BorderSize = 0
-            Dim btnCancel As New Button With {.Text = "Cancel", .Size = New Size(90, 36), .DialogResult = DialogResult.Cancel}
+            ApplyRoundedRegion(btnSave, 8)
+            Dim btnCancel As New Button With {.Text = "Cancel", .Size = New Size(92, 36), .DialogResult = DialogResult.Cancel, .BackColor = Color.White, .ForeColor = Color.FromArgb(55, 65, 60), .FlatStyle = FlatStyle.Flat, .Font = New Font("Segoe UI", 9.0F), .Cursor = Cursors.Hand}
+            btnCancel.FlatAppearance.BorderColor = Color.FromArgb(195, 205, 200)
+            actions.Controls.Add(btnSave)
+            actions.Controls.Add(btnCancel)
+            footer.Controls.Add(actions)
 
             AddHandler btnSave.Click,
                 Sub(s, ev)
@@ -4026,10 +4309,10 @@ Public Class Admin
                     modal.Close()
                 End Sub
 
-            footer.Controls.Add(btnSave)
-            footer.Controls.Add(btnCancel)
-            modal.Controls.Add(tbl)
+            modal.Controls.Add(scrollHost)
             modal.Controls.Add(footer)
+            modal.Controls.Add(header)
+            modal.AcceptButton = btnSave
             modal.CancelButton = btnCancel
 
             If modal.ShowDialog(Me) = DialogResult.OK Then
@@ -4037,6 +4320,53 @@ Public Class Admin
                 LoadDashboardStats()
             End If
         End Using
+    End Sub
+
+    Private Sub InitializeLiveSync()
+        If liveSyncTimer IsNot Nothing Then Return
+        liveSyncTimer = New System.Windows.Forms.Timer With {.Interval = 4000}
+        AddHandler liveSyncTimer.Tick, AddressOf LiveSyncTimer_Tick
+        liveSyncTimer.Start()
+    End Sub
+
+    Private Async Sub LiveSyncTimer_Tick(sender As Object, e As EventArgs)
+        If isSyncPolling OrElse Me.IsDisposed OrElse Not Me.Visible Then Return
+        If Me.OwnedForms.Length > 0 OrElse (Form.ActiveForm IsNot Nothing AndAlso Form.ActiveForm.Modal) Then Return
+
+        isSyncPolling = True
+        Try
+            Dim signature = Await Task.Run(Function() New SalesRepository().GetSyncSignature())
+            If Me.IsDisposed OrElse Not Me.IsHandleCreated OrElse String.IsNullOrEmpty(signature) Then Return
+
+            If String.IsNullOrEmpty(lastSyncSignature) Then
+                lastSyncSignature = signature
+                Return
+            End If
+
+            If Not String.Equals(signature, lastSyncSignature, StringComparison.Ordinal) Then
+                lastSyncSignature = signature
+                If dashboardView.Visible Then
+                    LoadDashboardStats()
+                    LoadSalesTrend(activeTrendPeriod)
+                ElseIf inventoryView.Visible AndAlso (inventorySearchBox Is Nothing OrElse Not inventorySearchBox.Focused) Then
+                    LoadInventoryData()
+                ElseIf priceManagerView.Visible AndAlso (priceManagerSearchBox Is Nothing OrElse Not priceManagerSearchBox.Focused) Then
+                    LoadPriceManagerData()
+                End If
+            End If
+        Catch
+            ' Ignore transient LAN polling hiccups
+        Finally
+            isSyncPolling = False
+        End Try
+    End Sub
+
+    Private Sub Admin_FormClosing(sender As Object, e As FormClosingEventArgs) Handles MyBase.FormClosing
+        If liveSyncTimer IsNot Nothing Then
+            liveSyncTimer.Stop()
+            liveSyncTimer.Dispose()
+            liveSyncTimer = Nothing
+        End If
     End Sub
 
 End Class

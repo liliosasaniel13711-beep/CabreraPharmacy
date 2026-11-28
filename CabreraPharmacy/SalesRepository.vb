@@ -20,6 +20,7 @@ Public Class SaleRecord
     Public Property CustomerType As String
     Public Property CustomerName As String
     Public Property CustomerIdNumber As String
+    Public Property CustomerTin As String
     Public Property Subtotal As Decimal
     Public Property DiscountAmount As Decimal
     Public Property TotalAmount As Decimal
@@ -49,6 +50,27 @@ End Class
 
 Public Class SalesRepository
 
+    Private Shared customerTinColumnEnsured As Boolean = False
+
+    Private Shared Sub EnsureCustomerTinColumn(connection As MySqlConnection)
+        If customerTinColumnEnsured Then Return
+        Try
+            Using cmd As New MySqlCommand("ALTER TABLE pharmacy_sales ADD COLUMN IF NOT EXISTS customer_tin VARCHAR(30) DEFAULT NULL AFTER customer_id_number;", connection)
+                cmd.ExecuteNonQuery()
+            End Using
+            customerTinColumnEnsured = True
+        Catch
+            Try
+                Using cmd As New MySqlCommand("ALTER TABLE pharmacy_sales ADD COLUMN customer_tin VARCHAR(30) DEFAULT NULL AFTER customer_id_number;", connection)
+                    cmd.ExecuteNonQuery()
+                End Using
+            Catch
+                ' Column already exists
+            End Try
+            customerTinColumnEnsured = True
+        End Try
+    End Sub
+
     Public Function SaveSale(sale As SaleRecord) As Long
         If sale Is Nothing Then Throw New ArgumentNullException(NameOf(sale))
         If CurrentUserID <= 0 Then Throw New InvalidOperationException("There is no signed-in cashier for this transaction.")
@@ -56,14 +78,15 @@ Public Class SalesRepository
 
         Using connection = GetConnection()
             connection.Open()
+            EnsureCustomerTinColumn(connection)
             Using dbTransaction = connection.BeginTransaction()
                 Try
                     Dim allocationTrackingEnabled = BatchControlRepository.IsMigrationApplied(connection, dbTransaction)
                     If Not allocationTrackingEnabled Then
                         Throw New InvalidOperationException("Batch allocation controls are missing or incomplete. Sales are unavailable until V001 is verified and applied by an authorized administrator.")
                     End If
-                    Const insertSale = "INSERT INTO pharmacy_sales (sale_mode, cashier_user_id, customer_type, customer_name, customer_id_number, subtotal, discount_amount, total_amount, amount_received, change_amount, prescription_no, prescribing_practioner, prc_liscense, prescription_date, purchase_order_no, purchase_order_date, payment_method, payment_provider, payment_account_name, payment_reference_number, wholesale_client_id) " &
-                                       "VALUES (@saleMode, @cashierId, @customerType, @customerName, @customerId, @subtotal, @discount, @total, @cash, @change, @rxNumber, @prescriber, @prescriberLicense, @rxDate, @poNumber, @poDate, @paymentMethod, @paymentProvider, @paymentAccountName, @paymentReference, @wholesaleClientId)"
+                    Const insertSale = "INSERT INTO pharmacy_sales (sale_mode, cashier_user_id, customer_type, customer_name, customer_id_number, customer_tin, subtotal, discount_amount, total_amount, amount_received, change_amount, prescription_no, prescribing_practioner, prc_liscense, prescription_date, purchase_order_no, purchase_order_date, payment_method, payment_provider, payment_account_name, payment_reference_number, wholesale_client_id) " &
+                                       "VALUES (@saleMode, @cashierId, @customerType, @customerName, @customerId, @customerTin, @subtotal, @discount, @total, @cash, @change, @rxNumber, @prescriber, @prescriberLicense, @rxDate, @poNumber, @poDate, @paymentMethod, @paymentProvider, @paymentAccountName, @paymentReference, @wholesaleClientId)"
                     Dim saleId As Long
                     Using command As New MySqlCommand(insertSale, connection, dbTransaction)
                         command.Parameters.AddWithValue("@saleMode", sale.SaleMode)
@@ -71,6 +94,7 @@ Public Class SalesRepository
                         command.Parameters.AddWithValue("@customerType", sale.CustomerType)
                         AddNullable(command, "@customerName", sale.CustomerName)
                         AddNullable(command, "@customerId", sale.CustomerIdNumber)
+                        AddNullable(command, "@customerTin", sale.CustomerTin)
                         command.Parameters.AddWithValue("@subtotal", sale.Subtotal)
                         command.Parameters.AddWithValue("@discount", sale.DiscountAmount)
                         command.Parameters.AddWithValue("@total", sale.TotalAmount)
@@ -340,8 +364,9 @@ Public Class SalesRepository
         Dim table As New DataTable()
         Using connection = GetConnection()
             connection.Open()
+            EnsureCustomerTinColumn(connection)
             Const query = "SELECT ps.sale_id, ps.created_at, ps.sale_mode, ps.customer_type, " &
-                          "ps.customer_name, ps.customer_id_number, ps.subtotal, ps.discount_amount, " &
+                          "ps.customer_name, ps.customer_id_number, ps.customer_tin, ps.subtotal, ps.discount_amount, " &
                           "ps.total_amount, ps.amount_received, ps.change_amount, ps.prescription_no, " &
                           "ps.prescribing_practioner, ps.prc_liscense, ps.prescription_date, " &
                           "ps.purchase_order_no, ps.purchase_order_date, ps.payment_method, ps.payment_provider, ps.payment_account_name, ps.payment_reference_number, " &
@@ -658,12 +683,26 @@ Public Class SalesRepository
         Try
             Using conn = GetConnection()
                 conn.Open()
-                Const sql = "SELECT CONCAT_WS('|', " &
-                            "(SELECT COALESCE(MAX(sale_id), 0) FROM pharmacy_sales), " &
-                            "(SELECT COALESCE(SUM(quantity_remaining), 0) FROM inventory_batch), " &
-                            "(SELECT COALESCE(MAX(batch_id), 0) FROM inventory_batch), " &
-                            "(SELECT COALESCE(MAX(expense_id), 0) FROM pharmacy_expenses), " &
-                            "(SELECT COUNT(*) FROM users WHERE is_active = 1))"
+
+                Dim quarantineSql As String = "0"
+                Dim actionSql As String = "0"
+                If BatchControlRepository.IsMigrationApplied(conn, Nothing) Then
+                    quarantineSql = "COALESCE((SELECT CONCAT(COUNT(*), ':', COALESCE(SUM(quantity), 0)) FROM inventory_batch_quarantines WHERE status = 'Active'), '0:0')"
+                    actionSql = "COALESCE((SELECT CONCAT(COUNT(*), ':', COALESCE(SUM(quantity), 0)) FROM inventory_batch_actions WHERE status = 'Pending'), '0:0')"
+                End If
+
+                Dim sql = "SELECT CONCAT_WS('|', " &
+                          "(SELECT COALESCE(MAX(sale_id), 0) FROM pharmacy_sales), " &
+                          "(SELECT COALESCE(SUM(quantity_remaining), 0) FROM inventory_batch), " &
+                          "(SELECT COALESCE(MAX(batch_id), 0) FROM inventory_batch), " &
+                          "(SELECT COALESCE(MAX(expense_id), 0) FROM pharmacy_expenses), " &
+                          "(SELECT COUNT(*) FROM product), " &
+                          "(SELECT COALESCE(SUM(retail_price + wholesale_price_per_box + is_active), 0) FROM product), " &
+                          "(SELECT COALESCE(SUM(CRC32(COALESCE(item_placement, ''))), 0) FROM product), " &
+                          "(" & quarantineSql & "), " &
+                          "(" & actionSql & "), " &
+                          "(SELECT COUNT(*) FROM users WHERE is_active = 1))"
+
                 Using cmd As New MySqlCommand(sql, conn)
                     Return Convert.ToString(cmd.ExecuteScalar())
                 End Using
