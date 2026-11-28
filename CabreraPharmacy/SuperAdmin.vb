@@ -31,11 +31,10 @@ Public Class SuperAdmin
                                   g.PixelOffsetMode = PixelOffsetMode.HighQuality
 
                                   Dim rect As New Rectangle(0, 0, btn.Width, btn.Height)
-                                  Using path As GraphicsPath = GetRoundPath(rect, radius),
-                                    penSurface As New Pen(btn.Parent.BackColor, 2)
-
+                                  Using path As GraphicsPath = GetRoundPath(rect, radius)
+                                      Dim previousRegion = btn.Region
                                       btn.Region = New Region(path)
-                                      g.DrawPath(penSurface, path)
+                                      If previousRegion IsNot Nothing Then previousRegion.Dispose()
 
                                       ' Draw optional smooth rounded border
                                       If borderThickness > 0 AndAlso borderColor <> Color.Empty Then
@@ -237,6 +236,11 @@ Public Class SuperAdmin
         For Each captionLabel In {inventoryAlertLowStockCaption, inventoryAlertNearExpiryCaption, inventoryAlertExpiredCaption}
             captionLabel.Font = New Font("Segoe UI", 7.0F)
         Next
+        For Each card As Control In {Panel1, Panel2, Panel3, Panel4, Panel5, Panel6, Panel7, Panel8,
+                                    Panel9, Panel10, Panel11, Panel12,
+                                    inventoryAlertLowStock, inventoryAlertNearExpiry, inventoryAlertExpired}
+            AddSuperAdminCardOutline(card)
+        Next
         AddHandler Panel9.Resize, AddressOf DashboardLowerPanels_Resize
         AddHandler Panel10.Resize, AddressOf DashboardLowerPanels_Resize
         dashboardDateLabel.Text = Date.Today.ToString("dddd, MMMM d, yyyy", CultureInfo.CurrentCulture)
@@ -266,7 +270,7 @@ Public Class SuperAdmin
 
     Private Sub ApplySuperAdminVisualTheme()
         Dim green = Color.FromArgb(20, 100, 60)
-        Dim pageGray = Color.FromArgb(245, 245, 245)
+        Dim pageGray = Color.FromArgb(246, 248, 250)
         sideBarSuperAdmin.BackColor = green
         sideBarSuperAdmin.Width = 168
         motherPanel.BackColor = pageGray
@@ -275,19 +279,22 @@ Public Class SuperAdmin
             button.FlatStyle = FlatStyle.Flat
             button.FlatAppearance.BorderSize = 0
             button.Font = New Font("Segoe UI", 9.0F, If(button Is btnDashboard, FontStyle.Bold, FontStyle.Regular))
-            button.SetBounds(19, If(button Is btnDashboard, 92, If(button Is btnAccounts, 138, 184)), 130, 38)
+            button.SetBounds(19, If(button Is btnDashboard, 171, If(button Is btnAccounts, 217, 263)), 130, 38)
             button.Padding = New Padding(10, 0, 0, 0)
             button.TextAlign = ContentAlignment.MiddleLeft
             button.UseVisualStyleBackColor = False
             button.Cursor = Cursors.Hand
+            button.FlatAppearance.BorderColor = button.BackColor
+            button.FlatAppearance.MouseOverBackColor = button.BackColor
+            button.FlatAppearance.MouseDownBackColor = button.BackColor
         Next
-        btnLogin.SetBounds(19, sideBarSuperAdmin.ClientSize.Height - btnLogin.Height - 16, 130, 34)
-        btnLogin.Anchor = AnchorStyles.Bottom Or AnchorStyles.Left
+        btnLogin.SetBounds(14, sideBarSuperAdmin.ClientSize.Height - 56, sideBarSuperAdmin.ClientSize.Width - 28, 40)
+        btnLogin.Anchor = AnchorStyles.Bottom Or AnchorStyles.Left Or AnchorStyles.Right
         btnLogin.BackColor = green
         btnLogin.ForeColor = Color.White
         btnLogin.FlatStyle = FlatStyle.Flat
-        btnLogin.FlatAppearance.BorderColor = Color.White
-        btnLogin.FlatAppearance.BorderSize = 1
+        btnLogin.FlatAppearance.BorderColor = green
+        btnLogin.FlatAppearance.BorderSize = 0
         btnLogin.UseVisualStyleBackColor = False
 
         For Each header As Panel In {pnlHeaderDashboard, pnlHeaderAccounts, pnlHeaderReports}
@@ -316,6 +323,8 @@ Public Class SuperAdmin
             role.Font = New Font("Segoe UI", 9.0F)
             role.ForeColor = green
         Next
+
+        SidebarBranding.Apply(sideBarSuperAdmin, logoBox, Label13, btnLogin)
     End Sub
 
     Private Sub ReportPage_Resize(sender As Object, e As EventArgs)
@@ -908,6 +917,26 @@ Public Class SuperAdmin
         End Using
     End Sub
 
+    Private Sub AddSuperAdminCardOutline(card As Control)
+        AddHandler card.Paint,
+            Sub(sender, e)
+                If card.ClientSize.Width <= 1 OrElse card.ClientSize.Height <= 1 Then Return
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+                Using outline As New Pen(Color.FromArgb(224, 230, 237))
+                    Using path As New GraphicsPath()
+                        Dim rect As New Rectangle(0, 0, card.ClientSize.Width - 1, card.ClientSize.Height - 1)
+                        Dim diameter = Math.Min(20, Math.Min(rect.Width, rect.Height))
+                        path.AddArc(rect.Left, rect.Top, diameter, diameter, 180, 90)
+                        path.AddArc(rect.Right - diameter, rect.Top, diameter, diameter, 270, 90)
+                        path.AddArc(rect.Right - diameter, rect.Bottom - diameter, diameter, diameter, 0, 90)
+                        path.AddArc(rect.Left, rect.Bottom - diameter, diameter, diameter, 90, 90)
+                        path.CloseFigure()
+                        e.Graphics.DrawPath(outline, path)
+                    End Using
+                End Using
+            End Sub
+    End Sub
+
     Private Sub DashboardTrendFilter_Click(sender As Object, e As EventArgs)
         Dim button = TryCast(sender, Button)
         If button Is Nothing Then Return
@@ -1301,7 +1330,7 @@ Public Class SuperAdmin
     End Sub
 
     Private Sub ConfigureSuperAdminReportCards()
-        Dim lightGrayBg = Color.FromArgb(245, 245, 245)
+        Dim lightGrayBg = Color.FromArgb(246, 248, 250)
         Label5.Text = "Sales and inventory reports"
 
         For Each ctrl As Control In pnlReports.Controls
@@ -1339,6 +1368,7 @@ Public Class SuperAdmin
             .Margin = New Padding(0, 0, 0, 12),
             .Padding = New Padding(18, 12, 18, 10)
         }
+        AddSuperAdminCardOutline(heading)
         AddHandler heading.Resize, Sub(s, e) ApplyDashboardRoundedCorners(heading, 12)
         heading.Controls.Add(New Label With {.Text = "Select reports to view.", .AutoSize = True, .Font = New Font("Segoe UI", 9.0F), .ForeColor = Color.Gray, .Location = New Point(18, 42)})
         heading.Controls.Add(New Label With {.Text = "Business Reports", .AutoSize = True, .Font = New Font("Segoe UI", 14.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(35, 55, 45), .Location = New Point(18, 12)})
@@ -1421,6 +1451,7 @@ Public Class SuperAdmin
         .Padding = New Padding(16),
         .BorderStyle = BorderStyle.None
     }
+        AddSuperAdminCardOutline(card)
 
         Dim titleLabel As New Label With {
         .Text = title,
@@ -2679,12 +2710,16 @@ Public Class SuperAdmin
                 .Size = New Size(buttonWidth, buttonHeight),
                 .Location = New Point(x, top),
                 .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
+                .BackColor = Color.FromArgb(235, 246, 240),
+                .ForeColor = Color.FromArgb(20, 100, 60),
                 .FlatStyle = FlatStyle.Flat,
                 .Cursor = Cursors.Hand,
                 .UseVisualStyleBackColor = False
             }
-            button.FlatAppearance.BorderColor = Color.FromArgb(210, 220, 230)
-            button.FlatAppearance.BorderSize = 1
+            button.FlatAppearance.BorderSize = 0
+            button.FlatAppearance.MouseOverBackColor = Color.FromArgb(222, 240, 230)
+            AddHandler button.Resize, Sub(sender, e) ApplyDashboardRoundedCorners(button, 8)
+            ApplyDashboardRoundedCorners(button, 8)
             AddHandler button.Click, Sub(sender, e) onSelect(optionText)
             buttons(optionText) = button
             parent.Controls.Add(button)
@@ -2722,17 +2757,19 @@ Public Class SuperAdmin
         Dim selectedPeriod = Convert.ToString(ComboBox4.SelectedItem)
         For Each pair In salesReportPeriodButtons
             Dim isSelected = String.Equals(pair.Key, selectedPeriod, StringComparison.OrdinalIgnoreCase)
-            pair.Value.BackColor = If(isSelected, Color.FromArgb(20, 100, 60), Color.White)
+            pair.Value.BackColor = If(isSelected, Color.FromArgb(20, 100, 60), Color.FromArgb(235, 246, 240))
             pair.Value.ForeColor = If(isSelected, Color.White, Color.FromArgb(20, 100, 60))
-            pair.Value.FlatAppearance.BorderColor = If(isSelected, Color.FromArgb(20, 100, 60), Color.FromArgb(210, 220, 230))
+            pair.Value.FlatAppearance.BorderSize = 0
+            pair.Value.FlatAppearance.MouseOverBackColor = If(isSelected, Color.FromArgb(24, 132, 82), Color.FromArgb(222, 240, 230))
         Next
 
         Dim selectedMode = Convert.ToString(salesTransactionFilter.SelectedItem)
         For Each pair In salesReportModeButtons
             Dim isSelected = String.Equals(pair.Key, selectedMode, StringComparison.OrdinalIgnoreCase)
-            pair.Value.BackColor = If(isSelected, Color.FromArgb(218, 240, 229), Color.White)
-            pair.Value.ForeColor = Color.FromArgb(20, 100, 60)
-            pair.Value.FlatAppearance.BorderColor = If(isSelected, Color.FromArgb(190, 230, 210), Color.FromArgb(210, 220, 230))
+            pair.Value.BackColor = If(isSelected, Color.FromArgb(20, 100, 60), Color.FromArgb(235, 246, 240))
+            pair.Value.ForeColor = If(isSelected, Color.White, Color.FromArgb(20, 100, 60))
+            pair.Value.FlatAppearance.BorderSize = 0
+            pair.Value.FlatAppearance.MouseOverBackColor = If(isSelected, Color.FromArgb(24, 132, 82), Color.FromArgb(222, 240, 230))
         Next
     End Sub
 
@@ -3085,6 +3122,10 @@ Public Class SuperAdmin
             button.BackColor = If(isActive, Color.White, Color.FromArgb(18, 101, 54))
             button.ForeColor = If(isActive, Color.FromArgb(20, 100, 60), Color.White)
             button.UseVisualStyleBackColor = False
+            button.FlatAppearance.BorderSize = 0
+            button.FlatAppearance.BorderColor = button.BackColor
+            button.FlatAppearance.MouseOverBackColor = button.BackColor
+            button.FlatAppearance.MouseDownBackColor = button.BackColor
         Next
     End Sub
 
@@ -3582,10 +3623,40 @@ Public Class SuperAdmin
         Dim isNew = account Is Nothing
         If isNew Then account = New AccountDetails With {.Role = "Staff", .IsActive = True}
 
-        Dim dialog As New Form With {.Text = If(isNew, "Add Employee", "Edit Employee"), .Size = New Size(680, 780), .StartPosition = FormStartPosition.CenterParent, .FormBorderStyle = FormBorderStyle.FixedDialog, .MaximizeBox = False, .MinimizeBox = False, .BackColor = Color.White}
-        Dim fields As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 2, .AutoScroll = True, .Padding = New Padding(24, 20, 24, 10)}
-        fields.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 32.0F))
-        fields.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 68.0F))
+        Dim dialog As New Form With {.Text = If(isNew, "Add Employee", "Edit Employee"), .ClientSize = New Size(760, 760), .StartPosition = FormStartPosition.CenterParent, .FormBorderStyle = FormBorderStyle.None, .MaximizeBox = False, .MinimizeBox = False, .BackColor = Color.FromArgb(246, 248, 249), .Font = New Font("Segoe UI", 9.0F)}
+        Dim dialogHeader As New Panel With {.Dock = DockStyle.Top, .Height = 72, .BackColor = Color.White}
+        dialogHeader.Controls.Add(New Label With {.Text = If(isNew, "Add Employee", "Edit Employee"), .Font = New Font("Segoe UI", 16.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(22, 99, 63), .AutoSize = True, .Location = New Point(22, 9)})
+        dialogHeader.Controls.Add(New Label With {.Text = If(isNew, "Enter personal, employment, and account credentials to register a new employee.", "Update personal, employment, and account details."), .Font = New Font("Segoe UI", 9.0F), .ForeColor = Color.FromArgb(95, 108, 119), .AutoSize = True, .Location = New Point(24, 40)})
+        Dim fields As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 2, .RowCount = 0, .AutoScroll = True, .Padding = New Padding(22, 14, 22, 12), .BackColor = Color.FromArgb(246, 248, 249)}
+        fields.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 50.0F))
+        fields.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 50.0F))
+        Dim addDialogSection As Action(Of String, Integer) =
+            Sub(title, rowIndex)
+                While fields.RowCount <= rowIndex
+                    fields.RowStyles.Add(New RowStyle(SizeType.AutoSize))
+                    fields.RowCount += 1
+                End While
+                Dim sectionLabel As New Label With {.Text = title, .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(28, 117, 77), .AutoSize = True, .Margin = New Padding(0, 10, 0, 5), .Anchor = AnchorStyles.Left}
+                fields.Controls.Add(sectionLabel, 0, rowIndex)
+                fields.SetColumnSpan(sectionLabel, 2)
+            End Sub
+        Dim addDialogField As Action(Of String, Control, Integer, Integer, Integer) =
+            Sub(caption, inputControl, rowIndex, columnIndex, columnSpan)
+                While fields.RowCount <= rowIndex
+                    fields.RowStyles.Add(New RowStyle(SizeType.AutoSize))
+                    fields.RowCount += 1
+                End While
+                Dim fieldPanel As New TableLayoutPanel With {.ColumnCount = 1, .RowCount = 2, .Dock = DockStyle.Fill, .Margin = New Padding(0, 2, 12, 5), .AutoSize = True, .AutoSizeMode = AutoSizeMode.GrowAndShrink, .BackColor = Color.Transparent}
+                fieldPanel.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100.0F))
+                fieldPanel.RowStyles.Add(New RowStyle(SizeType.AutoSize))
+                fieldPanel.RowStyles.Add(New RowStyle(SizeType.AutoSize))
+                fieldPanel.Controls.Add(New Label With {.Text = caption, .AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.FromArgb(45, 55, 65), .Margin = If(String.IsNullOrWhiteSpace(caption), New Padding(0), New Padding(0, 0, 0, 4))}, 0, 0)
+                inputControl.Dock = DockStyle.Fill
+                inputControl.Margin = New Padding(0)
+                fieldPanel.Controls.Add(inputControl, 0, 1)
+                fields.Controls.Add(fieldPanel, columnIndex, rowIndex)
+                If columnSpan > 1 Then fields.SetColumnSpan(fieldPanel, columnSpan)
+            End Sub
 
         Dim currentPhotoBytes As Byte() = account.ProfilePhoto
         Dim firstNameBox = New TextBox With {.Text = account.FirstName, .Dock = DockStyle.Fill}
@@ -3615,19 +3686,26 @@ Public Class SuperAdmin
             .Cursor = Cursors.Hand
         }
         uploadPhotoButton.FlatAppearance.BorderSize = 0
+        uploadPhotoButton.UseVisualStyleBackColor = False
+        uploadPhotoButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(28, 124, 78)
+        uploadPhotoButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(16, 88, 54)
+        ApplySmoothRegion(uploadPhotoButton, 8)
 
         Dim removePhotoButton As New Button With {
             .Text = "Remove",
             .Size = New Size(84, 30),
-            .BackColor = Color.White,
-            .ForeColor = Color.Firebrick,
+            .BackColor = Color.FromArgb(202, 58, 58),
+            .ForeColor = Color.White,
             .FlatStyle = FlatStyle.Flat,
             .Font = New Font("Segoe UI", 8.5F),
             .Cursor = Cursors.Hand,
             .Enabled = (currentPhotoBytes IsNot Nothing AndAlso currentPhotoBytes.Length > 0)
         }
-        removePhotoButton.FlatAppearance.BorderColor = Color.Firebrick
-        removePhotoButton.FlatAppearance.BorderSize = 1
+        removePhotoButton.FlatAppearance.BorderSize = 0
+        removePhotoButton.UseVisualStyleBackColor = False
+        removePhotoButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(181, 45, 45)
+        removePhotoButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(155, 36, 36)
+        ApplySmoothRegion(removePhotoButton, 8)
 
         Dim photoStatusLabel As New Label With {
             .Text = If(currentPhotoBytes IsNot Nothing AndAlso currentPhotoBytes.Length > 0, "Circular profile photo active", "JPG, PNG, or BMP (max 5 MB)"),
@@ -3717,32 +3795,40 @@ Public Class SuperAdmin
         Dim pinBox = New TextBox With {.Dock = DockStyle.Fill, .UseSystemPasswordChar = True, .MaxLength = 4}
         Dim activeBox = New CheckBox With {.Text = "Employee is active", .Checked = account.IsActive, .AutoSize = True}
 
-        AddSection(fields, "PERSONAL INFORMATION")
-        AddField(fields, "Employee photo", photoContainer)
-        AddField(fields, "First name *", firstNameBox)
-        AddField(fields, "Last name *", lastNameBox)
-        AddField(fields, "Birth date *", birthDateBox)
-        AddField(fields, "Email address", emailBox)
-        AddField(fields, "Contact number", contactBox)
-        AddSection(fields, "EMPLOYMENT INFORMATION")
-        AddField(fields, "Staff initials *", initialsBox)
-        AddField(fields, "Work shift *", workShiftBox)
-        AddField(fields, "Role *", roleBox)
-        AddField(fields, "Hire date *", hireDateBox)
-        AddField(fields, "Status", activeBox)
-        AddSection(fields, "LOGIN CREDENTIALS")
-        AddField(fields, "Username *", usernameBox)
-
+        addDialogSection("PERSONAL INFORMATION", 0)
+        addDialogField("Profile photo", photoContainer, 1, 0, 2)
+        addDialogField("First name *", firstNameBox, 2, 0, 1)
+        addDialogField("Last name *", lastNameBox, 2, 1, 1)
+        addDialogField("Birth date *", birthDateBox, 3, 0, 1)
+        addDialogField("Email address", emailBox, 3, 1, 1)
+        addDialogField("Contact number", contactBox, 4, 0, 2)
+        addDialogSection("EMPLOYMENT INFORMATION", 5)
+        addDialogField("Staff initials *", initialsBox, 6, 0, 1)
+        addDialogField("Work shift *", workShiftBox, 6, 1, 1)
+        addDialogField("Role *", roleBox, 7, 0, 1)
+        addDialogField("Hire date *", hireDateBox, 7, 1, 1)
+        addDialogField("", activeBox, 8, 0, 2)
         If isNew Then
-            AddField(fields, "Password *", passwordBox)
-            AddField(fields, "Confirm password *", confirmPasswordBox)
-            AddField(fields, "Show password", showPasswordsBox)
-            AddField(fields, "Password requirements", passwordRules)
+            addDialogSection("LOGIN CREDENTIALS", 9)
+            addDialogField("Username *", usernameBox, 10, 0, 1)
+            addDialogField("", showPasswordsBox, 10, 1, 1)
+            addDialogField("Password *", passwordBox, 11, 0, 1)
+            addDialogField("Password requirements", passwordRules, 11, 1, 1)
+            addDialogField("Confirm password *", confirmPasswordBox, 12, 0, 1)
         End If
 
-        Dim buttons As New FlowLayoutPanel With {.Dock = DockStyle.Bottom, .Height = 56, .FlowDirection = FlowDirection.RightToLeft, .Padding = New Padding(12)}
-        Dim cancelButton As New Button With {.Text = "Cancel", .DialogResult = DialogResult.Cancel, .Width = 90}
-        Dim saveButton As New Button With {.Text = "Save Employee", .Width = 110, .BackColor = Color.SeaGreen, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat}
+        Dim buttons As New FlowLayoutPanel With {.Dock = DockStyle.Bottom, .Height = 62, .FlowDirection = FlowDirection.RightToLeft, .Padding = New Padding(16, 12, 18, 10), .BackColor = Color.White, .WrapContents = False}
+        Dim cancelButton As New Button With {.Text = "Cancel", .DialogResult = DialogResult.Cancel, .Width = 90, .Height = 34, .BackColor = Color.FromArgb(238, 241, 244), .ForeColor = Color.FromArgb(65, 75, 85), .FlatStyle = FlatStyle.Flat, .UseVisualStyleBackColor = False, .Cursor = Cursors.Hand}
+        cancelButton.FlatAppearance.BorderSize = 0
+        cancelButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(226, 231, 235)
+        cancelButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(215, 221, 226)
+        Dim saveButton As New Button With {.Text = If(isNew, "Save Employee", "Save Changes"), .Width = 128, .Height = 34, .BackColor = Color.FromArgb(19, 111, 69), .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat, .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold), .Cursor = Cursors.Hand}
+        saveButton.FlatAppearance.BorderSize = 0
+        saveButton.UseVisualStyleBackColor = False
+        saveButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(28, 124, 78)
+        saveButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(16, 88, 54)
+        ApplySmoothRegion(cancelButton, 8)
+        ApplySmoothRegion(saveButton, 8)
 
         AddHandler saveButton.Click, Sub()
                                          If String.IsNullOrWhiteSpace(firstNameBox.Text) OrElse String.IsNullOrWhiteSpace(lastNameBox.Text) OrElse String.IsNullOrWhiteSpace(usernameBox.Text) Then
@@ -3768,7 +3854,25 @@ Public Class SuperAdmin
         dialog.CancelButton = cancelButton
         dialog.Controls.Add(fields)
         dialog.Controls.Add(buttons)
-        dialog.ShowDialog(Me)
+        dialog.Controls.Add(dialogHeader)
+        AddHandler dialog.Resize, Sub(sender, e) ApplySmoothRegion(dialog, 16)
+        ApplySmoothRegion(dialog, 16)
+        Dim dimOverlay As New Form With {
+            .FormBorderStyle = FormBorderStyle.None,
+            .ShowInTaskbar = False,
+            .StartPosition = FormStartPosition.Manual,
+            .Bounds = Me.Bounds,
+            .BackColor = Color.Black,
+            .Opacity = 0.32
+        }
+        Try
+            dimOverlay.Show(Me)
+            dialog.StartPosition = FormStartPosition.CenterParent
+            dialog.ShowDialog(dimOverlay)
+        Finally
+            dimOverlay.Close()
+            dimOverlay.Dispose()
+        End Try
     End Sub
 
     Private Sub ResetPassword(userId As Integer)

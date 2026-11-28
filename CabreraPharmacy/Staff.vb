@@ -107,6 +107,9 @@ Public Class Staff
 
     Private ReadOnly darkGreen As Color = Color.FromArgb(20, 100, 60)
     Private ReadOnly cart As New List(Of CartItem)()
+    Private ReadOnly staffFilterButtons As New HashSet(Of Button)()
+    Private confirmButtonDisabledCaption As Label
+    Private confirmButtonCaptionText As String
     Private transactionFiltersPanel As Panel
     Private inventoryWarningsLabel As Label
     Private products As DataTable
@@ -288,10 +291,10 @@ Public Class Staff
         If sidebar Is Nothing OrElse logoutstaff_button Is Nothing Then Return
         logoutstaff_button.Visible = True
         logoutstaff_button.BringToFront()
-        logoutstaff_button.SetBounds(19,
-                                     Math.Max(20, sidebar.ClientSize.Height - logoutstaff_button.Height - 24),
-                                     Math.Max(100, sidebar.ClientSize.Width - 38),
-                                     34)
+        logoutstaff_button.SetBounds(14,
+                                     Math.Max(20, sidebar.ClientSize.Height - 56),
+                                     Math.Max(100, sidebar.ClientSize.Width - 28),
+                                     40)
     End Sub
 
     Private Sub ApplyStaffVisualTheme()
@@ -308,7 +311,7 @@ Public Class Staff
         PharName.ForeColor = Color.White
 
         For Each button As Button In {navTransaction, navRestock}
-            button.SetBounds(19, If(button Is navTransaction, 92, 138), 130, 38)
+            button.SetBounds(19, If(button Is navTransaction, 171, 217), 130, 38)
             button.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
             button.Padding = New Padding(10, 0, 0, 0)
             button.TextAlign = ContentAlignment.MiddleLeft
@@ -337,6 +340,7 @@ Public Class Staff
         logoutstaff_button.FlatAppearance.BorderColor = Color.White
         logoutstaff_button.FlatAppearance.BorderSize = 1
         PositionLogoutButton()
+        SidebarBranding.Apply(sidebar, logoBox, PharName, logoutstaff_button)
     End Sub
 
     Private Sub ApplyStaffSurfaceTheme()
@@ -366,24 +370,53 @@ Public Class Staff
             AddHandler button.Resize, Sub(sender, e) ApplyStaffRoundedCorners(DirectCast(sender, Control), 8)
             ApplyStaffRoundedCorners(button, 8)
         Next
+        backToPosButton.BackColor = Color.FromArgb(235, 246, 240)
+        backToPosButton.ForeColor = darkGreen
+        backToPosButton.FlatAppearance.BorderSize = 0
+        backToPosButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(222, 240, 230)
+        backToPosButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(210, 232, 218)
+        confirmButton.FlatAppearance.BorderSize = 0
+        confirmButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(24, 132, 82)
+        confirmButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(16, 88, 54)
+        StyleStaffFilterButton(retailModeButton, Not isWholesale)
+        StyleStaffFilterButton(wholesaleModeButton, isWholesale)
+        StyleStaffFilterButton(allParentFilterButton, selectedParentCategory = "All")
+        StyleStaffFilterButton(medicineFilterButton, selectedParentCategory = "Medicine")
+        StyleStaffFilterButton(supplementsFilterButton, selectedParentCategory = "Supplements")
+        StyleStaffFilterButton(medicalSupplyFilterButton, selectedParentCategory = "Medical Supply")
+        UpdateRestockFilterButtons()
         PositionLogoutButton()
+    End Sub
+
+    Private Sub StyleStaffFilterButton(button As Button, isSelected As Boolean)
+        If button Is Nothing Then Return
+        button.FlatStyle = FlatStyle.Flat
+        button.UseVisualStyleBackColor = False
+        button.Cursor = Cursors.Hand
+        button.BackColor = If(isSelected, darkGreen, Color.FromArgb(235, 246, 240))
+        button.ForeColor = If(isSelected, Color.White, darkGreen)
+        button.FlatAppearance.BorderSize = 0
+        button.FlatAppearance.MouseOverBackColor = If(isSelected, Color.FromArgb(24, 132, 82), Color.FromArgb(222, 240, 230))
+        If staffFilterButtons.Add(button) Then
+            AddHandler button.Resize, Sub(sender, e) ApplyStaffRoundedCorners(DirectCast(sender, Control), 8)
+        End If
+        ApplyStaffRoundedCorners(button, 8)
     End Sub
 
     Private Sub CombineTransactionFilterPanels()
         Dim filterLayout As New TableLayoutPanel With {
             .Dock = DockStyle.Fill,
             .ColumnCount = 1,
-            .RowCount = 3,
+            .RowCount = 2,
             .BackColor = Color.Transparent,
-            .Padding = New Padding(8),
+            .Padding = New Padding(8, 8, 8, 4),
             .Margin = Padding.Empty
         }
         filterLayout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100.0F))
         filterLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 55.0F))
         filterLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 55.0F))
-        filterLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 48.0F))
 
-        For Each panel As Panel In {modePanel, parentFilterPanel, searchPanel}
+        For Each panel As Panel In {modePanel, parentFilterPanel}
             panel.BackColor = Color.Transparent
             panel.BorderStyle = BorderStyle.None
             panel.Dock = DockStyle.Fill
@@ -391,7 +424,6 @@ Public Class Staff
         Next
         filterLayout.Controls.Add(modePanel, 0, 0)
         filterLayout.Controls.Add(parentFilterPanel, 0, 1)
-        filterLayout.Controls.Add(searchPanel, 0, 2)
 
         transactionFiltersPanel = New Panel With {
             .Name = "transactionFiltersPanel",
@@ -403,12 +435,96 @@ Public Class Staff
         }
         transactionFiltersPanel.Controls.Add(filterLayout)
 
+        searchPanel.Controls.Clear()
+        searchPanel.BackColor = Color.White
+        searchPanel.BorderStyle = BorderStyle.None
+        searchPanel.Dock = DockStyle.Fill
+        searchPanel.Margin = Padding.Empty
+        searchLabel.Text = "Category:"
+        searchLabel.Font = New Font("Segoe UI", 9.0F)
+        searchLabel.ForeColor = Color.FromArgb(75, 87, 99)
+        searchFilterCombo.Font = New Font("Segoe UI", 9.0F)
+        searchFilterCombo.BackColor = Color.White
+        searchFilterCombo.ForeColor = darkGreen
+        searchTextBox.BorderStyle = BorderStyle.None
+        searchTextBox.Font = New Font("Segoe UI", 9.0F)
+        searchTextBox.PlaceholderText = "Search by brand, generic name, or placement..."
+
+        Dim searchFrame As New Panel With {
+            .Name = "transactionProductSearchFrame",
+            .BackColor = Color.White,
+            .Size = New Size(420, 38)
+        }
+        AddHandler searchFrame.Resize, Sub(sender, e) ApplyStaffRoundedCorners(searchFrame, 8)
+        AddHandler searchFrame.Paint,
+            Sub(sender, e)
+                Using outline As New Pen(Color.FromArgb(216, 224, 232))
+                    e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+                    Using path As New GraphicsPath()
+                        Dim bounds As New Rectangle(0, 0, Math.Max(1, searchFrame.Width - 1), Math.Max(1, searchFrame.Height - 1))
+                        Dim diameter = 16
+                        path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90)
+                        path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90)
+                        path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90)
+                        path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90)
+                        path.CloseFigure()
+                        e.Graphics.DrawPath(outline, path)
+                    End Using
+                End Using
+            End Sub
+        Dim searchIcon As New Label With {
+            .Text = "⌕",
+            .Font = New Font("Segoe UI Symbol", 18.0F),
+            .ForeColor = Color.FromArgb(115, 128, 142),
+            .TextAlign = ContentAlignment.MiddleCenter,
+            .Location = New Point(8, 2),
+            .Size = New Size(24, 34)
+        }
+        searchFrame.Controls.Add(searchIcon)
+        searchFrame.Controls.Add(searchTextBox)
+        searchPanel.Controls.Add(searchLabel)
+        searchPanel.Controls.Add(searchFilterCombo)
+        searchPanel.Controls.Add(searchFrame)
+
+        Dim layoutTransactionSearch As Action =
+            Sub()
+                If searchPanel.ClientSize.Width <= 0 Then Return
+                searchLabel.SetBounds(10, 0, 72, searchPanel.ClientSize.Height)
+                searchFilterCombo.SetBounds(84, Math.Max(0, (searchPanel.ClientSize.Height - 32) \ 2), 205, 32)
+                Dim frameLeft = searchFilterCombo.Right + 14
+                searchFrame.SetBounds(frameLeft, Math.Max(0, (searchPanel.ClientSize.Height - 38) \ 2),
+                                      Math.Max(220, searchPanel.ClientSize.Width - frameLeft - 10), 38)
+                searchIcon.SetBounds(8, 2, 24, 34)
+                searchTextBox.SetBounds(36, 8, Math.Max(120, searchFrame.ClientSize.Width - 48), 22)
+            End Sub
+        AddHandler searchPanel.Resize, Sub(sender, e) layoutTransactionSearch()
+        layoutTransactionSearch()
+
+        Dim resultsLayout As New TableLayoutPanel With {
+            .Dock = DockStyle.Fill,
+            .ColumnCount = 1,
+            .RowCount = 2,
+            .BackColor = Color.White,
+            .Margin = Padding.Empty,
+            .Padding = Padding.Empty
+        }
+        resultsLayout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100.0F))
+        resultsLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 50.0F))
+        resultsLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
+        resultsGrid.Dock = DockStyle.Fill
+        resultsGrid.Margin = Padding.Empty
+        resultsPanel.Controls.Clear()
+        resultsPanel.Padding = New Padding(10, 8, 10, 10)
+        resultsLayout.Controls.Add(searchPanel, 0, 0)
+        resultsLayout.Controls.Add(resultsGrid, 0, 1)
+        resultsPanel.Controls.Add(resultsLayout)
+
         transactionLeftLayout.SuspendLayout()
         transactionLeftLayout.Controls.Clear()
         transactionLeftLayout.RowCount = 4
         transactionLeftLayout.RowStyles.Clear()
-        transactionLeftLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 174.0F))
-        transactionLeftLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 380.0F))
+        transactionLeftLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 130.0F))
+        transactionLeftLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 424.0F))
         transactionLeftLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 76.0F))
         transactionLeftLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 160.0F))
         transactionLeftLayout.Controls.Add(transactionFiltersPanel, 0, 0)
@@ -518,24 +634,69 @@ Public Class Staff
         restockLowFilterBtn.FlatAppearance.BorderColor = darkGreen
 
         restockSearchBox = New TextBox With {
-            .Location = New Point(276, 61),
-            .Width = 300,
+            .BorderStyle = BorderStyle.None,
+            .BackColor = Color.White,
+            .ForeColor = Color.FromArgb(35, 45, 55),
             .Font = New Font("Segoe UI", 9.0F),
             .PlaceholderText = "Search brand, generic name, placement, or supplier..."
         }
+        Dim restockSearchFrame As New Panel With {
+            .BackColor = Color.White,
+            .Location = New Point(276, 58),
+            .Size = New Size(300, 34)
+        }
+        AddHandler restockSearchFrame.Resize, Sub(s, e) ApplyStaffRoundedCorners(restockSearchFrame, 8)
+        AddHandler restockSearchFrame.Paint,
+            Sub(s, e)
+                Using outline As New Pen(Color.FromArgb(216, 224, 232))
+                    e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+                    Using path As New GraphicsPath()
+                        Dim bounds As New Rectangle(0, 0, Math.Max(1, restockSearchFrame.Width - 1), Math.Max(1, restockSearchFrame.Height - 1))
+                        Dim diameter = 16
+                        path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90)
+                        path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90)
+                        path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90)
+                        path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90)
+                        path.CloseFigure()
+                        e.Graphics.DrawPath(outline, path)
+                    End Using
+                End Using
+            End Sub
+        Dim restockSearchIcon As New Label With {
+            .Text = "⌕",
+            .Font = New Font("Segoe UI Symbol", 16.0F),
+            .ForeColor = Color.FromArgb(115, 128, 142),
+            .TextAlign = ContentAlignment.MiddleCenter,
+            .Location = New Point(7, 1),
+            .Size = New Size(24, 30)
+        }
+        restockSearchFrame.Controls.Add(restockSearchIcon)
+        restockSearchFrame.Controls.Add(restockSearchBox)
+        AddHandler restockSearchFrame.Resize,
+            Sub(s, e)
+                restockSearchIcon.SetBounds(7, Math.Max(0, (restockSearchFrame.ClientSize.Height - 30) \ 2), 24, 30)
+                restockSearchBox.SetBounds(34, Math.Max(0, (restockSearchFrame.ClientSize.Height - 22) \ 2),
+                                           Math.Max(100, restockSearchFrame.ClientSize.Width - 44), 22)
+            End Sub
+        restockSearchIcon.SetBounds(7, 2, 24, 30)
+        restockSearchBox.SetBounds(34, 6, restockSearchFrame.ClientSize.Width - 44, 22)
 
         Dim refreshBtn As New Button With {
             .Text = "Refresh",
-            .Size = New Size(96, 32),
+            .Size = New Size(96, 34),
             .Anchor = AnchorStyles.Top Or AnchorStyles.Right,
-            .BackColor = Color.White,
-            .ForeColor = darkGreen,
+            .BackColor = Color.FromArgb(25, 120, 75),
+            .ForeColor = Color.White,
             .FlatStyle = FlatStyle.Flat,
             .Font = New Font("Segoe UI", 8.5F, FontStyle.Bold),
             .Cursor = Cursors.Hand,
             .UseVisualStyleBackColor = False
         }
-        refreshBtn.FlatAppearance.BorderColor = darkGreen
+        refreshBtn.FlatAppearance.BorderSize = 0
+        refreshBtn.FlatAppearance.MouseOverBackColor = Color.FromArgb(24, 132, 82)
+        refreshBtn.FlatAppearance.MouseDownBackColor = Color.FromArgb(16, 88, 54)
+        AddHandler refreshBtn.Resize, Sub(s, e) ApplyStaffRoundedCorners(refreshBtn, 8)
+        ApplyStaffRoundedCorners(refreshBtn, 8)
         refreshBtn.Location = New Point(topCard.ClientSize.Width - refreshBtn.Width - 18, 58)
         AddHandler topCard.Resize, Sub(s, e) refreshBtn.Left = topCard.ClientSize.Width - refreshBtn.Width - 18
 
@@ -554,7 +715,7 @@ Public Class Staff
 
         topCard.Controls.Add(restockAllFilterBtn)
         topCard.Controls.Add(restockLowFilterBtn)
-        topCard.Controls.Add(restockSearchBox)
+        topCard.Controls.Add(restockSearchFrame)
         topCard.Controls.Add(refreshBtn)
         UpdateRestockFilterButtons()
 
@@ -595,9 +756,12 @@ Public Class Staff
         restockGrid.DefaultCellStyle.Font = New Font("Segoe UI", 9.0F)
         restockGrid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(218, 240, 229)
         restockGrid.DefaultCellStyle.SelectionForeColor = Color.FromArgb(20, 70, 48)
+        restockGrid.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal
+        restockGrid.GridColor = Color.FromArgb(223, 230, 237)
         restockGrid.RowTemplate.Height = 36
         AddHandler restockGrid.SelectionChanged, AddressOf RestockGrid_SelectionChanged
         AddHandler restockGrid.CellFormatting, AddressOf RestockGrid_CellFormatting
+        AddHandler restockGrid.CellPainting, AddressOf RestockGrid_CellPainting
         leftCard.Controls.Add(restockGrid)
 
         Dim rightCard As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(18), .AutoScroll = True, .Margin = New Padding(0)}
@@ -626,15 +790,19 @@ Public Class Staff
             .Text = "Save Placement",
             .Size = New Size(118, 28),
             .Location = New Point(246, 97),
-            .BackColor = Color.White,
-            .ForeColor = darkGreen,
+            .BackColor = Color.FromArgb(25, 120, 75),
+            .ForeColor = Color.White,
             .FlatStyle = FlatStyle.Flat,
             .Font = New Font("Segoe UI", 8.5F, FontStyle.Bold),
             .Cursor = Cursors.Hand,
             .Enabled = False,
             .UseVisualStyleBackColor = False
         }
-        restockSavePlacementButton.FlatAppearance.BorderColor = darkGreen
+        restockSavePlacementButton.FlatAppearance.BorderSize = 0
+        restockSavePlacementButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(24, 132, 82)
+        restockSavePlacementButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(16, 88, 54)
+        AddHandler restockSavePlacementButton.Resize, Sub(s, e) ApplyStaffRoundedCorners(restockSavePlacementButton, 8)
+        ApplyStaffRoundedCorners(restockSavePlacementButton, 8)
         AddHandler restockSavePlacementButton.Click, AddressOf RestockSavePlacement_Click
 
         rightCard.Controls.Add(New Label With {.Text = "INCOMING BATCH DETAILS", .AutoSize = True, .Font = New Font("Segoe UI", 8.5F, FontStyle.Bold), .ForeColor = darkGreen, .Location = New Point(18, 140)})
@@ -674,7 +842,10 @@ Public Class Staff
             .UseVisualStyleBackColor = False
         }
         restockSubmitButton.FlatAppearance.BorderSize = 0
+        restockSubmitButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(24, 132, 82)
+        restockSubmitButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(16, 88, 54)
         AddHandler restockSubmitButton.Resize, Sub(s, e) ApplyStaffRoundedCorners(restockSubmitButton, 8)
+        ApplyStaffRoundedCorners(restockSubmitButton, 8)
         AddHandler restockSubmitButton.Click, AddressOf RestockSubmit_Click
 
         rightCard.Controls.Add(New Label With {.Text = "EXISTING BATCHES FOR SELECTED PRODUCT", .AutoSize = True, .Font = New Font("Segoe UI", 8.0F, FontStyle.Bold), .ForeColor = Color.Gray, .Location = New Point(18, 398)})
@@ -688,14 +859,17 @@ Public Class Staff
             .SelectionMode = DataGridViewSelectionMode.FullRowSelect,
             .RowHeadersVisible = False,
             .BackgroundColor = Color.White,
-            .BorderStyle = BorderStyle.FixedSingle,
+            .BorderStyle = BorderStyle.None,
             .GridColor = Color.FromArgb(230, 234, 231),
-            .EnableHeadersVisualStyles = False
+            .EnableHeadersVisualStyles = False,
+            .CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal
         }
-        restockBatchesGrid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(225, 245, 235)
-        restockBatchesGrid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(25, 55, 45)
+        restockBatchesGrid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(20, 125, 77)
+        restockBatchesGrid.ColumnHeadersDefaultCellStyle.ForeColor = Color.White
         restockBatchesGrid.ColumnHeadersDefaultCellStyle.Font = New Font("Segoe UI", 8.0F, FontStyle.Bold)
         restockBatchesGrid.DefaultCellStyle.Font = New Font("Segoe UI", 8.5F)
+        restockBatchesGrid.GridColor = Color.FromArgb(223, 230, 237)
+        restockBatchesGrid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248, 250, 252)
         restockBatchesGrid.RowTemplate.Height = 28
 
         rightCard.Controls.Add(restockSelectedTitleLabel)
@@ -737,10 +911,8 @@ Public Class Staff
 
     Private Sub UpdateRestockFilterButtons()
         If restockAllFilterBtn Is Nothing OrElse restockLowFilterBtn Is Nothing Then Return
-        restockAllFilterBtn.BackColor = If(Not restockFilterLowStockOnly, darkGreen, Color.White)
-        restockAllFilterBtn.ForeColor = If(Not restockFilterLowStockOnly, Color.White, darkGreen)
-        restockLowFilterBtn.BackColor = If(restockFilterLowStockOnly, darkGreen, Color.White)
-        restockLowFilterBtn.ForeColor = If(restockFilterLowStockOnly, Color.White, darkGreen)
+        StyleStaffFilterButton(restockAllFilterBtn, Not restockFilterLowStockOnly)
+        StyleStaffFilterButton(restockLowFilterBtn, restockFilterLowStockOnly)
     End Sub
 
     Private Sub LoadRestockProducts()
@@ -818,6 +990,56 @@ Public Class Staff
         End If
     End Sub
 
+    Private Sub RestockGrid_CellPainting(sender As Object, e As DataGridViewCellPaintingEventArgs)
+        If e.RowIndex < 0 OrElse e.ColumnIndex < 0 OrElse restockGrid Is Nothing OrElse
+           restockGrid.Columns(e.ColumnIndex).Name <> "Status" Then Return
+
+        e.PaintBackground(e.CellBounds, True)
+        Dim statusText = Convert.ToString(e.FormattedValue)
+        Dim badgeFill As Color
+        Dim badgeText As Color
+        If statusText.IndexOf("Expired", StringComparison.OrdinalIgnoreCase) >= 0 Then
+            badgeFill = Color.FromArgb(255, 226, 226)
+            badgeText = Color.FromArgb(176, 35, 35)
+        ElseIf statusText.IndexOf("Low Stock", StringComparison.OrdinalIgnoreCase) >= 0 Then
+            badgeFill = Color.FromArgb(255, 239, 199)
+            badgeText = Color.FromArgb(150, 86, 0)
+        Else
+            badgeFill = Color.FromArgb(216, 244, 228)
+            badgeText = Color.FromArgb(18, 112, 69)
+        End If
+
+        Dim textSize = TextRenderer.MeasureText(statusText, e.CellStyle.Font)
+        Dim badgeWidth = Math.Min(Math.Max(0, e.CellBounds.Width - 16), textSize.Width + 18)
+        If badgeWidth > 0 Then
+            Dim badgeBounds As New Rectangle(e.CellBounds.Left + 8,
+                                             e.CellBounds.Top + Math.Max(0, (e.CellBounds.Height - 24) \ 2),
+                                             badgeWidth, 24)
+            Dim graphicsState = e.Graphics.Save()
+            Try
+                Using path As New GraphicsPath()
+                    Dim diameter = 16
+                    path.AddArc(badgeBounds.Left, badgeBounds.Top, diameter, diameter, 180, 90)
+                    path.AddArc(badgeBounds.Right - diameter, badgeBounds.Top, diameter, diameter, 270, 90)
+                    path.AddArc(badgeBounds.Right - diameter, badgeBounds.Bottom - diameter, diameter, diameter, 0, 90)
+                    path.AddArc(badgeBounds.Left, badgeBounds.Bottom - diameter, diameter, diameter, 90, 90)
+                    path.CloseFigure()
+                    e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+                    Using brush As New SolidBrush(badgeFill)
+                        e.Graphics.FillPath(brush, path)
+                    End Using
+                End Using
+                Dim textBounds = Rectangle.Inflate(badgeBounds, -7, 0)
+                TextRenderer.DrawText(e.Graphics, statusText, e.CellStyle.Font, textBounds, badgeText,
+                                      TextFormatFlags.VerticalCenter Or TextFormatFlags.Left Or TextFormatFlags.EndEllipsis Or TextFormatFlags.NoPadding)
+            Finally
+                e.Graphics.Restore(graphicsState)
+            End Try
+        End If
+        e.Paint(e.CellBounds, DataGridViewPaintParts.Border)
+        e.Handled = True
+    End Sub
+
     Private Sub RestockGrid_SelectionChanged(sender As Object, e As EventArgs)
         If restockGrid Is Nothing OrElse restockGrid.SelectedRows.Count = 0 OrElse restockGrid.CurrentRow Is Nothing OrElse restockGrid.CurrentRow.IsNewRow Then
             SetRestockFormState(Nothing)
@@ -836,6 +1058,8 @@ Public Class Staff
         Dim hasSelection = productRow IsNot Nothing
         restockPlacementTextBox.Enabled = hasSelection
         restockSavePlacementButton.Enabled = hasSelection
+        restockSavePlacementButton.BackColor = If(hasSelection, Color.FromArgb(25, 120, 75), Color.FromArgb(235, 240, 237))
+        restockSavePlacementButton.ForeColor = If(hasSelection, Color.White, Color.FromArgb(115, 125, 120))
         restockBatchNoTextBox.Enabled = hasSelection
         restockQuantityNumeric.Enabled = hasSelection
         restockExpiryDatePicker.Enabled = hasSelection
@@ -1204,14 +1428,10 @@ Public Class Staff
     End Sub
 
     Private Sub UpdateParentCategoryFilterButtons()
-        allParentFilterButton.BackColor = If(selectedParentCategory = "All", darkGreen, Color.White)
-        allParentFilterButton.ForeColor = If(selectedParentCategory = "All", Color.White, darkGreen)
-        medicineFilterButton.BackColor = If(selectedParentCategory = "Medicine", darkGreen, Color.White)
-        medicineFilterButton.ForeColor = If(selectedParentCategory = "Medicine", Color.White, darkGreen)
-        supplementsFilterButton.BackColor = If(selectedParentCategory = "Supplements", darkGreen, Color.White)
-        supplementsFilterButton.ForeColor = If(selectedParentCategory = "Supplements", Color.White, darkGreen)
-        medicalSupplyFilterButton.BackColor = If(selectedParentCategory = "Medical Supply", darkGreen, Color.White)
-        medicalSupplyFilterButton.ForeColor = If(selectedParentCategory = "Medical Supply", Color.White, darkGreen)
+        StyleStaffFilterButton(allParentFilterButton, selectedParentCategory = "All")
+        StyleStaffFilterButton(medicineFilterButton, selectedParentCategory = "Medicine")
+        StyleStaffFilterButton(supplementsFilterButton, selectedParentCategory = "Supplements")
+        StyleStaffFilterButton(medicalSupplyFilterButton, selectedParentCategory = "Medical Supply")
     End Sub
 
     Private Sub ParentFilterPanel_Resize(sender As Object, e As EventArgs)
@@ -1253,10 +1473,8 @@ Public Class Staff
     End Sub
 
     Private Sub UpdateModeControls()
-        retailModeButton.BackColor = If(isWholesale, Color.White, darkGreen)
-        retailModeButton.ForeColor = If(isWholesale, darkGreen, Color.White)
-        wholesaleModeButton.BackColor = If(isWholesale, darkGreen, Color.White)
-        wholesaleModeButton.ForeColor = If(isWholesale, Color.White, darkGreen)
+        StyleStaffFilterButton(retailModeButton, Not isWholesale)
+        StyleStaffFilterButton(wholesaleModeButton, isWholesale)
         prescriptionPanel.Visible = Not isWholesale
         wholesaleDetailsPanel.Visible = isWholesale
         UpdatePrescriptionEntryAvailability()
@@ -1279,7 +1497,7 @@ Public Class Staff
         transactionLeftLayout.RowStyles(3).SizeType = SizeType.Absolute
         transactionLeftLayout.RowStyles(3).Height = If(isWholesale, 380.0F, 160.0F)
 
-        Dim contentHeight = 174 + 380 + 76 + CInt(transactionLeftLayout.RowStyles(3).Height) + 32
+        Dim contentHeight = 130 + 424 + 76 + CInt(transactionLeftLayout.RowStyles(3).Height) + 32
         If transactionLeftPanel.ClientSize.Width > 0 Then transactionLeftLayout.Width = transactionLeftPanel.ClientSize.Width
         transactionLeftLayout.Height = contentHeight
         transactionLeftPanel.AutoScrollMinSize = New Size(0, contentHeight)
@@ -1821,11 +2039,49 @@ Public Class Staff
             .Margin = New Padding(4, 0, 4, 0)
         }
         wholesaleCustomerSearchBox = New TextBox With {
-            .Dock = DockStyle.Fill,
             .Font = New Font("Segoe UI", 9.0F),
-            .PlaceholderText = "Search wholesale clients...",
-            .Margin = New Padding(4, 7, 8, 5)
+            .BorderStyle = BorderStyle.None,
+            .BackColor = Color.White,
+            .ForeColor = Color.FromArgb(35, 45, 55),
+            .PlaceholderText = "Search wholesale clients..."
         }
+        Dim customerSearchFrame As New Panel With {
+            .BackColor = Color.White,
+            .Dock = DockStyle.Fill,
+            .Margin = New Padding(4, 4, 8, 4)
+        }
+        AddHandler customerSearchFrame.Resize, Sub(sender, e) ApplyStaffRoundedCorners(customerSearchFrame, 8)
+        AddHandler customerSearchFrame.Paint,
+            Sub(sender, e)
+                Using outline As New Pen(Color.FromArgb(216, 224, 232))
+                    e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+                    Using path As New GraphicsPath()
+                        Dim bounds As New Rectangle(0, 0, Math.Max(1, customerSearchFrame.Width - 1), Math.Max(1, customerSearchFrame.Height - 1))
+                        Dim diameter = 16
+                        path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90)
+                        path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90)
+                        path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90)
+                        path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90)
+                        path.CloseFigure()
+                        e.Graphics.DrawPath(outline, path)
+                    End Using
+                End Using
+            End Sub
+        Dim customerSearchIcon As New Label With {
+            .Text = "⌕",
+            .Font = New Font("Segoe UI Symbol", 17.0F),
+            .ForeColor = Color.FromArgb(115, 128, 142),
+            .TextAlign = ContentAlignment.MiddleCenter,
+            .Location = New Point(7, 2),
+            .Size = New Size(26, 30)
+        }
+        customerSearchFrame.Controls.Add(customerSearchIcon)
+        customerSearchFrame.Controls.Add(wholesaleCustomerSearchBox)
+        AddHandler customerSearchFrame.Resize,
+            Sub(sender, e)
+                customerSearchIcon.SetBounds(7, Math.Max(0, (customerSearchFrame.ClientSize.Height - 30) \ 2), 26, 30)
+                wholesaleCustomerSearchBox.SetBounds(36, 0, Math.Max(100, customerSearchFrame.ClientSize.Width - 46), customerSearchFrame.ClientSize.Height)
+            End Sub
         Dim addButton As New Button With {
             .Text = "Add Client",
             .Dock = DockStyle.Fill,
@@ -1838,21 +2094,30 @@ Public Class Staff
             .UseVisualStyleBackColor = False
         }
         addButton.FlatAppearance.BorderSize = 0
+        addButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(24, 132, 82)
+        addButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(16, 88, 54)
+        AddHandler addButton.Resize, Sub(sender, e) ApplyStaffRoundedCorners(addButton, 8)
+        ApplyStaffRoundedCorners(addButton, 8)
         Dim deleteButton As New Button With {
-            .Text = "Delete Client",
+            .Text = "Delete",
             .Dock = DockStyle.Fill,
-            .BackColor = Color.White,
-            .ForeColor = Color.FromArgb(170, 45, 45),
+            .BackColor = Color.FromArgb(198, 40, 40),
+            .ForeColor = Color.White,
             .FlatStyle = FlatStyle.Flat,
             .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
             .Margin = New Padding(4, 4, 4, 4),
             .Cursor = Cursors.Hand,
-            .Enabled = False
+            .Enabled = False,
+            .UseVisualStyleBackColor = False
         }
-        deleteButton.FlatAppearance.BorderColor = Color.FromArgb(170, 45, 45)
+        deleteButton.FlatAppearance.BorderSize = 0
+        deleteButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(183, 28, 28)
+        deleteButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(161, 23, 23)
+        AddHandler deleteButton.Resize, Sub(sender, e) ApplyStaffRoundedCorners(deleteButton, 8)
+        ApplyStaffRoundedCorners(deleteButton, 8)
         wholesaleCustomerDeleteButton = deleteButton
         toolbar.Controls.Add(heading, 0, 0)
-        toolbar.Controls.Add(wholesaleCustomerSearchBox, 1, 0)
+        toolbar.Controls.Add(customerSearchFrame, 1, 0)
         toolbar.Controls.Add(addButton, 2, 0)
         toolbar.Controls.Add(deleteButton, 3, 0)
 
@@ -2930,9 +3195,39 @@ Public Class Staff
         Dim totalDue = subtotal - Decimal.Round(subtotal * CheckoutDiscountRate(), 2)
         Dim canConfirm = (Not identityRequired OrElse identityComplete) AndAlso paymentDetailsValid AndAlso
                          (usesElectronicPayment OrElse (cashValid AndAlso cash >= totalDue))
+        If confirmButtonDisabledCaption Is Nothing Then
+            confirmButtonCaptionText = If(String.IsNullOrWhiteSpace(confirmButton.Text), "CONFIRM", confirmButton.Text)
+            confirmButtonDisabledCaption = New Label With {
+                .Text = confirmButtonCaptionText,
+                .BackColor = darkGreen,
+                .ForeColor = Color.White,
+                .Font = confirmButton.Font,
+                .TextAlign = ContentAlignment.MiddleCenter,
+                .Cursor = Cursors.Hand,
+                .AutoSize = False,
+                .Visible = False
+            }
+            paymentCard.Controls.Add(confirmButtonDisabledCaption)
+            AddHandler confirmButtonDisabledCaption.Click,
+                Sub(sender, e)
+                    If confirmButton.Enabled Then confirmButton.PerformClick()
+                End Sub
+            AddHandler confirmButton.LocationChanged, Sub(sender, e) PositionConfirmButtonDisabledCaption()
+            AddHandler confirmButton.SizeChanged, Sub(sender, e) PositionConfirmButtonDisabledCaption()
+        End If
         confirmButton.Enabled = canConfirm
-        confirmButton.BackColor = If(canConfirm, darkGreen, Color.LightGray)
-        confirmButton.ForeColor = If(canConfirm, Color.White, Color.DimGray)
+        confirmButton.BackColor = darkGreen
+        confirmButton.ForeColor = Color.White
+        confirmButtonDisabledCaption.Text = confirmButtonCaptionText
+        confirmButton.Text = confirmButtonCaptionText
+        confirmButtonDisabledCaption.Visible = Not canConfirm
+        PositionConfirmButtonDisabledCaption()
+    End Sub
+
+    Private Sub PositionConfirmButtonDisabledCaption()
+        If confirmButtonDisabledCaption Is Nothing OrElse confirmButton Is Nothing Then Return
+        confirmButtonDisabledCaption.Bounds = confirmButton.Bounds
+        confirmButtonDisabledCaption.BringToFront()
     End Sub
 
     Private Function CheckoutDiscountRate() As Decimal

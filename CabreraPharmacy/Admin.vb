@@ -71,7 +71,7 @@ Public Class Admin
     ' ColorDef
     Private darkGreen As Color = Color.FromArgb(20, 100, 60)
     Private activeGreen As Color = Color.FromArgb(25, 120, 75)
-    Private lightGray As Color = Color.FromArgb(245, 245, 245)
+    Private lightGray As Color = Color.FromArgb(246, 248, 250)
     Private yellow As Color = Color.FromArgb(255, 215, 0)
 
     ' Navigation state
@@ -79,6 +79,8 @@ Public Class Admin
     Private contentPanels As Dictionary(Of String, Panel)
     Private inventoryRows As DataTable
     Private inventorySearchBox As TextBox
+    Private inventoryCountLabel As Label
+    Private inventoryShowingLabel As Label
     Private inventoryFilterButtons As New Dictionary(Of String, Button)(StringComparer.OrdinalIgnoreCase)
     Private inventoryActiveFilter As String = "All"
     Private inventoryParentFilterButtons As New Dictionary(Of String, Button)(StringComparer.OrdinalIgnoreCase)
@@ -86,6 +88,7 @@ Public Class Admin
     Private priceManagerProducts As DataTable
     Private priceManagerCategories As DataTable
     Private priceManagerSearchBox As TextBox
+    Private priceManagerCountLabel As Label
     Private priceManagerCategoryFilter As ComboBox
     Private priceManagerProductList As FlowLayoutPanel
     Private priceManagerSelectedParentCategory As String = "All"
@@ -163,6 +166,10 @@ Public Class Admin
 
         ' Map nav buttons and views
         navButtons = {navDashboard, navPriceManager, navInventory, navReports}
+        For index As Integer = 0 To navButtons.Length - 1
+            navButtons(index).SetBounds(19, 171 + (index * 46), 130, 38)
+        Next
+        SidebarBranding.Apply(sidebar, logoBox, PharName, logoutadmin_button)
         contentPanels = New Dictionary(Of String, Panel) From {
             {"Dashboard", dashboardView},
             {"Price Manager", priceManagerView},
@@ -379,6 +386,11 @@ Public Class Admin
                                        inventoryAlertsPanel, quickOverviewPanel}
             MoveDashboardControlToSurface(control)
         Next
+        For Each card As Control In {card1, card2, card3, card4, card5, card6, card7, card8,
+                                    salesTrendPanel, revenuePanel, inventoryAlertsPanel, quickOverviewPanel,
+                                    inventoryAlertLowStock, inventoryAlertNearExpiry, inventoryAlertExpired}
+            AddSubtleCardOutline(card)
+        Next
         dashboardLayout.Visible = False
         quickOverviewRestock.Text = "Products to Restock"
         quickOverviewExpiry.Text = "Expiring Products"
@@ -418,6 +430,26 @@ Public Class Admin
             control.Region = newRegion
             oldRegion?.Dispose()
         End Using
+    End Sub
+
+    Private Sub AddSubtleCardOutline(card As Control)
+        AddHandler card.Paint,
+            Sub(sender, e)
+                If card.ClientSize.Width <= 1 OrElse card.ClientSize.Height <= 1 Then Return
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+                Using outline As New Pen(Color.FromArgb(224, 230, 237))
+                    Using path As New GraphicsPath()
+                        Dim rect As New Rectangle(0, 0, card.ClientSize.Width - 1, card.ClientSize.Height - 1)
+                        Dim diameter = Math.Min(20, Math.Min(rect.Width, rect.Height))
+                        path.AddArc(rect.Left, rect.Top, diameter, diameter, 180, 90)
+                        path.AddArc(rect.Right - diameter, rect.Top, diameter, diameter, 270, 90)
+                        path.AddArc(rect.Right - diameter, rect.Bottom - diameter, diameter, diameter, 0, 90)
+                        path.AddArc(rect.Left, rect.Bottom - diameter, diameter, diameter, 90, 90)
+                        path.CloseFigure()
+                        e.Graphics.DrawPath(outline, path)
+                    End Using
+                End Using
+            End Sub
     End Sub
 
     Private Sub StyleReportBackButton(button As Button)
@@ -705,6 +737,7 @@ Public Class Admin
         layout.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
 
         Dim heading As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = New Padding(0, 0, 0, 12), .Padding = New Padding(18, 12, 18, 10)}
+        AddSubtleCardOutline(heading)
         AddHandler heading.Resize, Sub(sender, e) ApplyRoundedRegion(heading, 12)
         heading.Controls.Add(New Label With {.Text = "Select reports to view.", .AutoSize = True, .Font = New Font("Segoe UI", 9.0F), .ForeColor = Color.Gray, .Location = New Point(18, 42)})
         heading.Controls.Add(New Label With {.Text = "Business Reports", .AutoSize = True, .Font = New Font("Segoe UI", 14.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(35, 55, 45), .Location = New Point(18, 12)})
@@ -745,6 +778,7 @@ Public Class Admin
     Private Function CreateReportCard(title As String, description As String, availableWidth As Integer) As Panel
         Dim cardWidth = If(availableWidth > 0, Math.Max(300, (availableWidth - 30) \ 2), 440)
         Dim card As New Panel With {.Width = cardWidth, .Height = 136, .BackColor = Color.White, .Margin = New Padding(0, 0, 14, 14), .Padding = New Padding(16), .BorderStyle = BorderStyle.None}
+        AddSubtleCardOutline(card)
         Dim titleLabel As New Label With {.Text = title, .AutoSize = True, .Font = New Font("Segoe UI", 11.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(35, 45, 40), .Location = New Point(16, 14)}
         Dim descriptionLabel As New Label With {.Text = description, .Font = New Font("Segoe UI", 9.0F), .ForeColor = Color.Gray, .Location = New Point(16, 44), .Size = New Size(card.Width - 32, 36), .Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right}
         Dim viewButton As New Button With {.Text = "View Report", .Size = New Size(132, 34), .Location = New Point(16, 88), .BackColor = activeGreen, .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat, .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold), .Cursor = Cursors.Hand}
@@ -948,13 +982,16 @@ Public Class Admin
                 .Size = New Size(buttonWidth, buttonHeight),
                 .Location = New Point(x, top),
                 .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
+                .BackColor = Color.FromArgb(235, 246, 240),
+                .ForeColor = darkGreen,
                 .FlatStyle = FlatStyle.Flat,
                 .Cursor = Cursors.Hand,
                 .UseVisualStyleBackColor = False
             }
-            ' CHANGE: Use the light outline color shown in the reference.
-            button.FlatAppearance.BorderColor = Color.FromArgb(210, 220, 230)
-            button.FlatAppearance.BorderSize = 1
+            button.FlatAppearance.BorderSize = 0
+            button.FlatAppearance.MouseOverBackColor = Color.FromArgb(222, 240, 230)
+            AddHandler button.Resize, Sub(sender, e) ApplyRoundedRegion(button, 8)
+            ApplyRoundedRegion(button, 8)
 
             AddHandler button.Click, Sub(sender, e) onSelect(optionText)
             buttons(optionText) = button
@@ -981,15 +1018,17 @@ Public Class Admin
     Private Sub UpdateSalesReportButtonStyles()
         For Each pair In salesReportPeriodButtons
             Dim isSelected = String.Equals(pair.Key, salesReportPeriod, StringComparison.OrdinalIgnoreCase)
-            pair.Value.BackColor = If(isSelected, darkGreen, Color.White)
+            pair.Value.BackColor = If(isSelected, darkGreen, Color.FromArgb(235, 246, 240))
             pair.Value.ForeColor = If(isSelected, Color.White, darkGreen)
-            pair.Value.FlatAppearance.BorderColor = If(isSelected, darkGreen, Color.FromArgb(210, 220, 230))
+            pair.Value.FlatAppearance.BorderSize = 0
+            pair.Value.FlatAppearance.MouseOverBackColor = If(isSelected, Color.FromArgb(24, 132, 82), Color.FromArgb(222, 240, 230))
         Next
         For Each pair In salesReportTypeButtons
             Dim isSelected = String.Equals(pair.Key, salesReportType, StringComparison.OrdinalIgnoreCase)
-            pair.Value.BackColor = If(isSelected, Color.FromArgb(218, 240, 229), Color.White)
-            pair.Value.ForeColor = darkGreen
-            pair.Value.FlatAppearance.BorderColor = If(isSelected, Color.FromArgb(190, 230, 210), Color.FromArgb(210, 220, 230))
+            pair.Value.BackColor = If(isSelected, darkGreen, Color.FromArgb(235, 246, 240))
+            pair.Value.ForeColor = If(isSelected, Color.White, darkGreen)
+            pair.Value.FlatAppearance.BorderSize = 0
+            pair.Value.FlatAppearance.MouseOverBackColor = If(isSelected, Color.FromArgb(24, 132, 82), Color.FromArgb(222, 240, 230))
         Next
     End Sub
 
@@ -1613,26 +1652,28 @@ Public Class Admin
             .RowCount = 2,
             .BackColor = lightGray,
             .Margin = New Padding(0),
-            .Padding = New Padding(0)
+            .Padding = New Padding(0, 0, 0, 0)
         }
         layout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100.0F))
-        layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 230.0F))
+        layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 176.0F))
         layout.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
 
-        Dim toolbar As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = New Padding(12, 10, 12, 14), .Padding = New Padding(0)}
-        AddHandler toolbar.Resize, Sub(sender, e) ApplyRoundedRegion(toolbar, 12)
+        Dim toolbar As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = New Padding(12, 10, 12, 10), .Padding = New Padding(0)}
+        AddSubtleCardOutline(toolbar)
+        AddHandler toolbar.Resize, Sub(sender, e) ApplyRoundedRegion(toolbar, 14)
+        ApplyRoundedRegion(toolbar, 14)
         Dim filterLabel As New Label With {
             .Text = "Filter by parent category",
             .AutoSize = True,
             .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold),
             .ForeColor = Color.Black,
-            .Location = New Point(14, 10)
+            .Location = New Point(18, 12)
         }
         toolbar.Controls.Add(filterLabel)
 
         Dim filterPanel As New FlowLayoutPanel With {
-            .Location = New Point(14, 112),
-            .Size = New Size(650, 36),
+            .Location = New Point(18, 39),
+            .Size = New Size(560, 36),
             .WrapContents = False,
             .BackColor = Color.White,
             .Margin = New Padding(0),
@@ -1643,9 +1684,9 @@ Public Class Admin
                 .Text = filterName,
                 .Tag = filterName,
                 .AutoSize = False,
-                .Size = New Size(104, 34),
+                .Size = New Size(100, 34),
                 .FlatStyle = FlatStyle.Flat,
-                .BackColor = Color.White,
+                .BackColor = Color.FromArgb(235, 246, 240),
                 .ForeColor = Color.FromArgb(20, 100, 60),
                 .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
                 .Margin = New Padding(0, 0, 8, 0),
@@ -1653,9 +1694,11 @@ Public Class Admin
                 .UseVisualStyleBackColor = False,
                 .Cursor = Cursors.Hand
             }
-            filterButton.FlatAppearance.BorderColor = Color.FromArgb(210, 220, 230)
-            filterButton.FlatAppearance.BorderSize = 1
+            filterButton.FlatAppearance.BorderSize = 0
+            filterButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(222, 240, 230)
             AddHandler filterButton.Click, AddressOf InventoryFilterButton_Click
+            AddHandler filterButton.Resize, Sub(sender, e) ApplyRoundedRegion(DirectCast(sender, Control), 8)
+            ApplyRoundedRegion(filterButton, 8)
             inventoryFilterButtons(filterName) = filterButton
             filterPanel.Controls.Add(filterButton)
         Next
@@ -1664,11 +1707,11 @@ Public Class Admin
             .AutoSize = True,
             .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold),
             .ForeColor = Color.Black,
-            .Location = New Point(14, 84)
+            .Location = New Point(18, 86)
         })
         toolbar.Controls.Add(filterPanel)
         Dim parentFilterPanel As New FlowLayoutPanel With {
-            .Location = New Point(14, 38),
+            .Location = New Point(18, 39),
             .Size = New Size(520, 36),
             .WrapContents = False,
             .BackColor = Color.White,
@@ -1681,47 +1724,83 @@ Public Class Admin
                 .Tag = parentName,
                 .Size = New Size(120, 34),
                 .FlatStyle = FlatStyle.Flat,
-                .BackColor = If(parentName = "All", Color.FromArgb(20, 100, 60), Color.White),
+                .BackColor = If(parentName = "All", Color.FromArgb(20, 100, 60), Color.FromArgb(235, 246, 240)),
                 .ForeColor = If(parentName = "All", Color.White, Color.FromArgb(20, 100, 60)),
                 .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
                 .Margin = New Padding(0, 0, 8, 0),
                 .Cursor = Cursors.Hand,
                 .UseVisualStyleBackColor = False
             }
-            parentButton.FlatAppearance.BorderColor = If(parentName = "All", Color.FromArgb(20, 100, 60), Color.FromArgb(210, 220, 230))
-            parentButton.FlatAppearance.BorderSize = 1
+            parentButton.FlatAppearance.BorderSize = 0
+            parentButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(222, 240, 230)
             AddHandler parentButton.Click, AddressOf InventoryParentFilterButton_Click
+            AddHandler parentButton.Resize, Sub(sender, e) ApplyRoundedRegion(DirectCast(sender, Control), 8)
+            ApplyRoundedRegion(parentButton, 8)
             inventoryParentFilterButtons(parentName) = parentButton
             parentFilterPanel.Controls.Add(parentButton)
         Next
         inventorySearchBox = New TextBox With {
-            .Location = New Point(600, 41),
-            .Size = New Size(300, 28),
+            .Location = New Point(34, 8),
+            .Size = New Size(360, 28),
             .Font = New Font("Segoe UI", 10.0F),
             .BackColor = Color.White,
             .ForeColor = Color.Black,
-            .BorderStyle = BorderStyle.Fixed3D,
+            .BorderStyle = BorderStyle.None,
             .PlaceholderText = "Search inventory..."
         }
         AddHandler inventorySearchBox.TextChanged, AddressOf InventorySearchBox_TextChanged
 
+        Dim searchPanel As New Panel With {
+            .Name = "inventorySearchPanel",
+            .BackColor = Color.White,
+            .Size = New Size(480, 42),
+            .Padding = Padding.Empty
+        }
+        AddHandler searchPanel.Resize, Sub(sender, e) ApplyRoundedRegion(searchPanel, 8)
+        AddHandler searchPanel.Paint,
+            Sub(sender, e)
+                Using outline As New Pen(Color.FromArgb(210, 220, 230))
+                    e.Graphics.SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
+                    Using path As New Drawing2D.GraphicsPath()
+                        Dim bounds As New Rectangle(0, 0, Math.Max(1, searchPanel.Width - 1), Math.Max(1, searchPanel.Height - 1))
+                        Dim diameter = 16
+                        path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90)
+                        path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90)
+                        path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90)
+                        path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90)
+                        path.CloseFigure()
+                        e.Graphics.DrawPath(outline, path)
+                    End Using
+                End Using
+            End Sub
+        Dim searchIcon As New Label With {
+            .Text = "⌕",
+            .Font = New Font("Segoe UI Symbol", 18.0F),
+            .ForeColor = Color.FromArgb(115, 128, 142),
+            .TextAlign = ContentAlignment.MiddleCenter,
+            .Location = New Point(8, 3),
+            .Size = New Size(24, 34)
+        }
+
         Dim clearButton As New Button With {
-            .Text = "Clear",
-            .Location = New Point(600, 112),
-            .Size = New Size(82, 32),
+            .Text = "×",
+            .AccessibleName = "Clear inventory filters",
+            .Location = New Point(442, 6),
+            .Size = New Size(30, 30),
             .FlatStyle = FlatStyle.Flat,
-            .BackColor = Color.FromArgb(238, 241, 244),
-            .ForeColor = Color.FromArgb(40, 40, 40),
-            .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
+            .BackColor = Color.White,
+            .ForeColor = Color.FromArgb(110, 120, 130),
+            .Font = New Font("Segoe UI", 16.0F),
             .Margin = New Padding(0),
             .UseVisualStyleBackColor = False,
             .Cursor = Cursors.Hand
         }
         clearButton.FlatAppearance.BorderSize = 0
-        clearButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(226, 231, 236)
+        clearButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(242, 246, 244)
+        AddHandler clearButton.Resize, Sub(sender, e) ApplyRoundedRegion(DirectCast(sender, Control), 8)
         Dim expiryMonitorButton As New Button With {
             .Text = "Expiry Monitor",
-            .Location = New Point(14, 158),
+            .Location = New Point(0, 0),
             .Size = New Size(160, 38),
             .FlatStyle = FlatStyle.Flat,
             .BackColor = Color.FromArgb(20, 100, 60),
@@ -1743,20 +1822,13 @@ Public Class Admin
                 SetInventoryFilter("All")
                 SetInventoryParentFilter("All")
             End Sub
-        Dim positionInventorySearchControls As Action =
-            Sub()
-                inventorySearchBox.Width = Math.Max(180, Math.Min(300, toolbar.ClientSize.Width - parentFilterPanel.Right - 20))
-                inventorySearchBox.Left = toolbar.ClientSize.Width - inventorySearchBox.Width - 14
-                clearButton.Left = Math.Max(filterPanel.Right + 12, toolbar.ClientSize.Width - clearButton.Width - 14)
-            End Sub
-        AddHandler toolbar.Resize, Sub(sender, e) positionInventorySearchControls()
-        positionInventorySearchControls()
+        searchPanel.Controls.Add(searchIcon)
+        searchPanel.Controls.Add(inventorySearchBox)
+        searchPanel.Controls.Add(clearButton)
         toolbar.Controls.Add(parentFilterPanel)
-        toolbar.Controls.Add(inventorySearchBox)
-        toolbar.Controls.Add(clearButton)
         Dim addProductButton As New Button With {
             .Text = "+  Add Product",
-            .Location = New Point(184, 158),
+            .Location = New Point(0, 0),
             .Size = New Size(150, 38),
             .FlatStyle = FlatStyle.Flat,
             .BackColor = activeGreen,
@@ -1766,9 +1838,22 @@ Public Class Admin
             .Cursor = Cursors.Hand
         }
         addProductButton.FlatAppearance.BorderSize = 0
+        addProductButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(24, 132, 82)
         AddHandler addProductButton.Click, Sub(sender, e) ShowAddProductModal()
         toolbar.Controls.Add(expiryMonitorButton)
         toolbar.Controls.Add(addProductButton)
+        Dim positionInventoryActions As Action =
+            Sub()
+                expiryMonitorButton.Left = toolbar.ClientSize.Width - expiryMonitorButton.Width - 18
+                addProductButton.Left = expiryMonitorButton.Left - addProductButton.Width - 10
+                expiryMonitorButton.Top = 110
+                addProductButton.Top = 110
+                filterPanel.Top = 110
+                filterPanel.Left = 18
+                parentFilterPanel.Left = 18
+            End Sub
+        AddHandler toolbar.Resize, Sub(sender, e) positionInventoryActions()
+        positionInventoryActions()
         AddHandler clearButton.Resize, Sub(sender, e) ApplyRoundedRegion(clearButton, 8)
         AddHandler expiryMonitorButton.Resize, Sub(sender, e) ApplyRoundedRegion(expiryMonitorButton, 8)
         AddHandler addProductButton.Resize, Sub(sender, e) ApplyRoundedRegion(addProductButton, 8)
@@ -1776,50 +1861,113 @@ Public Class Admin
         ApplyRoundedRegion(expiryMonitorButton, 8)
         ApplyRoundedRegion(addProductButton, 8)
 
-        Dim gridCard As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = New Padding(10, 8, 10, 10), .Padding = New Padding(14)}
-        AddHandler gridCard.Resize, Sub(sender, e) ApplyRoundedRegion(gridCard, 12)
+        Dim gridCard As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = New Padding(12, 10, 12, 12), .Padding = New Padding(18, 12, 18, 10)}
+        AddSubtleCardOutline(gridCard)
+        AddHandler gridCard.Resize, Sub(sender, e) ApplyRoundedRegion(gridCard, 14)
+        ApplyRoundedRegion(gridCard, 14)
+
+        Dim listLayout As New TableLayoutPanel With {
+            .Dock = DockStyle.Fill,
+            .ColumnCount = 1,
+            .RowCount = 3,
+            .BackColor = Color.White,
+            .Margin = Padding.Empty,
+            .Padding = Padding.Empty
+        }
+        listLayout.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100.0F))
+        listLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 52.0F))
+        listLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F))
+        listLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 34.0F))
+
+        Dim listHeader As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = Padding.Empty}
+        Dim listTitle As New Label With {
+            .Text = "Inventory List",
+            .Font = New Font("Segoe UI", 15.0F, FontStyle.Bold),
+            .ForeColor = Color.FromArgb(30, 36, 42),
+            .AutoSize = True,
+            .Location = New Point(0, 0)
+        }
+        inventoryCountLabel = New Label With {
+            .Font = New Font("Segoe UI", 9.0F),
+            .ForeColor = Color.FromArgb(95, 108, 121),
+            .AutoSize = True,
+            .Location = New Point(0, 27)
+        }
+        listHeader.Controls.Add(listTitle)
+        listHeader.Controls.Add(inventoryCountLabel)
+        listHeader.Controls.Add(searchPanel)
+        AddHandler listHeader.Resize,
+            Sub(sender, e)
+                searchPanel.Width = Math.Max(300, Math.Min(480, listHeader.ClientSize.Width * 0.42))
+                searchPanel.Height = 42
+                searchPanel.Top = Math.Max(0, (listHeader.ClientSize.Height - searchPanel.Height) \ 2)
+                searchPanel.Left = Math.Max(300, listHeader.ClientSize.Width - searchPanel.Width)
+                inventorySearchBox.SetBounds(34, 8, Math.Max(120, searchPanel.ClientSize.Width - 78), 26)
+                clearButton.SetBounds(searchPanel.ClientSize.Width - clearButton.Width - 6, 6, 30, 30)
+            End Sub
+        AddHandler listHeader.HandleCreated,
+            Sub(sender, e)
+                searchPanel.Width = Math.Max(300, Math.Min(480, listHeader.ClientSize.Width * 0.42))
+                searchPanel.Height = 42
+                searchPanel.Left = Math.Max(300, listHeader.ClientSize.Width - searchPanel.Width)
+                searchPanel.Top = Math.Max(0, (listHeader.ClientSize.Height - searchPanel.Height) \ 2)
+                inventorySearchBox.SetBounds(34, 8, Math.Max(120, searchPanel.ClientSize.Width - 78), 26)
+                clearButton.SetBounds(searchPanel.ClientSize.Width - clearButton.Width - 6, 6, 30, 30)
+            End Sub
 
         dgvInventory.Dock = DockStyle.Fill
         dgvInventory.BackgroundColor = Color.White
         dgvInventory.BorderStyle = BorderStyle.None
-        dgvInventory.GridColor = Color.FromArgb(225, 225, 225)
+        dgvInventory.GridColor = Color.FromArgb(223, 230, 237)
         dgvInventory.EnableHeadersVisualStyles = False
-        dgvInventory.ColumnHeadersDefaultCellStyle.BackColor = Color.White
-        dgvInventory.ColumnHeadersDefaultCellStyle.ForeColor = Color.Black
-        dgvInventory.ColumnHeadersDefaultCellStyle.SelectionBackColor = Color.FromArgb(220, 240, 230)
-        dgvInventory.ColumnHeadersDefaultCellStyle.SelectionForeColor = Color.Black
+        dgvInventory.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(20, 125, 77)
+        dgvInventory.ColumnHeadersDefaultCellStyle.ForeColor = Color.White
+        dgvInventory.ColumnHeadersDefaultCellStyle.SelectionBackColor = Color.FromArgb(20, 125, 77)
+        dgvInventory.ColumnHeadersDefaultCellStyle.SelectionForeColor = Color.White
         dgvInventory.ColumnHeadersDefaultCellStyle.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
+        dgvInventory.ColumnHeadersDefaultCellStyle.Padding = New Padding(12, 0, 8, 0)
         dgvInventory.DefaultCellStyle.BackColor = Color.White
         dgvInventory.DefaultCellStyle.ForeColor = Color.Black
-        dgvInventory.DefaultCellStyle.SelectionBackColor = Color.FromArgb(220, 240, 230)
-        dgvInventory.DefaultCellStyle.SelectionForeColor = Color.Black
-        dgvInventory.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248, 248, 248)
+        dgvInventory.DefaultCellStyle.SelectionBackColor = Color.FromArgb(229, 244, 236)
+        dgvInventory.DefaultCellStyle.SelectionForeColor = Color.FromArgb(24, 54, 40)
+        dgvInventory.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248, 250, 252)
         dgvInventory.RowHeadersVisible = False
         dgvInventory.AllowUserToAddRows = False
         dgvInventory.AllowUserToDeleteRows = False
-        dgvInventory.AllowUserToResizeColumns = True
-        dgvInventory.AllowUserToResizeRows = True
+        dgvInventory.AllowUserToResizeColumns = False
+        dgvInventory.AllowUserToResizeRows = False
         dgvInventory.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing
-        dgvInventory.ColumnHeadersHeight = 44
-        dgvInventory.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells
-        dgvInventory.DefaultCellStyle.WrapMode = DataGridViewTriState.True
+        dgvInventory.ColumnHeadersHeight = 40
+        dgvInventory.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None
+        dgvInventory.DefaultCellStyle.WrapMode = DataGridViewTriState.False
         dgvInventory.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft
         dgvInventory.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft
         dgvInventory.ReadOnly = True
         dgvInventory.SelectionMode = DataGridViewSelectionMode.FullRowSelect
-        dgvInventory.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None
+        dgvInventory.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
         dgvInventory.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal
-        dgvInventory.GridColor = Color.FromArgb(225, 235, 230)
-        dgvInventory.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(225, 245, 235)
-        dgvInventory.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(25, 55, 45)
-        dgvInventory.ColumnHeadersDefaultCellStyle.Padding = New Padding(12, 0, 10, 0)
-        dgvInventory.DefaultCellStyle.Padding = New Padding(12, 6, 10, 6)
+        dgvInventory.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single
+        dgvInventory.DefaultCellStyle.Padding = New Padding(12, 0, 8, 0)
+        dgvInventory.RowTemplate.Height = 42
+        dgvInventory.RowTemplate.MinimumHeight = 42
         AddHandler dgvInventory.DataBindingComplete, AddressOf InventoryGrid_DataBindingComplete
         AddHandler dgvInventory.CellFormatting, AddressOf InventoryGrid_CellFormatting
+        AddHandler dgvInventory.CellPainting, AddressOf InventoryGrid_CellPainting
         AddHandler dgvInventory.CellClick, AddressOf InventoryGrid_CellClick
 
         layout.Controls.Add(toolbar, 0, 0)
-        gridCard.Controls.Add(dgvInventory)
+        Dim tableWrap As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = Padding.Empty}
+        tableWrap.Controls.Add(dgvInventory)
+        inventoryShowingLabel = New Label With {
+            .Dock = DockStyle.Fill,
+            .Font = New Font("Segoe UI", 8.5F),
+            .ForeColor = Color.FromArgb(95, 108, 121),
+            .TextAlign = ContentAlignment.MiddleLeft
+        }
+        listLayout.Controls.Add(listHeader, 0, 0)
+        listLayout.Controls.Add(tableWrap, 0, 1)
+        listLayout.Controls.Add(inventoryShowingLabel, 0, 2)
+        gridCard.Controls.Add(listLayout)
         layout.Controls.Add(gridCard, 0, 1)
         inventoryView.Controls.Clear()
         inventoryView.BackColor = lightGray
@@ -2134,9 +2282,10 @@ Public Class Admin
         inventorySelectedParentCategory = If(String.IsNullOrWhiteSpace(parentName), "All", parentName)
         For Each entry In inventoryParentFilterButtons
             Dim active = String.Equals(entry.Key, inventorySelectedParentCategory, StringComparison.OrdinalIgnoreCase)
-            entry.Value.BackColor = If(active, Color.FromArgb(20, 100, 60), Color.White)
+            entry.Value.BackColor = If(active, Color.FromArgb(20, 100, 60), Color.FromArgb(235, 246, 240))
             entry.Value.ForeColor = If(active, Color.White, Color.FromArgb(20, 100, 60))
-            entry.Value.FlatAppearance.BorderColor = If(active, Color.FromArgb(20, 100, 60), Color.FromArgb(210, 220, 230))
+            entry.Value.FlatAppearance.BorderSize = 0
+            entry.Value.FlatAppearance.MouseOverBackColor = If(active, Color.FromArgb(24, 132, 82), Color.FromArgb(222, 240, 230))
         Next
         ApplyInventoryFilters()
     End Sub
@@ -2149,9 +2298,10 @@ Public Class Admin
         inventoryActiveFilter = If(String.IsNullOrWhiteSpace(filterName), "All", filterName)
         For Each entry In inventoryFilterButtons
             Dim active = String.Equals(entry.Key, inventoryActiveFilter, StringComparison.OrdinalIgnoreCase)
-            entry.Value.BackColor = If(active, Color.FromArgb(218, 240, 229), Color.White)
-            entry.Value.ForeColor = Color.FromArgb(20, 100, 60)
-            entry.Value.FlatAppearance.BorderColor = If(active, Color.FromArgb(190, 230, 210), Color.FromArgb(210, 220, 230))
+            entry.Value.BackColor = If(active, Color.FromArgb(20, 100, 60), Color.FromArgb(235, 246, 240))
+            entry.Value.ForeColor = If(active, Color.White, Color.FromArgb(20, 100, 60))
+            entry.Value.FlatAppearance.BorderSize = 0
+            entry.Value.FlatAppearance.MouseOverBackColor = If(active, Color.FromArgb(24, 132, 82), Color.FromArgb(222, 240, 230))
         Next
         ApplyInventoryFilters()
     End Sub
@@ -2190,6 +2340,12 @@ Public Class Admin
             If includeByStatus AndAlso includeByParent AndAlso includeBySearch Then visibleRows.ImportRow(row)
         Next
         dgvInventory.DataSource = visibleRows
+        If inventoryCountLabel IsNot Nothing Then inventoryCountLabel.Text = "(" & visibleRows.Rows.Count.ToString() & " of " & inventoryRows.Rows.Count.ToString() & " products)"
+        If inventoryShowingLabel IsNot Nothing Then
+            inventoryShowingLabel.Text = If(visibleRows.Rows.Count = 0,
+                "No matching products",
+                "Showing " & visibleRows.Rows.Count.ToString() & " of " & inventoryRows.Rows.Count.ToString() & " products")
+        End If
     End Sub
 
     Private Function GetInventoryStatus(row As DataRow) As InventoryStatusInfo
@@ -2222,25 +2378,25 @@ Public Class Admin
         For Each column As DataGridViewColumn In dgvInventory.Columns
             column.Visible = {"Item Placement", "Category", "Brand Name", "Generic Name", "Stock Quantity", "Expiry Date", "Status"}.Contains(column.Name)
             column.ReadOnly = True
-            Dim allowResize = {"Item Placement", "Category", "Brand Name", "Generic Name"}.Contains(column.Name)
-            column.Resizable = If(allowResize, DataGridViewTriState.True, DataGridViewTriState.False)
-            column.AutoSizeMode = If(allowResize, DataGridViewAutoSizeColumnMode.Fill, DataGridViewAutoSizeColumnMode.None)
+            column.Resizable = DataGridViewTriState.False
+            column.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill
         Next
         If dgvInventory.Columns.Contains("Expiry Date") Then dgvInventory.Columns("Expiry Date").DefaultCellStyle.Format = "MM/dd/yyyy"
         If dgvInventory.Columns.Contains("Item Placement") Then
             dgvInventory.Columns("Item Placement").DisplayIndex = 0
             dgvInventory.Columns("Item Placement").FillWeight = 95
         End If
-        If dgvInventory.Columns.Contains("Category") Then dgvInventory.Columns("Category").FillWeight = 120
-        If dgvInventory.Columns.Contains("Brand Name") Then dgvInventory.Columns("Brand Name").FillWeight = 105
+        If dgvInventory.Columns.Contains("Category") Then dgvInventory.Columns("Category").FillWeight = 140
+        If dgvInventory.Columns.Contains("Brand Name") Then dgvInventory.Columns("Brand Name").FillWeight = 110
         If dgvInventory.Columns.Contains("Generic Name") Then dgvInventory.Columns("Generic Name").FillWeight = 170
-        If dgvInventory.Columns.Contains("Stock Quantity") Then dgvInventory.Columns("Stock Quantity").Width = 170
-        If dgvInventory.Columns.Contains("Expiry Date") Then dgvInventory.Columns("Expiry Date").Width = 145
-        If dgvInventory.Columns.Contains("Status") Then dgvInventory.Columns("Status").Width = 145
-        dgvInventory.RowTemplate.Height = 60
-        dgvInventory.RowTemplate.MinimumHeight = 60
+        If dgvInventory.Columns.Contains("Stock Quantity") Then dgvInventory.Columns("Stock Quantity").FillWeight = 115
+        If dgvInventory.Columns.Contains("Expiry Date") Then dgvInventory.Columns("Expiry Date").FillWeight = 105
+        If dgvInventory.Columns.Contains("Status") Then dgvInventory.Columns("Status").FillWeight = 95
+        dgvInventory.RowTemplate.Height = 42
+        dgvInventory.RowTemplate.MinimumHeight = 42
         For Each row As DataGridViewRow In dgvInventory.Rows
-            row.MinimumHeight = 60
+            row.Height = 42
+            row.MinimumHeight = 42
         Next
     End Sub
 
@@ -2256,16 +2412,62 @@ Public Class Admin
             e.Value = quantity.ToString() & " " & FormatInventoryUnit(unitValue, quantity)
             e.FormattingApplied = True
         ElseIf columnName = "Status" Then
-            Dim status = Convert.ToString(e.Value)
-            Dim hasExpired = status.Contains("Expired")
-            Dim hasNearExpiry = status.Contains("Near Expiry")
-            Dim hasLowStock = status.Contains("Low Stock")
-            Dim isInactive = status.Contains("Inactive")
-            e.CellStyle.BackColor = If(isInactive, Color.FromArgb(235, 235, 235), If(hasExpired, Color.FromArgb(255, 230, 230), If(hasNearExpiry, Color.FromArgb(255, 241, 220), If(hasLowStock, Color.FromArgb(255, 239, 220), Color.FromArgb(225, 245, 230)))))
-            e.CellStyle.ForeColor = If(isInactive, Color.DimGray, If(hasExpired, Color.DarkRed, If(hasNearExpiry, Color.DarkOrange, If(hasLowStock, Color.SaddleBrown, Color.DarkGreen))))
-            e.CellStyle.SelectionBackColor = e.CellStyle.BackColor
-            e.CellStyle.SelectionForeColor = e.CellStyle.ForeColor
+            e.CellStyle.BackColor = If(e.RowIndex Mod 2 = 1, Color.FromArgb(248, 250, 252), Color.White)
+            e.CellStyle.ForeColor = Color.FromArgb(30, 36, 42)
+            e.CellStyle.SelectionBackColor = Color.FromArgb(229, 244, 236)
+            e.CellStyle.SelectionForeColor = Color.FromArgb(24, 54, 40)
         End If
+    End Sub
+
+    Private Sub InventoryGrid_CellPainting(sender As Object, e As DataGridViewCellPaintingEventArgs)
+        If e.RowIndex < 0 OrElse e.ColumnIndex < 0 Then Return
+        If dgvInventory.Columns(e.ColumnIndex).Name <> "Status" Then
+            e.Paint(e.CellBounds, DataGridViewPaintParts.All And Not DataGridViewPaintParts.Focus)
+            e.Handled = True
+            Return
+        End If
+
+        e.PaintBackground(e.CellBounds, True)
+        Dim text = Convert.ToString(e.FormattedValue)
+        Dim fillColor As Color
+        Dim textColor As Color
+        If text.IndexOf("Expired", StringComparison.OrdinalIgnoreCase) >= 0 Then
+            fillColor = Color.FromArgb(255, 226, 226)
+            textColor = Color.FromArgb(176, 35, 35)
+        ElseIf text.IndexOf("Low Stock", StringComparison.OrdinalIgnoreCase) >= 0 OrElse text.IndexOf("Near Expiry", StringComparison.OrdinalIgnoreCase) >= 0 Then
+            fillColor = Color.FromArgb(255, 239, 199)
+            textColor = Color.FromArgb(150, 86, 0)
+        ElseIf text.IndexOf("Inactive", StringComparison.OrdinalIgnoreCase) >= 0 Then
+            fillColor = Color.FromArgb(235, 238, 240)
+            textColor = Color.FromArgb(90, 98, 106)
+        Else
+            fillColor = Color.FromArgb(216, 244, 228)
+            textColor = Color.FromArgb(18, 112, 69)
+        End If
+
+        Dim textSize = TextRenderer.MeasureText(text, e.CellStyle.Font)
+        Dim chipWidth = Math.Min(e.CellBounds.Width - 16, textSize.Width + 18)
+        If chipWidth > 0 Then
+            Dim chipBounds As New Rectangle(e.CellBounds.Left + 8, e.CellBounds.Top + (e.CellBounds.Height - 26) \ 2, chipWidth, 26)
+            Using path As New Drawing2D.GraphicsPath()
+                Dim radius = 8
+                Dim diameter = radius * 2
+                path.AddArc(chipBounds.Left, chipBounds.Top, diameter, diameter, 180, 90)
+                path.AddArc(chipBounds.Right - diameter, chipBounds.Top, diameter, diameter, 270, 90)
+                path.AddArc(chipBounds.Right - diameter, chipBounds.Bottom - diameter, diameter, diameter, 0, 90)
+                path.AddArc(chipBounds.Left, chipBounds.Bottom - diameter, diameter, diameter, 90, 90)
+                path.CloseFigure()
+                Using brush As New SolidBrush(fillColor)
+                    e.Graphics.SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
+                    e.Graphics.FillPath(brush, path)
+                End Using
+            End Using
+            Dim textBounds = Rectangle.Inflate(chipBounds, -7, 0)
+            TextRenderer.DrawText(e.Graphics, text, e.CellStyle.Font, textBounds, textColor,
+                                  TextFormatFlags.VerticalCenter Or TextFormatFlags.Left Or TextFormatFlags.EndEllipsis Or TextFormatFlags.NoPadding)
+        End If
+        e.Paint(e.CellBounds, DataGridViewPaintParts.Border)
+        e.Handled = True
     End Sub
 
     Private Function FormatInventoryUnit(unitValue As String, quantity As Integer) As String
@@ -2306,48 +2508,45 @@ Public Class Admin
 
     Private Sub InitializePriceManagerUi()
         priceManagerView.Controls.Clear()
-        priceManagerView.Padding = New Padding(8)
+        priceManagerView.Padding = New Padding(16, 14, 16, 16)
         priceManagerView.BackColor = lightGray
 
         Dim page As New TableLayoutPanel With {
             .Dock = DockStyle.Fill,
             .ColumnCount = 1,
-            .RowCount = 1,
+            .RowCount = 2,
             .BackColor = lightGray,
             .Margin = New Padding(0)
         }
         page.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
+        page.RowStyles.Add(New RowStyle(SizeType.Absolute, 136))
         page.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
 
-        Dim listing As New TableLayoutPanel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Padding = New Padding(12), .Margin = New Padding(4), .ColumnCount = 1, .RowCount = 3}
-        AddHandler listing.Resize, Sub(sender, e) ApplyRoundedRegion(listing, 12)
-        ApplyRoundedRegion(listing, 12)
-        listing.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
-        listing.RowStyles.Add(New RowStyle(SizeType.Absolute, 48))
-        listing.RowStyles.Add(New RowStyle(SizeType.Absolute, 44))
-        listing.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
-        Dim filterSearchRow As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 2, .RowCount = 1, .BackColor = Color.White, .Margin = New Padding(0)}
-        filterSearchRow.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 58))
-        filterSearchRow.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 42))
-        filterSearchRow.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
-        Dim parentFilterPanel As New FlowLayoutPanel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .FlowDirection = FlowDirection.LeftToRight, .WrapContents = False, .Padding = New Padding(0, 7, 0, 0), .Margin = New Padding(0)}
-        priceManagerSearchBox = New TextBox With {.Dock = DockStyle.Fill, .Font = New Font("Segoe UI", 10.0F), .PlaceholderText = "Search product ID, category, brand, generic name...", .Margin = New Padding(12, 7, 0, 5)}
+        Dim filterCard As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = New Padding(0, 0, 0, 12), .Padding = New Padding(18, 14, 18, 12)}
+        AddSubtleCardOutline(filterCard)
+        AddHandler filterCard.Resize, Sub(sender, e) ApplyRoundedRegion(filterCard, 12)
+        ApplyRoundedRegion(filterCard, 12)
+        filterCard.Controls.Add(New Label With {.Text = "Filter by parent category", .AutoSize = True, .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(30, 36, 42), .Location = New Point(18, 12)})
+
+        Dim parentFilterPanel As New FlowLayoutPanel With {.Location = New Point(18, 39), .Size = New Size(560, 36), .WrapContents = False, .BackColor = Color.White, .Padding = Padding.Empty, .Margin = Padding.Empty}
         priceManagerParentFilterButtons = New Dictionary(Of String, Button)(StringComparer.OrdinalIgnoreCase)
         For Each category In {"All", "Medicine", "Supplements", "Medical Supply"}
             Dim filterButton As New Button With {
                 .Text = category,
                 .Tag = category,
-                .Size = New Size(120, 32),
+                .Size = New Size(112, 34),
                 .Margin = New Padding(0, 0, 8, 0),
-                .BackColor = If(category = "All", darkGreen, Color.White),
+                .BackColor = If(category = "All", darkGreen, Color.FromArgb(235, 246, 240)),
                 .ForeColor = If(category = "All", Color.White, darkGreen),
                 .FlatStyle = FlatStyle.Flat,
                 .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
                 .Cursor = Cursors.Hand,
                 .UseVisualStyleBackColor = False
             }
-            filterButton.FlatAppearance.BorderColor = darkGreen
-            filterButton.FlatAppearance.BorderSize = 1
+            filterButton.FlatAppearance.BorderSize = 0
+            filterButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(222, 240, 230)
+            AddHandler filterButton.Resize, Sub(sender, e) ApplyRoundedRegion(DirectCast(sender, Control), 8)
+            ApplyRoundedRegion(filterButton, 8)
             priceManagerParentFilterButtons.Add(category, filterButton)
             parentFilterPanel.Controls.Add(filterButton)
             AddHandler filterButton.Click, AddressOf PriceManagerParentFilter_Click
@@ -2358,23 +2557,64 @@ Public Class Admin
             .BackColor = Color.White,
             .ForeColor = darkGreen,
             .Font = New Font("Segoe UI", 10.0F),
-            .Dock = DockStyle.Left,
+            .Dock = DockStyle.None,
             .Width = 260,
-            .Margin = New Padding(0, 3, 0, 5)
+            .Margin = New Padding(0)
         }
         priceManagerCategoryFilter.Items.Add("All Categories")
         priceManagerCategoryFilter.SelectedIndex = 0
-        filterSearchRow.Controls.Add(parentFilterPanel, 0, 0)
-        filterSearchRow.Controls.Add(priceManagerSearchBox, 1, 0)
-        Dim productArea As New Panel With {.Dock = DockStyle.Fill, .BackColor = lightGray, .Margin = New Padding(0)}
-        Dim detailsHeader As New Label With {.Text = "PRODUCT DETAILS", .Dock = DockStyle.Top, .Height = 32, .BackColor = Color.FromArgb(240, 245, 241), .ForeColor = Color.FromArgb(65, 80, 70), .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold), .TextAlign = ContentAlignment.MiddleLeft, .Padding = New Padding(8, 0, 0, 0)}
-        priceManagerProductList = New FlowLayoutPanel With {.Dock = DockStyle.Fill, .AutoScroll = True, .FlowDirection = FlowDirection.TopDown, .WrapContents = False, .BackColor = lightGray, .Padding = New Padding(8, 8, 8, 0)}
-        productArea.Controls.Add(priceManagerProductList)
-        productArea.Controls.Add(detailsHeader)
-        listing.Controls.Add(filterSearchRow, 0, 0)
-        listing.Controls.Add(priceManagerCategoryFilter, 0, 1)
-        listing.Controls.Add(productArea, 0, 2)
-        page.Controls.Add(listing, 0, 0)
+        filterCard.Controls.Add(parentFilterPanel)
+        filterCard.Controls.Add(New Label With {.Text = "Category", .AutoSize = True, .Font = New Font("Segoe UI", 9.0F), .ForeColor = Color.FromArgb(75, 87, 99), .Location = New Point(18, 88)})
+        priceManagerCategoryFilter.SetBounds(100, 82, 260, 32)
+        filterCard.Controls.Add(priceManagerCategoryFilter)
+
+        Dim productsCard As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.White, .Margin = New Padding(0), .Padding = New Padding(18, 12, 18, 10)}
+        AddSubtleCardOutline(productsCard)
+        AddHandler productsCard.Resize, Sub(sender, e) ApplyRoundedRegion(productsCard, 12)
+        ApplyRoundedRegion(productsCard, 12)
+        Dim productHeader As New Panel With {.Dock = DockStyle.Top, .Height = 54, .BackColor = Color.White, .Margin = Padding.Empty}
+        productHeader.Controls.Add(New Label With {.Text = "Product Details", .AutoSize = False, .Size = New Size(140, 25), .Font = New Font("Segoe UI", 14.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(30, 36, 42), .Location = New Point(0, 1)})
+        priceManagerCountLabel = New Label With {.AutoSize = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.FromArgb(95, 108, 121), .Location = New Point(145, 8)}
+        productHeader.Controls.Add(priceManagerCountLabel)
+
+        Dim searchPanel As New Panel With {.BackColor = Color.White, .Size = New Size(420, 38), .Anchor = AnchorStyles.Top Or AnchorStyles.Right}
+        AddHandler searchPanel.Resize, Sub(sender, e) ApplyRoundedRegion(searchPanel, 8)
+        AddHandler searchPanel.Paint,
+            Sub(sender, e)
+                Using pen As New Pen(Color.FromArgb(216, 224, 232))
+                    e.Graphics.SmoothingMode = SmoothingMode.AntiAlias
+                    Using path As New GraphicsPath()
+                        Dim bounds As New Rectangle(0, 0, Math.Max(1, searchPanel.Width - 1), Math.Max(1, searchPanel.Height - 1))
+                        Dim d = 16
+                        path.AddArc(bounds.Left, bounds.Top, d, d, 180, 90)
+                        path.AddArc(bounds.Right - d, bounds.Top, d, d, 270, 90)
+                        path.AddArc(bounds.Right - d, bounds.Bottom - d, d, d, 0, 90)
+                        path.AddArc(bounds.Left, bounds.Bottom - d, d, d, 90, 90)
+                        path.CloseFigure()
+                        e.Graphics.DrawPath(pen, path)
+                    End Using
+                End Using
+            End Sub
+        Dim searchIcon As New Label With {.Text = "⌕", .Font = New Font("Segoe UI Symbol", 17.0F), .ForeColor = Color.FromArgb(115, 128, 142), .TextAlign = ContentAlignment.MiddleCenter, .Location = New Point(8, 2), .Size = New Size(24, 32)}
+        priceManagerSearchBox = New TextBox With {.Location = New Point(34, 6), .Size = New Size(350, 26), .Font = New Font("Segoe UI", 9.5F), .PlaceholderText = "Search product ID, category, brand, generic name...", .BackColor = Color.White, .BorderStyle = BorderStyle.None}
+        searchPanel.Controls.Add(searchIcon)
+        searchPanel.Controls.Add(priceManagerSearchBox)
+        productHeader.Controls.Add(searchPanel)
+        Dim layoutProductSearch As Action =
+            Sub()
+                searchPanel.Width = Math.Max(300, Math.Min(460, productHeader.ClientSize.Width * 0.48))
+                searchPanel.Left = Math.Max(260, productHeader.ClientSize.Width - searchPanel.Width)
+                searchPanel.Top = Math.Max(0, (productHeader.ClientSize.Height - searchPanel.Height) \ 2)
+                priceManagerSearchBox.Width = Math.Max(180, searchPanel.ClientSize.Width - 46)
+            End Sub
+        AddHandler productHeader.Resize, Sub(sender, e) layoutProductSearch()
+        layoutProductSearch()
+
+        priceManagerProductList = New FlowLayoutPanel With {.Dock = DockStyle.Fill, .AutoScroll = True, .FlowDirection = FlowDirection.TopDown, .WrapContents = False, .BackColor = Color.White, .Padding = New Padding(0, 4, 4, 0), .Margin = Padding.Empty}
+        productsCard.Controls.Add(priceManagerProductList)
+        productsCard.Controls.Add(productHeader)
+        page.Controls.Add(filterCard, 0, 0)
+        page.Controls.Add(productsCard, 0, 1)
         priceManagerView.Controls.Add(page)
 
         AddHandler priceManagerSearchBox.TextChanged, Sub(sender, e) RenderPriceManagerProducts()
@@ -2393,8 +2633,10 @@ Public Class Admin
         priceManagerSelectedParentCategory = Convert.ToString(filterButton.Tag)
         For Each entry In priceManagerParentFilterButtons
             Dim isSelected = String.Equals(entry.Key, priceManagerSelectedParentCategory, StringComparison.OrdinalIgnoreCase)
-            entry.Value.BackColor = If(isSelected, darkGreen, Color.White)
+            entry.Value.BackColor = If(isSelected, darkGreen, Color.FromArgb(235, 246, 240))
             entry.Value.ForeColor = If(isSelected, Color.White, darkGreen)
+            entry.Value.FlatAppearance.BorderSize = 0
+            entry.Value.FlatAppearance.MouseOverBackColor = If(isSelected, Color.FromArgb(24, 132, 82), Color.FromArgb(222, 240, 230))
         Next
 
         PopulatePriceManagerCategoryFilter()
@@ -2503,6 +2745,7 @@ Public Class Admin
         If visibleCount = 0 Then
             priceManagerProductList.Controls.Add(New Label With {.Text = "No products match your search.", .AutoSize = True, .ForeColor = Color.Gray, .Margin = New Padding(8, 20, 8, 8)})
         End If
+        If priceManagerCountLabel IsNot Nothing Then priceManagerCountLabel.Text = "Showing " & visibleCount.ToString() & " of " & priceManagerProducts.Rows.Count.ToString() & " products"
         priceManagerProductList.ResumeLayout()
     End Sub
 
@@ -2519,7 +2762,8 @@ Public Class Admin
     End Function
 
     Private Function CreatePriceProductCard(product As DataRow) As Control
-        Dim card As New Panel With {.Width = GetPriceManagerProductCardWidth(), .Height = 148, .BackColor = Color.White, .Margin = New Padding(0, 0, 0, 10), .BorderStyle = BorderStyle.None}
+        Dim card As New Panel With {.Width = GetPriceManagerProductCardWidth(), .Height = 104, .BackColor = Color.White, .Margin = New Padding(0, 0, 0, 10), .BorderStyle = BorderStyle.None}
+        AddSubtleCardOutline(card)
         Dim brand = Convert.ToString(product("Brand Name"))
         Dim generic = Convert.ToString(product("Generic Name"))
         Dim id = Convert.ToString(product("ID"))
@@ -2530,9 +2774,11 @@ Public Class Admin
         edit.FlatAppearance.MouseOverBackColor = darkGreen
         AddHandler edit.Resize, Sub(sender, e) ApplyRoundedRegion(edit, 6)
         ApplyRoundedRegion(edit, 6)
-        Dim title As New Label With {.Text = brand, .AutoSize = True, .Font = New Font("Segoe UI", 12.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(30, 55, 43), .Location = New Point(16, 12)}
-        Dim description As New Label With {.Text = "P" & id & " · " & generic & " " & Convert.ToString(product("Dosage")), .AutoSize = True, .Font = New Font("Segoe UI", 9.0F), .ForeColor = Color.Gray, .Location = New Point(16, 40)}
-        Dim priceArea As New TableLayoutPanel With {.Location = New Point(12, 72), .Size = New Size(card.Width - 24, 62), .Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right, .ColumnCount = 2, .RowCount = 1, .BackColor = Color.White}
+        Dim title As New Label With {.Text = brand, .AutoSize = False, .AutoEllipsis = True, .Font = New Font("Segoe UI", 11.0F, FontStyle.Bold), .ForeColor = Color.FromArgb(30, 55, 43)}
+        title.SetBounds(12, 8, Math.Max(120, card.ClientSize.Width - 152), 20)
+        Dim description As New Label With {.Text = "P" & id & " · " & generic & " " & Convert.ToString(product("Dosage")), .AutoSize = False, .AutoEllipsis = True, .Font = New Font("Segoe UI", 8.5F), .ForeColor = Color.FromArgb(95, 108, 121)}
+        description.SetBounds(12, 29, Math.Max(120, card.ClientSize.Width - 152), 17)
+        Dim priceArea As New TableLayoutPanel With {.Location = New Point(10, 52), .Size = New Size(card.Width - 20, 42), .Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right, .ColumnCount = 2, .RowCount = 1, .BackColor = Color.White, .Margin = Padding.Empty}
         priceArea.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 50))
         priceArea.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 50))
         Dim retail = CreatePriceValuePanel("Retail Price", product("Retail Price"), "Per " & unit)
@@ -2543,24 +2789,34 @@ Public Class Admin
         card.Controls.Add(description)
         card.Controls.Add(title)
         card.Controls.Add(edit)
-        AddHandler card.Resize, Sub(sender, e) ApplyRoundedRegion(card, 10)
-        ApplyRoundedRegion(card, 10)
-        AddHandler edit.Click, Sub(sender, e) EditProductPrices(product)
         AddHandler card.Resize,
             Sub(sender, e)
-                priceArea.Width = Math.Max(200, card.ClientSize.Width - 24)
+                ApplyRoundedRegion(card, 10)
+                title.SetBounds(12, 8, Math.Max(120, card.ClientSize.Width - 152), 20)
+                description.SetBounds(12, 29, Math.Max(120, card.ClientSize.Width - 152), 17)
+                priceArea.Width = Math.Max(200, card.ClientSize.Width - 20)
             End Sub
+        ApplyRoundedRegion(card, 10)
+        AddHandler edit.Click, Sub(sender, e) EditProductPrices(product)
         Return card
     End Function
 
     Private Function CreatePriceValuePanel(caption As String, amount As Object, unitText As String) As Panel
-        Dim panel As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.FromArgb(245, 248, 246), .Margin = New Padding(0, 0, 8, 0)}
+        Dim panel As New Panel With {.Dock = DockStyle.Fill, .BackColor = Color.FromArgb(244, 247, 245), .Margin = New Padding(0, 0, 8, 0)}
         AddHandler panel.Resize, Sub(sender, e) ApplyRoundedRegion(panel, 6)
         ApplyRoundedRegion(panel, 6)
         Dim price As Decimal = If(amount Is Nothing OrElse Convert.IsDBNull(amount), 0D, Convert.ToDecimal(amount))
-        panel.Controls.Add(New Label With {.Text = unitText, .AutoSize = True, .ForeColor = Color.Gray, .Font = New Font("Segoe UI", 8.5F), .Location = New Point(8, 40)})
-        panel.Controls.Add(New Label With {.Text = "₱" & price.ToString("N2", CultureInfo.CurrentCulture), .AutoSize = True, .ForeColor = Color.FromArgb(30, 55, 43), .Font = New Font("Segoe UI", 11.0F, FontStyle.Bold), .Location = New Point(8, 20)})
-        panel.Controls.Add(New Label With {.Text = caption, .AutoSize = True, .ForeColor = Color.Gray, .Font = New Font("Segoe UI", 8.5F), .Location = New Point(8, 3)})
+        Dim unitLabel As New Label With {.Text = unitText, .AutoSize = False, .ForeColor = Color.FromArgb(95, 108, 121), .Font = New Font("Segoe UI", 8.0F), .TextAlign = ContentAlignment.MiddleRight}
+        Dim positionUnit As Action =
+            Sub()
+                Dim width = Math.Min(195, Math.Max(1, panel.ClientSize.Width - 108))
+                unitLabel.SetBounds(Math.Max(100, panel.ClientSize.Width - width - 8), 11, width, 18)
+            End Sub
+        AddHandler panel.Resize, Sub(sender, e) positionUnit()
+        panel.Controls.Add(unitLabel)
+        panel.Controls.Add(New Label With {.Text = "₱" & price.ToString("N2", CultureInfo.CurrentCulture), .AutoSize = True, .ForeColor = Color.FromArgb(30, 55, 43), .Font = New Font("Segoe UI", 10.0F, FontStyle.Bold), .Location = New Point(8, 16)})
+        panel.Controls.Add(New Label With {.Text = caption, .AutoSize = True, .ForeColor = Color.FromArgb(95, 108, 121), .Font = New Font("Segoe UI", 8.0F), .Location = New Point(8, 2)})
+        positionUnit()
         Return panel
     End Function
 
@@ -2861,9 +3117,10 @@ Public Class Admin
     Private Sub UpdateEmpSalesReportButtonStyles()
         For Each pair In empSalesReportPeriodButtons
             Dim isSelected = String.Equals(pair.Key, empSalesReportPeriod, StringComparison.OrdinalIgnoreCase)
-            pair.Value.BackColor = If(isSelected, darkGreen, Color.White)
+            pair.Value.BackColor = If(isSelected, darkGreen, Color.FromArgb(235, 246, 240))
             pair.Value.ForeColor = If(isSelected, Color.White, darkGreen)
-            pair.Value.FlatAppearance.BorderColor = If(isSelected, darkGreen, Color.FromArgb(210, 220, 230))
+            pair.Value.FlatAppearance.BorderSize = 0
+            pair.Value.FlatAppearance.MouseOverBackColor = If(isSelected, Color.FromArgb(24, 132, 82), Color.FromArgb(222, 240, 230))
         Next
     End Sub
 
@@ -3142,9 +3399,10 @@ Public Class Admin
     Private Sub UpdateExpReportButtonStyles()
         For Each pair In expReportPeriodButtons
             Dim isSelected = String.Equals(pair.Key, expReportPeriod, StringComparison.OrdinalIgnoreCase)
-            pair.Value.BackColor = If(isSelected, darkGreen, Color.White)
+            pair.Value.BackColor = If(isSelected, darkGreen, Color.FromArgb(235, 246, 240))
             pair.Value.ForeColor = If(isSelected, Color.White, darkGreen)
-            pair.Value.FlatAppearance.BorderColor = If(isSelected, darkGreen, Color.FromArgb(210, 220, 230))
+            pair.Value.FlatAppearance.BorderSize = 0
+            pair.Value.FlatAppearance.MouseOverBackColor = If(isSelected, Color.FromArgb(24, 132, 82), Color.FromArgb(222, 240, 230))
         Next
     End Sub
 
@@ -3527,9 +3785,10 @@ Public Class Admin
     Private Sub UpdateFinReportButtonStyles()
         For Each pair In finReportPeriodButtons
             Dim isSelected = String.Equals(pair.Key, finReportPeriod, StringComparison.OrdinalIgnoreCase)
-            pair.Value.BackColor = If(isSelected, darkGreen, Color.White)
+            pair.Value.BackColor = If(isSelected, darkGreen, Color.FromArgb(235, 246, 240))
             pair.Value.ForeColor = If(isSelected, Color.White, darkGreen)
-            pair.Value.FlatAppearance.BorderColor = If(isSelected, darkGreen, Color.FromArgb(210, 220, 230))
+            pair.Value.FlatAppearance.BorderSize = 0
+            pair.Value.FlatAppearance.MouseOverBackColor = If(isSelected, Color.FromArgb(24, 132, 82), Color.FromArgb(222, 240, 230))
         Next
     End Sub
 

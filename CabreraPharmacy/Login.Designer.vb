@@ -161,7 +161,7 @@ Partial Class Login
         ' LoginBtn
         ' 
         LoginBtn.Anchor = AnchorStyles.None
-        LoginBtn.BackColor = Color.FromArgb(245, 126, 0)
+        LoginBtn.BackColor = Color.FromArgb(20, 100, 60)
         LoginBtn.FlatAppearance.BorderSize = 0
         LoginBtn.FlatStyle = FlatStyle.Flat
         LoginBtn.Font = New Font("Segoe UI", 11.0F, FontStyle.Bold, GraphicsUnit.Point, CByte(0))
@@ -174,7 +174,7 @@ Partial Class Login
         LoginBtn.Text = "LOGIN"
         LoginBtn.UseVisualStyleBackColor = False
         LoginBtn.Cursor = Cursors.Hand
-        LoginBtn.FlatAppearance.MouseOverBackColor = Color.FromArgb(226, 112, 0)
+        LoginBtn.FlatAppearance.MouseOverBackColor = Color.FromArgb(16, 82, 50)
         Dim buttonPath As New Drawing2D.GraphicsPath()
         buttonPath.AddArc(0, 0, 16, 16, 180, 90)
         buttonPath.AddArc(LoginBtn.Width - 16, 0, 16, 16, 270, 90)
@@ -251,7 +251,7 @@ Partial Class Login
         ' 
         ' imageLogin
         ' 
-        imageLogin.BackColor = Color.FromArgb(246, 157, 65)
+        imageLogin.BackColor = Color.FromArgb(20, 100, 60)
         imageLogin.Image = Nothing
         imageLogin.Location = New Point(0, 0)
         imageLogin.Margin = New Padding(3, 2, 3, 2)

@@ -122,7 +122,7 @@
     <value>..\Resources\Untitled design (2).png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="ed8bb44f-0265-4bb2-a677-771c15e67760" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\ed8bb44f-0265-4bb2-a677-771c15e67760.jpg;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+    <value>..\Resources\login_logo_green.jpg;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="769082459_1379172074148575_7892593615181140804_n" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\769082459_1379172074148575_7892593615181140804_n.jpg;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>

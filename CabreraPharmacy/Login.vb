@@ -60,8 +60,8 @@ Public Class Login
 
     Private Sub LayoutPasswordVisibilityIcons()
         If PasswordField Is Nothing OrElse hidepass Is Nothing OrElse passvisible Is Nothing Then Return
-        Dim iconLeft = Math.Min(hidepass.Left, passvisible.Left)
-        PasswordField.Width = Math.Max(1, iconLeft - PasswordField.Left)
+        ' Keep the password field at its full width and overlay the eye icons inside its right edge.
+        Dim iconLeft = PasswordField.Right - hidepass.Width - 6
         Dim iconTop = PasswordField.Top + (PasswordField.Height - hidepass.Height) \ 2
         hidepass.SetBounds(iconLeft, iconTop, hidepass.Width, hidepass.Height)
         passvisible.SetBounds(iconLeft, iconTop, passvisible.Width, passvisible.Height)
@@ -102,7 +102,7 @@ Public Class Login
         Dim bounds = imageLogin.ClientRectangle
         e.Graphics.SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
         Using gradient As New Drawing2D.LinearGradientBrush(bounds,
-                Color.FromArgb(255, 192, 88), Color.FromArgb(239, 126, 66),
+                Color.FromArgb(53, 158, 108), Color.FromArgb(20, 100, 60),
                 Drawing2D.LinearGradientMode.ForwardDiagonal)
             e.Graphics.FillRectangle(gradient, bounds)
         End Using
@@ -111,7 +111,7 @@ Public Class Login
                 New Point(0, 0), New Point(bounds.Width, 0),
                 New Point(bounds.Width \ 2, bounds.Height \ 3), New Point(0, bounds.Height \ 4)})
         End Using
-        Using warmShape As New SolidBrush(Color.FromArgb(35, 192, 82, 43))
+        Using warmShape As New SolidBrush(Color.FromArgb(35, 8, 68, 42))
             e.Graphics.FillPolygon(warmShape, {
                 New Point(0, CInt(bounds.Height * 0.65)),
                 New Point(CInt(bounds.Width * 0.64), CInt(bounds.Height * 0.42)),
