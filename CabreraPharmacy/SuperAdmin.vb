@@ -13,61 +13,196 @@ Imports System.Windows.Forms
 Public Class SuperAdmin
 
     'FOR ROUNDED BUTTONS SA SIDE NAV INI HEHE
+    ' FOR ROUNDED BUTTONS SA SIDE NAV INI HEHE
     Private Sub Form_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         MakeButtonRounded(btnDashboard, 15)
         MakeButtonRounded(btnAccounts, 15)
         MakeButtonRounded(btnReports, 15)
         MakeButtonRounded(btnAddAccount, 15)
-        MakeButtonRounded(btnReports, 15)
+        MakeButtonRounded(btnLogin, 15)
+
     End Sub
 
-    Private Sub MakeButtonRounded(btn As Button, radius As Integer, Optional borderColor As Color = Nothing, Optional borderThickness As Integer = 0)
-        ' Disable default rectangular border so it doesn't clash with rounded corners
+    Private Sub MakeButtonRounded(btn As Button,
+                              radius As Integer,
+                              Optional borderColor As Color = Nothing,
+                              Optional borderThickness As Integer = 0,
+                              Optional hoverTintColor As Color = Nothing)
+        If btn Is Nothing Then Return
+
+        btn.FlatStyle = FlatStyle.Flat
         btn.FlatAppearance.BorderSize = 0
+        btn.FlatAppearance.MouseOverBackColor = Color.Transparent
+        btn.FlatAppearance.MouseDownBackColor = Color.Transparent
+        btn.UseVisualStyleBackColor = False
 
-        AddHandler btn.Paint, Sub(sender As Object, e As PaintEventArgs)
-                                  Dim g As Graphics = e.Graphics
-                                  g.SmoothingMode = SmoothingMode.AntiAlias
-                                  g.PixelOffsetMode = PixelOffsetMode.HighQuality
+        ' Reduce flicker during Paint and resize updates via reflection on protected DoubleBuffered
+        Try
+            Dim prop = GetType(Control).GetProperty("DoubleBuffered", Reflection.BindingFlags.Instance Or Reflection.BindingFlags.NonPublic)
+            If prop IsNot Nothing Then prop.SetValue(btn, True, Nothing)
+        Catch
+        End Try
 
-                                  Dim rect As New Rectangle(0, 0, btn.Width, btn.Height)
-                                  Using path As GraphicsPath = GetRoundPath(rect, radius)
-                                      Dim previousRegion = btn.Region
-                                      btn.Region = New Region(path)
-                                      If previousRegion IsNot Nothing Then previousRegion.Dispose()
+        Dim isHovered As Boolean = False
+        Dim isPressed As Boolean = False
 
-                                      ' Draw optional smooth rounded border
-                                      If borderThickness > 0 AndAlso borderColor <> Color.Empty Then
-                                          Dim rectBorder As Rectangle = Rectangle.Inflate(rect, -borderThickness, -borderThickness)
-                                          Using pathBorder As GraphicsPath = GetRoundPath(rectBorder, radius - borderThickness),
-                                            penBorder As New Pen(borderColor, borderThickness)
-                                              g.DrawPath(penBorder, pathBorder)
-                                          End Using
-                                      End If
-                                  End Using
-                              End Sub
+        Dim applyClip As Action =
+        Sub()
+            If btn.Width <= 1 OrElse btn.Height <= 1 Then Return
+            Dim clipRect As New RectangleF(0.5F, 0.5F, btn.Width - 1.0F, btn.Height - 1.0F)
+            Using path As GraphicsPath = GetRoundPath(clipRect, radius)
+                Dim previousRegion = btn.Region
+                btn.Region = New Region(path)
+                If previousRegion IsNot Nothing Then previousRegion.Dispose()
+            End Using
+        End Sub
 
-        ' Redraw properly if the form resizes (important for anchored buttons)
-        AddHandler btn.Resize, Sub(sender As Object, e As EventArgs)
-                                   btn.Invalidate()
-                               End Sub
+        applyClip()
+
+        AddHandler btn.HandleCreated,
+        Sub(sender As Object, e As EventArgs)
+            applyClip()
+            btn.Invalidate()
+        End Sub
+
+        AddHandler btn.Resize,
+        Sub(sender As Object, e As EventArgs)
+            applyClip()
+            btn.Invalidate()
+        End Sub
+
+        AddHandler btn.MouseEnter,
+        Sub(sender As Object, e As EventArgs)
+            isHovered = True
+            btn.Invalidate()
+        End Sub
+
+        AddHandler btn.MouseLeave,
+        Sub(sender As Object, e As EventArgs)
+            isHovered = False
+            isPressed = False
+            btn.Invalidate()
+        End Sub
+
+        AddHandler btn.MouseDown,
+        Sub(sender As Object, e As MouseEventArgs)
+            If e.Button = MouseButtons.Left Then
+                isPressed = True
+                btn.Invalidate()
+            End If
+        End Sub
+
+        AddHandler btn.MouseUp,
+        Sub(sender As Object, e As MouseEventArgs)
+            isPressed = False
+            btn.Invalidate()
+        End Sub
+
+        AddHandler btn.Paint,
+        Sub(sender As Object, e As PaintEventArgs)
+            Dim target = TryCast(sender, Button)
+            If target Is Nothing OrElse target.ClientSize.Width <= 1 OrElse target.ClientSize.Height <= 1 Then Return
+
+            Dim g As Graphics = e.Graphics
+            g.SmoothingMode = SmoothingMode.AntiAlias
+            g.PixelOffsetMode = PixelOffsetMode.HighQuality
+            g.CompositingQuality = CompositingQuality.HighQuality
+            g.InterpolationMode = InterpolationMode.HighQualityBicubic
+
+            Dim parentBg As Color = If(target.Parent IsNot Nothing AndAlso target.Parent.BackColor <> Color.Transparent,
+                                       target.Parent.BackColor,
+                                       Me.BackColor)
+
+            g.Clear(parentBg)
+
+            Dim drawRect As New RectangleF(1.0F, 1.0F, target.ClientSize.Width - 2.0F, target.ClientSize.Height - 2.0F)
+            Dim effectiveRadius As Single = Math.Min(CSng(radius), Math.Min(drawRect.Width, drawRect.Height) / 2.0F)
+
+            ' Compute fill color with subtle hover/press feedback without harsh borders
+            Dim fillColor As Color = target.BackColor
+            If isPressed Then
+                fillColor = ControlPaint.Dark(fillColor, 0.06F)
+            ElseIf isHovered Then
+                If hoverTintColor <> Color.Empty Then
+                    fillColor = hoverTintColor
+                Else
+                    ' If button is bright white (active pill), keep it crisp; if dark green, subtly lighten
+                    If fillColor.GetBrightness() > 0.85F Then
+                        fillColor = ControlPaint.Dark(fillColor, 0.03F)
+                    Else
+                        fillColor = ControlPaint.Light(fillColor, 0.08F)
+                    End If
+                End If
+            End If
+
+            Using fillPath As GraphicsPath = GetRoundPath(drawRect, effectiveRadius)
+                Using bgBrush As New SolidBrush(fillColor)
+                    g.FillPath(bgBrush, fillPath)
+                End Using
+
+                ' Subtle inner highlight/border only when explicitly requested
+                If borderThickness > 0 AndAlso borderColor <> Color.Empty Then
+                    Dim inset As Single = borderThickness
+                    Dim borderRect As New RectangleF(
+                        drawRect.X + inset * 0.5F,
+                        drawRect.Y + inset * 0.5F,
+                        Math.Max(1.0F, drawRect.Width - inset),
+                        Math.Max(1.0F, drawRect.Height - inset)
+                    )
+                    Using pathBorder As GraphicsPath = GetRoundPath(borderRect, Math.Max(1.0F, effectiveRadius - inset * 0.5F)),
+                          penBorder As New Pen(borderColor, borderThickness)
+                        penBorder.Alignment = PenAlignment.Center
+                        g.DrawPath(penBorder, pathBorder)
+                    End Using
+                End If
+            End Using
+
+            Dim leftPad As Integer = Math.Max(18, target.Padding.Left)
+            Dim rightPad As Integer = Math.Max(10, target.Padding.Right)
+            Dim textRect As New Rectangle(
+                leftPad,
+                target.Padding.Top,
+                Math.Max(10, target.ClientSize.Width - leftPad - rightPad),
+                Math.Max(10, target.ClientSize.Height - target.Padding.Top - target.Padding.Bottom)
+            )
+
+            TextRenderer.DrawText(
+                g,
+                target.Text,
+                target.Font,
+                textRect,
+                target.ForeColor,
+                TextFormatFlags.VerticalCenter Or TextFormatFlags.Left Or TextFormatFlags.EndEllipsis
+            )
+        End Sub
     End Sub
 
-    Private Function GetRoundPath(rect As Rectangle, radius As Integer) As GraphicsPath
+    Private Function GetRoundPath(rect As RectangleF, radius As Single) As GraphicsPath
         Dim path As New GraphicsPath()
-        Dim curveSize As Single = radius * 2.0F
+        If rect.Width <= 0 OrElse rect.Height <= 0 Then
+            path.AddRectangle(rect)
+            Return path
+        End If
 
+        Dim r As Single = Math.Min(radius, Math.Min(rect.Width, rect.Height) / 2.0F)
+        If r <= 0 Then
+            path.AddRectangle(rect)
+            Return path
+        End If
+
+        Dim d As Single = r * 2.0F
         path.StartFigure()
-        path.AddArc(rect.X, rect.Y, curveSize, curveSize, 180, 90)
-        path.AddArc(rect.Right - curveSize, rect.Y, curveSize, curveSize, 270, 90)
-        path.AddArc(rect.Right - curveSize, rect.Bottom - curveSize, curveSize, curveSize, 0, 90)
-        path.AddArc(rect.X, rect.Bottom - curveSize, curveSize, curveSize, 90, 90)
+        path.AddArc(rect.X, rect.Y, d, d, 180, 90)
+        path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90)
+        path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90)
+        path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90)
         path.CloseFigure()
-
         Return path
     End Function
 
-    'HANGGANG DITO
+    'HANGGANG D2
+
+
 
     'SMOOTH BACKBUTTON LINE 1638
     Private Sub DrawSmoothEdgeBlend(g As Graphics, size As Size, radius As Integer, blendColor As Color)
@@ -3943,6 +4078,141 @@ Public Class SuperAdmin
         Return True
     End Function
 
+    'SMOOTH BUTTON HELPER
+    Private Sub ApplySmoothPhotoButtonStyle(btn As Button,
+                                        radius As Single,
+                                        normalColor As Color,
+                                        hoverColor As Color,
+                                        downColor As Color,
+                                        Optional disabledColor As Color = Nothing)
+        If btn Is Nothing Then Return
+
+        btn.FlatStyle = FlatStyle.Flat
+        btn.FlatAppearance.BorderSize = 0
+        btn.FlatAppearance.MouseOverBackColor = Color.Transparent
+        btn.FlatAppearance.MouseDownBackColor = Color.Transparent
+        btn.UseVisualStyleBackColor = False
+
+        Try
+            Dim prop = GetType(Control).GetProperty("DoubleBuffered", Reflection.BindingFlags.Instance Or Reflection.BindingFlags.NonPublic)
+            If prop IsNot Nothing Then prop.SetValue(btn, True, Nothing)
+        Catch
+        End Try
+
+        Dim isHovered As Boolean = False
+        Dim isPressed As Boolean = False
+
+        Dim updateRegion As Action =
+        Sub()
+            If btn.Width <= 1 OrElse btn.Height <= 1 Then Return
+            Dim clipRect As New RectangleF(0.5F, 0.5F, btn.Width - 1.0F, btn.Height - 1.0F)
+            Using path As GraphicsPath = GetRoundPath(clipRect, radius)
+                Dim oldRegion = btn.Region
+                btn.Region = New Region(path)
+                oldRegion?.Dispose()
+            End Using
+        End Sub
+
+        updateRegion()
+
+        AddHandler btn.HandleCreated,
+        Sub()
+            updateRegion()
+            btn.Invalidate()
+        End Sub
+
+        AddHandler btn.Resize,
+        Sub()
+            updateRegion()
+            btn.Invalidate()
+        End Sub
+
+        AddHandler btn.EnabledChanged,
+        Sub()
+            If Not btn.Enabled Then
+                isHovered = False
+                isPressed = False
+            End If
+            btn.Invalidate()
+        End Sub
+
+        AddHandler btn.MouseEnter,
+        Sub()
+            If btn.Enabled Then
+                isHovered = True
+                btn.Invalidate()
+            End If
+        End Sub
+
+        AddHandler btn.MouseLeave,
+        Sub()
+            isHovered = False
+            isPressed = False
+            btn.Invalidate()
+        End Sub
+
+        AddHandler btn.MouseDown,
+        Sub(sender, e)
+            If btn.Enabled AndAlso e.Button = MouseButtons.Left Then
+                isPressed = True
+                btn.Invalidate()
+            End If
+        End Sub
+
+        AddHandler btn.MouseUp,
+        Sub()
+            isPressed = False
+            btn.Invalidate()
+        End Sub
+
+        AddHandler btn.Paint,
+        Sub(sender, e)
+            Dim target = TryCast(sender, Button)
+            If target Is Nothing OrElse target.ClientSize.Width <= 1 OrElse target.ClientSize.Height <= 1 Then Return
+
+            Dim g As Graphics = e.Graphics
+            g.SmoothingMode = SmoothingMode.AntiAlias
+            g.PixelOffsetMode = PixelOffsetMode.HighQuality
+            g.CompositingQuality = CompositingQuality.HighQuality
+            g.InterpolationMode = InterpolationMode.HighQualityBicubic
+
+            Dim surfaceBg As Color = If(target.Parent IsNot Nothing AndAlso target.Parent.BackColor <> Color.Transparent,
+                                        target.Parent.BackColor,
+                                        Color.White)
+            g.Clear(surfaceBg)
+
+            Dim currentFill As Color
+            If Not target.Enabled Then
+                currentFill = If(disabledColor <> Color.Empty, disabledColor, Color.FromArgb(180, 185, 182))
+            ElseIf isPressed Then
+                currentFill = downColor
+            ElseIf isHovered Then
+                currentFill = hoverColor
+            Else
+                currentFill = normalColor
+            End If
+
+            Dim drawRect As New RectangleF(1.0F, 1.0F, target.ClientSize.Width - 2.0F, target.ClientSize.Height - 2.0F)
+            Dim safeRadius As Single = Math.Min(radius, Math.Min(drawRect.Width, drawRect.Height) / 2.0F)
+
+            Using fillPath As GraphicsPath = GetRoundPath(drawRect, safeRadius)
+                Using brush As New SolidBrush(currentFill)
+                    g.FillPath(brush, fillPath)
+                End Using
+            End Using
+
+            Dim textColor As Color = If(target.Enabled, target.ForeColor, Color.FromArgb(245, 245, 245))
+            TextRenderer.DrawText(
+                g,
+                target.Text,
+                target.Font,
+                target.ClientRectangle,
+                textColor,
+                TextFormatFlags.HorizontalCenter Or TextFormatFlags.VerticalCenter Or TextFormatFlags.SingleLine Or TextFormatFlags.EndEllipsis
+            )
+        End Sub
+    End Sub
+
     Private Sub ShowAccountDialog(account As AccountDetails)
         Dim isNew = account Is Nothing
         If isNew Then account = New AccountDetails With {.Role = "Staff", .IsActive = True}
@@ -4000,36 +4270,38 @@ Public Class SuperAdmin
         Dim showPasswordsBox As New CheckBox With {.Text = "Show passwords", .AutoSize = True}
 
         Dim photoPreview As New PictureBox With {.Size = New Size(88, 88), .SizeMode = PictureBoxSizeMode.Normal, .BackColor = Color.White, .BorderStyle = BorderStyle.None, .Margin = New Padding(0, 0, 14, 0)}
+
         Dim uploadPhotoButton As New Button With {
-            .Text = If(currentPhotoBytes IsNot Nothing AndAlso currentPhotoBytes.Length > 0, "Change Photo...", "Upload Photo..."),
-            .Size = New Size(124, 30),
-            .BackColor = Color.FromArgb(20, 100, 60),
-            .ForeColor = Color.White,
-            .FlatStyle = FlatStyle.Flat,
-            .Font = New Font("Segoe UI", 8.5F, FontStyle.Bold),
-            .Cursor = Cursors.Hand
-        }
-        uploadPhotoButton.FlatAppearance.BorderSize = 0
-        uploadPhotoButton.UseVisualStyleBackColor = False
-        uploadPhotoButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(28, 124, 78)
-        uploadPhotoButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(16, 88, 54)
-        ApplySmoothRegion(uploadPhotoButton, 8)
+    .Text = If(currentPhotoBytes IsNot Nothing AndAlso currentPhotoBytes.Length > 0, "Change Photo...", "Upload Photo..."),
+    .Size = New Size(124, 30),
+    .ForeColor = Color.White,
+    .Font = New Font("Segoe UI", 8.5F, FontStyle.Bold),
+    .Cursor = Cursors.Hand
+}
+        ApplySmoothPhotoButtonStyle(
+    uploadPhotoButton,
+    radius:=8.0F,
+    normalColor:=Color.FromArgb(20, 100, 60),
+    hoverColor:=Color.FromArgb(28, 124, 78),
+    downColor:=Color.FromArgb(16, 88, 54)
+)
 
         Dim removePhotoButton As New Button With {
-            .Text = "Remove",
-            .Size = New Size(84, 30),
-            .BackColor = Color.FromArgb(202, 58, 58),
-            .ForeColor = Color.White,
-            .FlatStyle = FlatStyle.Flat,
-            .Font = New Font("Segoe UI", 8.5F),
-            .Cursor = Cursors.Hand,
-            .Enabled = (currentPhotoBytes IsNot Nothing AndAlso currentPhotoBytes.Length > 0)
-        }
-        removePhotoButton.FlatAppearance.BorderSize = 0
-        removePhotoButton.UseVisualStyleBackColor = False
-        removePhotoButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(181, 45, 45)
-        removePhotoButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(155, 36, 36)
-        ApplySmoothRegion(removePhotoButton, 8)
+    .Text = "Remove",
+    .Size = New Size(84, 30),
+    .ForeColor = Color.White,
+    .Font = New Font("Segoe UI", 8.5F),
+    .Cursor = Cursors.Hand,
+    .Enabled = (currentPhotoBytes IsNot Nothing AndAlso currentPhotoBytes.Length > 0)
+}
+        ApplySmoothPhotoButtonStyle(
+    removePhotoButton,
+    radius:=8.0F,
+    normalColor:=Color.FromArgb(202, 58, 58),
+    hoverColor:=Color.FromArgb(181, 45, 45),
+    downColor:=Color.FromArgb(155, 36, 36),
+    disabledColor:=Color.FromArgb(215, 145, 145)
+)
 
         Dim photoStatusLabel As New Label With {
             .Text = If(currentPhotoBytes IsNot Nothing AndAlso currentPhotoBytes.Length > 0, "Circular profile photo active", "JPG, PNG, or BMP (max 5 MB)"),
@@ -4142,19 +4414,41 @@ Public Class SuperAdmin
         End If
 
         Dim buttons As New FlowLayoutPanel With {.Dock = DockStyle.Bottom, .Height = 62, .FlowDirection = FlowDirection.RightToLeft, .Padding = New Padding(16, 12, 18, 10), .BackColor = Color.White, .WrapContents = False}
-        Dim cancelButton As New Button With {.Text = "Cancel", .DialogResult = DialogResult.Cancel, .Width = 90, .Height = 34, .BackColor = Color.FromArgb(238, 241, 244), .ForeColor = Color.FromArgb(65, 75, 85), .FlatStyle = FlatStyle.Flat, .UseVisualStyleBackColor = False, .Cursor = Cursors.Hand}
-        cancelButton.FlatAppearance.BorderSize = 0
-        cancelButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(226, 231, 235)
-        cancelButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(215, 221, 226)
-        Dim saveButton As New Button With {.Text = If(isNew, "Save Employee", "Save Changes"), .Width = 128, .Height = 34, .BackColor = Color.FromArgb(19, 111, 69), .ForeColor = Color.White, .FlatStyle = FlatStyle.Flat, .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold), .Cursor = Cursors.Hand}
-        saveButton.FlatAppearance.BorderSize = 0
-        saveButton.UseVisualStyleBackColor = False
-        saveButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(28, 124, 78)
-        saveButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(16, 88, 54)
-        ApplySmoothRegion(cancelButton, 8)
-        ApplySmoothRegion(saveButton, 8)
 
-            AddHandler saveButton.Click,
+        Dim cancelButton As New Button With {
+    .Text = "Cancel",
+    .DialogResult = DialogResult.Cancel,
+    .Width = 90,
+    .Height = 34,
+    .ForeColor = Color.FromArgb(65, 75, 85),
+    .Font = New Font("Segoe UI", 9.0F),
+    .Cursor = Cursors.Hand
+}
+        ApplySmoothPhotoButtonStyle(
+    cancelButton,
+    radius:=8.0F,
+    normalColor:=Color.FromArgb(238, 241, 244),
+    hoverColor:=Color.FromArgb(226, 231, 235),
+    downColor:=Color.FromArgb(215, 221, 226)
+)
+
+        Dim saveButton As New Button With {
+    .Text = If(isNew, "Save Employee", "Save Changes"),
+    .Width = 128,
+    .Height = 34,
+    .ForeColor = Color.White,
+    .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
+    .Cursor = Cursors.Hand
+}
+        ApplySmoothPhotoButtonStyle(
+    saveButton,
+    radius:=8.0F,
+    normalColor:=Color.FromArgb(19, 111, 69),
+    hoverColor:=Color.FromArgb(28, 124, 78),
+    downColor:=Color.FromArgb(16, 88, 54)
+)
+
+        AddHandler saveButton.Click,
                 Sub()
                     Dim newFirst = firstNameBox.Text.Trim()
                     Dim newLast = lastNameBox.Text.Trim()
